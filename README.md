@@ -77,7 +77,7 @@ Connect the GitHub repo in Cloudflare Pages with these settings:
 
 `public/_headers` sets:
 
-- A strict CSP: `script-src 'self' 'wasm-unsafe-eval'`, no inline scripts, and `connect-src` limited to `'self'` and `api.chess.com`.
+- A strict CSP: no inline scripts. Scripts come only from `'self'` (plus `'wasm-unsafe-eval'` for Stockfish) and Cloudflare Web Analytics' `static.cloudflareinsights.com`. `connect-src` is limited to `'self'`, `api.chess.com` and `cloudflareinsights.com`. The analytics beacon sends `Cross-Origin-Resource-Policy: cross-origin`, so it works under COEP.
 - COOP/COEP for cross-origin isolation, which multi-threaded Stockfish needs.
 - HSTS, `nosniff`, `no-referrer`, and a locked-down Permissions-Policy.
 
