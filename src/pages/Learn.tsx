@@ -84,6 +84,12 @@ export function Learn() {
                 {!inQueue && (
                   <button className="btn ghost" onClick={() => addLine(line)}>{copy.learn.addToDrill}</button>
                 )}
+                <Link
+                  className="btn ghost"
+                  to={`/play?fen=${encodeURIComponent(line.plies[line.plies.length - 1].fenAfter)}&color=${rep.side}`}
+                >
+                  {copy.learn.playOut}
+                </Link>
                 {next && (
                   <Link className="btn ghost" to={`/learn/${rep.id}/${Number(index) + 1}`}>Next line →</Link>
                 )}

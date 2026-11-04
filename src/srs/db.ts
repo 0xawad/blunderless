@@ -1,6 +1,9 @@
 import Dexie, { type EntityTable } from 'dexie';
-import { createEmptyCard, fsrs, generatorParameters, State, type Card, type Grade } from 'ts-fsrs';
+import { createEmptyCard, fsrs, generatorParameters, Rating, State, type Card, type Grade } from 'ts-fsrs';
 import { getLine, type Line } from '../repertoire';
+import type { GameRow, PuzzleRow, AttemptRow } from './types';
+
+export type { GameRow, PuzzleRow, AttemptRow } from './types';
 
 export interface CardRow {
   lineId: string;
@@ -26,6 +29,9 @@ class BlunderlessDB extends Dexie {
   cards!: EntityTable<CardRow, 'lineId'>;
   reviews!: EntityTable<ReviewRow, 'id'>;
   settings!: EntityTable<SettingRow, 'key'>;
+  games!: EntityTable<GameRow, 'id'>;
+  puzzles!: EntityTable<PuzzleRow, 'id'>;
+  attempts!: EntityTable<AttemptRow, 'id'>;
 
   constructor() {
     super('blunderless');
@@ -33,6 +39,11 @@ class BlunderlessDB extends Dexie {
       cards: 'lineId, repertoireId, card.due',
       reviews: '++id, lineId, at',
       settings: 'key',
+    });
+    this.version(2).stores({
+      games: 'id, endTime',
+      puzzles: 'id, source, card.due',
+      attempts: '++id, at, source',
     });
   }
 }
@@ -74,6 +85,36 @@ export async function recordReview(lineId: string, rating: Grade, mistakes: numb
 export async function dueLines(now = new Date()): Promise<Line[]> {
   const rows = await db.cards.where('card.due').belowOrEqual(now).sortBy('card.due');
   return rows.map((r) => getLine(r.lineId)).filter((l): l is Line => !!l);
+}
+
+/** Puts a line back in front of you now (used when a real game shows you forgot it). */
+export async function makeLineDue(line: Line): Promise<void> {
+  const row = await db.cards.get(line.id);
+  if (!row) return addLine(line);
+  await db.cards.put({ ...row, card: { ...row.card, due: new Date() } });
+}
+
+export async function savePuzzle(p: Omit<PuzzleRow, 'card' | 'addedAt'>): Promise<void> {
+  if (await db.puzzles.get(p.id)) return;
+  await db.puzzles.add({ ...p, card: createEmptyCard(new Date()), addedAt: new Date() });
+}
+
+export async function recordPuzzle(
+  p: Pick<PuzzleRow, 'id' | 'source' | 'theme'>,
+  solved: boolean,
+  schedule: boolean,
+): Promise<void> {
+  await db.transaction('rw', db.puzzles, db.attempts, async () => {
+    const now = new Date();
+    if (schedule) {
+      const row = await db.puzzles.get(p.id);
+      if (row) {
+        const { card } = scheduler.next(row.card, now, solved ? Rating.Good : Rating.Again);
+        await db.puzzles.put({ ...row, card });
+      }
+    }
+    await db.attempts.add({ puzzleId: p.id, source: p.source, theme: p.theme, solved, at: now });
+  });
 }
 
 export async function getSetting<T>(key: string): Promise<T | undefined> {

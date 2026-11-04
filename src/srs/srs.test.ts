@@ -91,3 +91,30 @@ describe('scheduling and backup', () => {
     expect(await db.cards.count()).toBe(1);
   });
 });
+
+describe('backup v2', () => {
+  beforeEach(async () => {
+    await Promise.all([db.cards.clear(), db.puzzles.clear(), db.attempts.clear()]);
+  });
+
+  it('round-trips puzzles and rejects a malformed move list', async () => {
+    const { savePuzzle, recordPuzzle } = await import('./db');
+    await savePuzzle({
+      id: 'mine:g:3',
+      source: 'mine',
+      fen: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2',
+      moves: ['g1f3'],
+      theme: 'hung-piece',
+    });
+    await recordPuzzle({ id: 'mine:g:3', source: 'mine', theme: 'hung-piece' }, true, true);
+    const text = await (await exportBackup()).text();
+    await db.puzzles.clear();
+    await importBackup(text);
+    expect((await db.puzzles.get('mine:g:3'))?.card.reps).toBe(1);
+    expect(await db.attempts.count()).toBe(1);
+
+    const bad = JSON.parse(text);
+    bad.puzzles[0].moves = ['<script>'];
+    await expect(importBackup(JSON.stringify(bad))).rejects.toThrow();
+  });
+});
