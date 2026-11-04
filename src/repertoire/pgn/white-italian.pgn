@@ -1,0 +1,54 @@
+[Repertoire "white-italian"]
+[Side "white"]
+[Title "The Italian"]
+[Tagline "Slow, sneaky, and very hard to blunder in. Perfect for you."]
+[Chapter "Giuoco Pianissimo"]
+
+{The "very quiet game". You build a fortress with c3 and d3, castle, and only then think about attacking. No gambits, no 12-move theory, no excuses.}
+1. e4 {Center pawn, opens the bishop and queen. You know this one.} e5 2. Nf3 {Attack e5 and develop. Two birds, one knight.} Nc6 3. Bc4 {The Italian bishop. It stares at f7, the weakest square in Black's camp.} Bc5 {Black copies you. Rude, but common.}
+4. c3 {Prepares d4 one day, and gives the bishop a retreat square on c2 later.} Nf6
+( 4... d6 5. d3 Nf6 6. O-O {Same setup. Every road leads to c3, d3, castle.} )
+( 4... Qe7 5. d3 Nf6 6. O-O d6 7. h3 {Same plan. The queen on e7 changes nothing for you.} )
+5. d3 {Solid as a rock. e4 is protected forever, and you can stop worrying about it.} d6
+( 5... O-O 6. O-O d6 7. h3 {h3 stops ...Bg4 pinning your knight. Remember this move, it's in every line.} )
+( 5... a6 6. O-O d6 7. h3 O-O 8. a4 Ba7 9. Re1 {Back in the main line.} )
+6. O-O {King safety first. Always. Yes, even when you're bored.} O-O
+( 6... a6 7. h3 O-O 8. a4 Ba7 9. Re1 )
+( 6... h6 7. h3 O-O 8. Re1 {Black wasted a move. You didn't. Smile.} )
+( 6... Bg4 7. h3 Bh5 8. Re1 {Ask the bishop a question. Don't rush g4, your king lives there.} )
+7. h3 {No ...Bg4 for Black, ever. Luft for your king too, so no back-rank mate surprises.} a6 8. a4 {Stops ...b5 from kicking your bishop.} Ba7 9. Re1 {Rook behind e4. Plan from here: Nbd2-f1-g3, then maybe d4. Patience wins this one.}
+
+[Chapter "Two Knights (3...Nf6)"]
+
+{Black attacks e4 straight away. The famous reply is 4.Ng5, the Fried Liver, but it leads to chaos you don't want yet. We play 4.d3: calm, solid, same plans as the Pianissimo.}
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Nf6 4. d3 {e4 is defended and the Fried Liver books can stay closed.} Bc5
+( 4... Be7 5. O-O O-O 6. Re1 d6 7. c3 {Same structure: c3, d3, Re1. Your hands should know it by now.} )
+( 4... h6 5. O-O d6 6. c3 {...h6 is slow. Castle and keep building.} )
+( 4... d6 5. c3 Be7 6. O-O O-O 7. Re1 )
+( 4... d5 5. exd5 Nxd5 6. O-O Be7 7. Re1 {Black opened the center while their king is still in it. Re1 hits e5 straight away.} )
+5. c3 {Transposes to the Pianissimo. Same position, different route. Chess is weird like that.} d6 6. O-O O-O 7. h3 a6 8. a4 Ba7 9. Re1
+
+[Chapter "Black's sneaky 3rd moves"]
+
+{Not everyone plays 3...Bc5 or 3...Nf6. Here's how to handle the rest without falling for anything.}
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Nd4 {The Blackburne Shilling trap. Black hopes you grab e5.}
+( 3... Be7 4. d3 Nf6 5. O-O O-O 6. Re1 d6 7. c3 {The Hungarian. Passive. Build your setup and they'll suffocate themselves.} )
+( 3... d6 4. c3 Nf6 5. d3 Be7 6. O-O O-O 7. Re1 )
+( 3... g6 4. c3 Bg7 5. d4 exd4 6. cxd4 {Black gave you the center for free. Say thank you.} )
+4. Nxd4 {Trade it off. If you play 4.Nxe5?? then 4...Qg5! and things go very badly very fast.} exd4 5. O-O {Black's pawn on d4 is overextended and you're castled. Free advantage.}
+
+[Chapter "When Black skips 2...Nc6"]
+
+{Philidor, Petroff, and the cursed 2...f6. Each one has a simple answer.}
+1. e4 e5 2. Nf3 d6 {The Philidor: solid, passive, a bit sad.}
+( 2... Nf6 {The Petroff. Black copies you again.} 3. Nxe5 {Take the pawn.} d6 {The correct move. Black kicks the knight first.}
+  ( 3... Nxe4 {A classic blunder at your level. Copying moves fails here.} 4. Qe2 {If now 4...Nf6?? 5.Nc6+ is a discovered check that wins the queen. Look it up and enjoy it.} Qe7 5. Qxe4 d6 6. d4 {You're a pawn up. Keep the pin in mind and don't rush.} )
+  4. Nf3 {Retreat. Don't get greedy.} Nxe4 5. d4 d5 6. Bd3 Be7 7. O-O Nc6 8. Re1 {The e4 knight feels the heat. Equal, but you have the easier plans.} )
+( 2... f6 {The Damiano. Please punish this.} 3. Nxe5 fxe5
+  ( 3... Qe7 {Black's best try. You still get a great position.} 4. Nf3 Qxe4+ 5. Be2 {Block, castle soon, enjoy a lead in development.} )
+  4. Qh5+ g6
+  ( 4... Ke7 5. Qxe5+ Kf7 6. Bc4+ {The king is out for a walk. Bring everything and go mate it.} )
+  5. Qxe5+ Qe7 6. Qxh8 {A whole rook up. Look how open Black's king got.} )
+3. d4 {Hit the center while Black is being shy.} exd4
+( 3... Nf6 4. Nc3 Nbd7 5. Bc4 Be7 6. O-O O-O 7. Re1 {Classic Philidor setup. Keep the pressure on e5 and f7.} )
+4. Nxd4 Nf6 5. Nc3 Be7 6. Be2 O-O 7. O-O {More space and easy development. Your job is to not lose it.}

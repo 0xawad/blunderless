@@ -1,0 +1,82 @@
+[Repertoire "white-anti"]
+[Side "white"]
+[Title "1.e4: everything else"]
+[Tagline "Black didn't play 1...e5. Rude. Here's what you do."]
+[Chapter "Sicilian: Alapin (2.c3)"]
+
+{The Sicilian's main lines are a library of theory. 2.c3 skips all of it: you prepare d4 and grab the center with pawns.}
+1. e4 c5 2. c3 {Prepares d4. Black can't stop it.} d5 {The most popular reply. Black hits the center first.}
+( 2... Nf6 3. e5 {Kick the knight.} Nd5 4. d4 cxd4 5. Nf3 Nc6 6. cxd4 d6 7. Bc4 Nb6 8. Bb5 {Space, development, and Black's knights on awkward squares.} )
+( 2... e6 3. d4 d5 4. exd5 exd5 5. Nf3 Nc6 6. Bb5 Bd6 7. dxc5 Bxc5 8. O-O {Black has an isolated pawn on d5. Blockade it, attack it, win it.} )
+( 2... d6 3. d4 cxd4 4. cxd4 Nf6 5. Nc3 g6 6. Nf3 Bg7 7. Be2 O-O 8. O-O {Big center. Develop, castle, don't do anything silly.} )
+( 2... g6 3. d4 cxd4 4. cxd4 Bg7 5. Nc3 d6 6. Nf3 Nf6 7. Be2 O-O 8. O-O )
+( 2... Nc6 3. d4 cxd4 4. cxd4 d5 5. exd5 Qxd5 6. Nf3 Bg4 7. Be2 e6 8. Nc3 {Tempo on the queen. Every free move counts.} )
+( 2... e5 3. Nf3 Nc6 4. Bc4 {Feels Italian-ish. Bc4, d3, castle. You know this.} )
+3. exd5 Qxd5 4. d4 {You'll hit the queen with Nc3 later, and every tempo matters.} Nf6
+( 4... Nc6 5. Nf3 Bg4 6. Be2 cxd4 7. cxd4 e6 8. Nc3 {Develop with tempo on the queen.} )
+5. Nf3 e6 6. Be2 Nc6 7. O-O cxd4 8. cxd4 Be7 9. Nc3 {An isolated d-pawn, but your pieces are active. Aim for d5 or a kingside attack.}
+
+[Chapter "French: Advance (3.e5)"]
+
+{The French is solid and annoying. 3.e5 grabs space and locks the center. Black's light-squared bishop is stuck behind its own pawns. Enjoy that.}
+1. e4 e6 2. d4 d5 3. e5 {Space! Black's pieces get squeezed.} c5 {Black always attacks the chain from the front. Always.} 4. c3 {Support d4 with a pawn.} Nc6
+( 4... Qb6 5. Nf3 Nc6 6. a3 {Transposes to the main line.} )
+5. Nf3 Qb6 {Black is ganging up on d4: queen, knight, pawn.}
+( 5... Bd7 6. Be2 Nge7 7. Na3 {The knight goes Na3-c2 to defend d4. Cute and solid.} cxd4 8. cxd4 Nf5 9. Nc2 )
+6. a3 {Threatens b4, grabbing queenside space too.} c4
+( 6... Bd7 7. b4 cxd4 8. cxd4 Rc8 9. Bb2 {Everything's defended. Your space advantage is real.} )
+7. Nbd2 Na5 8. Be2 Bd7 9. O-O {The center is locked, so the kingside is your playground. Plan Re1, Nf1, maybe h4.}
+
+[Chapter "Caro-Kann: Advance (3.e5)"]
+
+{You'll play the Caro as Black. Facing it as White teaches you what Black wants. Same structure as the Advance French, but Black's bishop gets out first.}
+1. e4 c6 2. d4 d5 3. e5 Bf5
+( 3... c5 4. dxc5 {Grab it.} Nc6 5. Bb5 e6 6. Be3 {Hold the extra pawn. Black's play is slower than it looks.} )
+4. Nf3 {The Short system: quiet development, no drama.} e6 5. Be2 c5
+( 5... Nd7 6. O-O h6 7. Nbd2 Ne7 8. Nb3 {Restrain ...c5 and enjoy your space.} )
+6. Be3 {Defends d4 and eyes c5.} cxd4
+( 6... Nd7 7. O-O Ne7 8. c4 {Break open the queenside while Black is still unpacking.} )
+7. Nxd4 Ne7 8. c4 {Hit d5 and play in the center.}
+
+[Chapter "Scandinavian (1...d5)"]
+
+{Black attacks e4 on move one. Take the pawn, then chase the queen around with your pieces.}
+1. e4 d5 2. exd5 Qxd5
+( 2... Nf6 3. d4 Nxd5 4. Nf3 g6 5. Be2 Bg7 6. O-O O-O 7. c4 Nb6 8. Nc3 {Big center, easy life.} )
+3. Nc3 {Tempo on the queen. Free development!} Qa5
+( 3... Qd6 4. d4 Nf6 5. Nf3 a6 6. Be2 {Calm. Castle and push the queen around with Nb5 or Ne4 when it helps.} )
+( 3... Qd8 4. d4 Nf6 5. Nf3 Bg4 6. h3 Bxf3 7. Qxf3 {You get the bishop pair. Very nice.} )
+4. d4 Nf6 5. Nf3 c6 6. Bc4 Bf5 7. Bd2 {Unpins the knight so Nd5 tricks become real.} e6 8. O-O {Lead in development. Aim for Nd5 or d5 breaks.}
+
+[Chapter "Pirc and Modern"]
+
+{Black lets you have the center and plans to attack it later. Take it, develop sensibly, and don't overextend.}
+1. e4 d6
+( 1... g6 2. d4 Bg7 3. Nc3 d6
+  ( 3... c6 4. Nf3 d5 5. h3 {Stops ...Bg4, then e5 or exd5 next.} )
+  4. Nf3 Nf6 5. Be2 O-O 6. O-O {Same Classical setup.} )
+2. d4 Nf6
+( 2... e5 3. Nf3 exd4 4. Nxd4 Nf6 5. Nc3 Be7 6. Be2 O-O 7. O-O )
+3. Nc3 {Defends e4.} g6
+( 3... e5 4. Nf3 Nbd7 5. Bc4 Be7 6. O-O O-O 7. Re1 {Philidor by another name.} )
+4. Nf3 Bg7 5. Be2 O-O 6. O-O {The Classical system. No theory needed, just good moves.} c6
+( 6... Bg4 7. Be3 Nc6 8. Qd2 {Solid. Plan d5 to kick the knight.} )
+7. a4 {Stops ...b5 expansion.}
+
+[Chapter "Alekhine (1...Nf6)"]
+
+{Black's knight attacks e4 and dares you to chase it. Chase it, but not too far.}
+1. e4 Nf6 2. e5 Nd5
+( 2... Ng8 {It went home. Respect.} 3. d4 d6 4. Nf3 )
+3. d4 d6 4. Nf3 {The Modern variation. Sensible and strong.} Bg4
+( 4... dxe5 5. Nxe5 g6 6. Bc4 c6 7. O-O Bg7 8. Re1 {Your pieces are alive. Black's are thinking about it.} )
+( 4... g6 5. Bc4 Nb6 6. Bb3 Bg7 7. Qe2 Nc6 8. O-O {Defend e5 and develop.} )
+5. Be2 e6 6. O-O Be7 7. c4 Nb6 8. Nc3 O-O 9. Be3 {More space than you know what to do with.}
+
+[Chapter "Weird first moves"]
+
+{1...Nc6, 1...b6, 1...a6. Build the center, develop, castle. No panicking.}
+1. e4 Nc6
+( 1... b6 2. d4 Bb7 3. Bd3 e6 4. Nf3 {e4 is protected. Develop and enjoy the center.} )
+( 1... a6 2. d4 b5 3. Nf3 Bb7 4. Bd3 )
+2. Nf3 d6 3. d4 Nf6 4. Nc3 Bg4 5. Be2 e6 6. O-O {Normal development beats weird every time.}
