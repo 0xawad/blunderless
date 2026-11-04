@@ -209,6 +209,9 @@ function DrillRun({
             </button>
           )}
         </div>
+        <div className="progress" aria-hidden>
+          <span style={{ width: `${(Math.min(drill.index, line.plies.length) / line.plies.length) * 100}%` }} />
+        </div>
         <p className="hint">
           Move {Math.min(drill.index + 1, line.plies.length)} of {line.plies.length} · mistakes: {drill.mistakes}
         </p>

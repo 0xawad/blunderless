@@ -1,7 +1,7 @@
 // Offline support. Pages: network first, cached shell as fallback.
-// Hashed assets, the engine and puzzle packs: cache first (their URLs or
-// contents only change on deploy, and the cache name bumps with the build).
-const CACHE = 'blunderless-v2';
+// Hashed assets, the engine and puzzle packs: cache first. The build stamps
+// a build id into CACHE so every deploy gets a fresh cache and the old one is dropped.
+const CACHE = 'blunderless-__BUILD__';
 const SHELL = ['/', '/favicon.svg', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
@@ -25,8 +25,10 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
       fetch(req)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put('/', copy));
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put('/', copy));
+          }
           return res;
         })
         .catch(() => caches.match('/')),

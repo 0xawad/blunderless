@@ -86,3 +86,19 @@ describe('blunder classification', () => {
     expect(blunderKind({ cp: 0 }, { mate: 1 }, new Chess().fen(), 'e2e4', 0)).toBe('allowed-mate');
   });
 });
+
+describe('review-agent regressions', () => {
+  it('a bare check is not a fork', () => {
+    // 1.e4 e5 2.Nf3 d6 3.Bb5+: the bishop gives check and attacks nothing else of value
+    // After 1.e4 d5 2.exd5 Nf6 the engine's reply Bb5+ is a check that attacks nothing else.
+    const c = new Chess();
+    for (const m of ['e4', 'd5', 'exd5', 'Nf6']) c.move(m);
+    expect(blunderKind({ cp: 0 }, { cp: 300 }, c.fen(), 'f1b5', 20)).not.toBe('fork');
+  });
+
+  it('a short transposing line does not end the book early', () => {
+    // 1.c4 c6 2.d4 d5 is a 4-ply line in black-slav that lands inside the main Slav.
+    const r = bookReport(plies('1. c4 c6 2. d4 d5 3. Nf3 Nf6 4. Nc3 a6'), 'black');
+    expect(r).toMatchObject({ status: 'you-deviated', played: 'a6', expected: 'dxc4' });
+  });
+});

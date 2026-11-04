@@ -10,27 +10,36 @@ import { START_FEN, formatPly, getLine, getRepertoire } from '../repertoire';
 import { db } from '../srs/db';
 import { analyzeStoredGame } from '../games/store';
 import { BookChip } from './Games';
+import { useToast } from '../components/Toast';
 
 const MARK: Record<string, string> = { blunder: '??', mistake: '?', inaccuracy: '?!' };
 
 export function GameReview() {
   const { id = '' } = useParams();
   const game = useLiveQuery(() => db.games.get(id), [id]);
-  const plies = useMemo(() => (game ? parseGamePgn(game.pgn) : []), [game?.pgn]);
+  const toast = useToast();
+  const plies = useMemo(() => {
+    try {
+      return game ? parseGamePgn(game.pgn) : [];
+    } catch {
+      return null; // chess.js rejected the PGN; show the game header, not a white screen
+    }
+  }, [game?.pgn]);
   const [ply, setPly] = useState(0);
   const [progress, setProgress] = useState<number | null>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight') setPly((p) => Math.min(plies.length, p + 1));
+      if (e.key === 'ArrowRight') setPly((p) => Math.min(plies?.length ?? 0, p + 1));
       if (e.key === 'ArrowLeft') setPly((p) => Math.max(0, p - 1));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [plies.length]);
+  }, [plies?.length]);
 
   if (game === undefined) return null;
   if (!game) return <p className="empty">{copy.notFound}</p>;
+  if (!plies) return <p className="empty">{copy.games.badPgn}</p>;
 
   const a = game.analysis;
   const mine = game.userColor === 'white' ? 'w' : 'b';
@@ -53,22 +62,31 @@ export function GameReview() {
 
   const run = async () => {
     setProgress(0);
-    await analyzeStoredGame(game.id, setProgress);
-    setProgress(null);
+    try {
+      const made = await analyzeStoredGame(game.id, setProgress);
+      toast(copy.games.madePuzzles(made), made ? 'neutral' : 'good');
+    } catch {
+      toast(copy.engine.failed, 'bad');
+    } finally {
+      setProgress(null);
+    }
   };
+  const evalHeight = `${50 + Math.max(-48, Math.min(48, (evalCp ?? 0) / 20))}%`;
 
   return (
     <>
       <Link to="/games" className="back">← Games</Link>
       <div className="play">
-        <div>
-          <Board fen={fen} orientation={game.userColor} lastMove={last && [last.from, last.to]} shapes={shapes} />
+        <div className="board-col">
           {a && (
-            <div className="evalbar" aria-label={`Evaluation ${evalText}`}>
-              <span style={{ width: `${50 + Math.max(-50, Math.min(50, (evalCp ?? 0) / 20))}%` }} />
-              <b>{evalText}</b>
+            <div className="evalbar-v" aria-label={`Evaluation ${evalText}`} style={game.userColor === 'black' ? { transform: 'scaleY(-1)' } : undefined}>
+              <span style={{ height: evalHeight }} />
+              <b className={evalCp !== undefined && evalCp >= 0 ? 'bottom' : 'top'} style={game.userColor === 'black' ? { transform: 'scaleY(-1)' } : undefined}>
+                {evalText.replace('-', '')}
+              </b>
             </div>
           )}
+          <Board fen={fen} orientation={game.userColor} lastMove={last && [last.from, last.to]} shapes={shapes} />
         </div>
         <aside className="card side">
           <p className="eyebrow">

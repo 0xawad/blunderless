@@ -5,16 +5,20 @@ import { copy } from '../copy';
 import { Board } from '../chess/Board';
 import { formatPly, getRepertoire } from '../repertoire';
 import { addLine, db } from '../srs/db';
+import { useToast } from '../components/Toast';
 
 export function Learn() {
   const { repId = '', index = '' } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const rep = getRepertoire(repId);
   const line = rep?.lines[Number(index)];
   const [ply, setPly] = useState(0); // number of plies played
   const inQueue = useLiveQuery(async () => !!(line && (await db.cards.get(line.id))), [line?.id]);
 
-  useEffect(() => setPly(0), [line?.id]);
+  useEffect(() => {
+    setPly(0);
+  }, [line?.id]);
 
   useEffect(() => {
     const max = line?.plies.length ?? 0;
@@ -68,13 +72,16 @@ export function Learn() {
             ))}
           </ol>
 
+          <div className="progress" aria-hidden>
+            <span style={{ width: `${(ply / line.plies.length) * 100}%` }} />
+          </div>
           <div className="row stepper">
             <button className="btn ghost" onClick={() => setPly(0)} aria-label="Start">⏮</button>
             <button className="btn ghost" onClick={() => setPly((p) => Math.max(0, p - 1))} aria-label="Back">◀</button>
-            <button className="btn ghost" onClick={() => setPly((p) => Math.min(line.plies.length, p + 1))} aria-label="Forward">▶</button>
+            <button className="btn primary" onClick={() => setPly((p) => Math.min(line.plies.length, p + 1))} aria-label="Forward" disabled={atEnd}>▶</button>
             <button className="btn ghost" onClick={() => setPly(line.plies.length)} aria-label="End">⏭</button>
+            <span className="hint" style={{ margin: 0 }}>{copy.learn.keys}</span>
           </div>
-          <p className="hint">{copy.learn.keys}</p>
 
           {atEnd && (
             <div className="end-box">
@@ -82,7 +89,9 @@ export function Learn() {
               <div className="row">
                 <button className="btn primary" onClick={drillNow}>{copy.learn.drillNow}</button>
                 {!inQueue && (
-                  <button className="btn ghost" onClick={() => addLine(line)}>{copy.learn.addToDrill}</button>
+                  <button className="btn ghost" onClick={() => addLine(line).then(() => toast(copy.learn.added, 'good'))}>
+                    {copy.learn.addToDrill}
+                  </button>
                 )}
                 <Link
                   className="btn ghost"

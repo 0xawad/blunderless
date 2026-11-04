@@ -53,7 +53,7 @@ export function Welcome() {
         />
         <p className="hint">{note ?? copy.welcome.usernameHint}</p>
         <div className="row">
-          <button className="btn primary" disabled={busy}>{copy.welcome.cta}</button>
+          <button className="btn primary lg" disabled={busy}>{copy.welcome.cta}</button>
           <button type="button" className="btn ghost" onClick={() => finish()}>{copy.welcome.skip}</button>
         </div>
       </form>

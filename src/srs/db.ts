@@ -61,13 +61,20 @@ export function statusOf(row: CardRow | undefined, now = new Date()): LineStatus
 }
 
 export async function addLine(line: Line): Promise<void> {
-  if (await db.cards.get(line.id)) return;
-  await db.cards.add({
-    lineId: line.id,
-    repertoireId: line.repertoireId,
-    card: createEmptyCard(new Date()),
-    addedAt: new Date(),
+  await db.transaction('rw', db.cards, async () => {
+    if (await db.cards.get(line.id)) return;
+    await db.cards.add({
+      lineId: line.id,
+      repertoireId: line.repertoireId,
+      card: createEmptyCard(new Date()),
+      addedAt: new Date(),
+    });
   });
+}
+
+/** Cards whose line still exists; a PGN edit can orphan old ids. */
+export async function liveCards(): Promise<CardRow[]> {
+  return (await db.cards.toArray()).filter((c) => getLine(c.lineId));
 }
 
 export async function recordReview(lineId: string, rating: Grade, mistakes: number): Promise<void> {
@@ -95,8 +102,10 @@ export async function makeLineDue(line: Line): Promise<void> {
 }
 
 export async function savePuzzle(p: Omit<PuzzleRow, 'card' | 'addedAt'>): Promise<void> {
-  if (await db.puzzles.get(p.id)) return;
-  await db.puzzles.add({ ...p, card: createEmptyCard(new Date()), addedAt: new Date() });
+  await db.transaction('rw', db.puzzles, async () => {
+    if (await db.puzzles.get(p.id)) return;
+    await db.puzzles.add({ ...p, card: createEmptyCard(new Date()), addedAt: new Date() });
+  });
 }
 
 export async function recordPuzzle(
@@ -122,5 +131,6 @@ export async function getSetting<T>(key: string): Promise<T | undefined> {
 }
 
 export async function setSetting(key: string, value: unknown): Promise<void> {
-  await db.settings.put({ key, value });
+  if (value === undefined || value === '') await db.settings.delete(key);
+  else await db.settings.put({ key, value });
 }

@@ -21,7 +21,7 @@ A local-first chess trainer for improving club players. It runs entirely in the 
 
   Finished games go straight to review.
 - **Stats.** Lines known, drill streak, puzzle accuracy, blunders per game, average accuracy, and the mistake you keep making.
-- **Offline.** It's an installable PWA. The service worker caches the shell, assets, engine and puzzle packs.
+- **Offline.** It's an installable PWA. `src/sw.js` is emitted at build time with a per-build cache name, so each deploy drops the old cache. It caches the shell, assets, engine and puzzle packs.
 
 All jokes live in `src/copy.ts`.
 

@@ -4,7 +4,7 @@ import { db, statusOf } from '../srs/db';
 import { repertoires } from '../repertoire';
 import { RepertoireTile, useCards } from '../components/ui';
 
-const dayKey = (d: Date) => d.toISOString().slice(0, 10);
+const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; // local days
 
 /** Consecutive days (ending today or yesterday) with at least one review. */
 function streak(dates: Date[]): number {

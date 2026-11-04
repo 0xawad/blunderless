@@ -29,8 +29,15 @@ export const copy = {
     dueNone: "Nothing due. Learn a new line, or go play a game and come back with fresh trauma.",
     drillCta: 'Drill now',
     learnCta: 'Learn new lines',
+    drillSub: (n: number) => `${n} line${n === 1 ? '' : 's'} due`,
+    drillClear: 'All caught up. Suspicious.',
+    drillNone: 'Learn a line first, then drill it here.',
     puzzlesCta: 'Fix my blunders',
+    puzzlesSub: (n: number) => `${n} of your own to revisit`,
+    puzzlesNone: 'Themed tactics, or your own mistakes after a review.',
+    learnSub: (n: number) => (n ? `${n} lines started` : 'Four openings, plans included.'),
     playCta: 'Play Stockfish',
+    playSub: 'With guard rails, if you want them.',
     noGames: "No games imported yet. Let's find every blunder you've been hiding from yourself.",
     lastGame: (opp: string, result: string) =>
       result === 'win'
@@ -77,7 +84,7 @@ export const copy = {
     playOut: 'Play it out vs Stockfish',
     noComment: "No commentary on this one. Just vibes and good moves.",
     endOfLine: "End of the line. Literally. Now let's see if it stuck.",
-    keys: 'Tip: use ← and → to step through moves.',
+    keys: '← → to step',
   },
 
   status: {
@@ -98,6 +105,9 @@ export const copy = {
     resetConfirm: 'This deletes every card and review on this device. Type RESET to confirm.',
     resetDone: 'Fresh start. Like your first game, minus the scholar\'s mate.',
     storageNote: 'Everything lives in this browser only. No accounts, no servers. Export a backup now and then.',
+    themeHint: 'System follows your OS. The header button flips it too.',
+    about:
+      'blunderless is open source (GPL-3). Engine: Stockfish 19. Board: chessground. Puzzles: the Lichess puzzle database (CC0). Spaced repetition: FSRS.',
   },
 
   games: {
@@ -113,6 +123,9 @@ export const copy = {
     importFailed: "Chess.com didn't answer. Try again in a bit.",
     empty: 'No games yet. Import some, or play one in Play mode.',
     analyze: 'Analyze',
+    badPgn: "Chess.com sent a PGN we can't read. The game is here, but there's nothing to replay.",
+    filters: { all: 'All', win: 'Wins', loss: 'Losses', draw: 'Draws', pending: 'Not analyzed' } as Record<string, string>,
+    record: (w: number, l: number, d: number) => `${w}W · ${l}L · ${d}D`,
     analyzeAll: (n: number) => `Analyze ${n} game${n === 1 ? '' : 's'}`,
     analyzing: (pct: number) => `Stockfish is judging you... ${pct}%`,
     madePuzzles: (n: number) =>
@@ -218,6 +231,16 @@ export const copy = {
     mastery: 'Opening mastery',
     none: 'Not enough data yet. Analyze a few games and this page gets brutally honest.',
     verdict: (top: string) => `Your #1 problem: ${top}. Go do some puzzles about it.`,
+  },
+
+  crash: {
+    title: 'Well. That was a blunder.',
+    body: "Something in this page broke. Your data is fine; it's all still in this browser.",
+    retry: 'Try again',
+  },
+
+  engine: {
+    failed: "Stockfish didn't answer. Reload the page and try again.",
   },
 
   notFound: 'This square is empty. Like your opening prep used to be.',

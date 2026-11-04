@@ -99,7 +99,10 @@ export async function importBackup(text: string): Promise<number> {
     return { puzzleId: a.puzzleId, source: a.source, theme: a.theme, solved: a.solved, at: toDate(a.at) };
   });
   const settings: SettingRow[] = data.settings
-    .filter((s: unknown): s is Record<string, unknown> => isObj(s) && isStr(s.key, 64) && SETTING_KEYS.has(s.key))
+    .filter(
+      (s: unknown): s is Record<string, unknown> =>
+        isObj(s) && isStr(s.key, 64) && SETTING_KEYS.has(s.key) && s.value !== undefined,
+    )
     .map((s) => {
       if (s.key === 'username' && !isStr(s.value, 25)) throw new Error('bad username');
       if (s.key === 'onboarded' && typeof s.value !== 'boolean') throw new Error('bad onboarded');
@@ -107,12 +110,16 @@ export async function importBackup(text: string): Promise<number> {
       return { key: s.key as string, value: s.value };
     });
 
+  const hasPuzzles = data.version >= 2; // v1 backups never had puzzles; keep the current ones
   await db.transaction('rw', [db.cards, db.reviews, db.settings, db.puzzles, db.attempts], async () => {
-    await Promise.all([db.cards.clear(), db.reviews.clear(), db.puzzles.clear(), db.attempts.clear()]);
+    await Promise.all([db.cards.clear(), db.reviews.clear()]);
     await db.cards.bulkPut(cards);
     await db.reviews.bulkAdd(reviews);
-    await db.puzzles.bulkPut(puzzles);
-    await db.attempts.bulkAdd(attempts);
+    if (hasPuzzles) {
+      await Promise.all([db.puzzles.clear(), db.attempts.clear()]);
+      await db.puzzles.bulkPut(puzzles);
+      await db.attempts.bulkAdd(attempts);
+    }
     await db.settings.bulkPut(settings);
   });
   return cards.length;

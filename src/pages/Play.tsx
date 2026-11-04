@@ -10,6 +10,7 @@ import { guardCheck, type GuardWarning } from '../chess/guard';
 import { getEngine, type SearchOptions } from '../engine/engine';
 import { db } from '../srs/db';
 import { withBook } from '../games/store';
+import { useToast } from '../components/Toast';
 
 const LEVELS: SearchOptions[] = [
   { skill: 0, depth: 1 },
@@ -31,7 +32,7 @@ export function Play() {
   const startFen = params.get('fen') ?? undefined;
   const [setup, setSetup] = useState<Setup>({
     level: 1,
-    color: (params.get('color') as Setup['color']) ?? 'white',
+    color: params.get('color') === 'black' ? 'black' : 'white',
     guard: true,
     cct: false,
   });
@@ -126,7 +127,8 @@ function PlayGame({
   onNew: () => void;
 }) {
   const navigate = useNavigate();
-  const chess = useRef(new Chess(startFen)).current;
+  const toast = useToast();
+  const [chess] = useState(() => new Chess(startFen));
   const [fen, setFen] = useState(chess.fen());
   const [last, setLast] = useState<[string, string]>();
   const [pending, setPending] = useState<Pending | null>(null);
@@ -152,14 +154,19 @@ function PlayGame({
 
   const engineMove = useCallback(async () => {
     setThinking(true);
-    const r = await getEngine().search(chess.fen(), LEVELS[setup.level]);
-    if (!alive.current) return;
-    const m = r.bestmove ? playUci(chess, r.bestmove) : null;
-    if (m) setLast([m.from, m.to]);
-    setThinking(false);
-    sync();
-    checkOver();
-  }, [chess, setup.level, checkOver]);
+    try {
+      const r = await getEngine().search(chess.fen(), LEVELS[setup.level]);
+      if (!alive.current) return;
+      const m = r.bestmove ? playUci(chess, r.bestmove) : null;
+      if (m) setLast([m.from, m.to]);
+      sync();
+      checkOver();
+    } catch {
+      if (alive.current) toast(copy.engine.failed, 'bad');
+    } finally {
+      if (alive.current) setThinking(false);
+    }
+  }, [chess, setup.level, checkOver, toast]);
 
   // Engine opens when you're Black. The ref stops StrictMode's double mount
   // from asking it twice.

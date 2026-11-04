@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { copy } from '../copy';
-import { db, statusOf, type CardRow, type LineStatus } from '../srs/db';
+import { liveCards, statusOf, type CardRow, type LineStatus } from '../srs/db';
 import type { Repertoire } from '../repertoire';
 
 export function useCards(): Map<string, CardRow> | undefined {
-  return useLiveQuery(async () => new Map((await db.cards.toArray()).map((c) => [c.lineId, c])), []);
+  return useLiveQuery(async () => new Map((await liveCards()).map((c) => [c.lineId, c])), []);
 }
 
 export function StatusBadge({ status }: { status: LineStatus }) {

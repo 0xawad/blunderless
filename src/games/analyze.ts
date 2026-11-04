@@ -29,9 +29,9 @@ function isFork(chess: Chess, sq: string): boolean {
   }
   const targets = new Set<string>();
   for (const m of c.moves({ square: sq as Square, verbose: true })) {
-    if (m.captured && (PIECE_VALUE[m.captured] >= 3 || m.captured === 'k')) targets.add(m.to);
+    // With the side flipped, a check shows up as a king capture; count it once below.
+    if (m.captured && m.captured !== 'k' && PIECE_VALUE[m.captured] >= 3) targets.add(m.to);
   }
-  // Attacks on the king don't show up as captures; count check separately.
   if (chess.inCheck()) targets.add('king');
   return targets.size >= 2;
 }

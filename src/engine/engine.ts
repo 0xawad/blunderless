@@ -1,5 +1,7 @@
 // Thin UCI wrapper around the Stockfish 19 lite WASM build in a Web Worker.
-// Searches are serialised: one position at a time, in call order.
+// Searches are serialised: one position at a time, in call order. If the
+// worker dies or a search hangs, every pending search rejects and the next
+// getEngine() call starts a fresh worker.
 
 export type Score = { cp: number; mate?: undefined } | { mate: number; cp?: undefined };
 
@@ -20,6 +22,7 @@ export interface SearchOptions {
 const MULTI = '/engine/stockfish-19-lite.js';
 const SINGLE = '/engine/stockfish-19-lite-single.js';
 const BOOT_TIMEOUT = 10_000;
+const SEARCH_TIMEOUT = 60_000;
 
 function parseInfo(line: string): Omit<SearchResult, 'bestmove'> | null {
   const t = line.split(' ');
@@ -37,12 +40,15 @@ export class Engine {
   private worker!: Worker;
   private listener: ((line: string) => void) | null = null;
   private chain: Promise<unknown> = Promise.resolve();
+  private failPending: ((err: Error) => void) | null = null;
   private skill = 20;
   readonly ready: Promise<void>;
   threaded = false;
+  dead = false;
 
   constructor() {
     this.ready = this.boot();
+    this.ready.catch(() => this.kill(new Error('engine failed to boot')));
   }
 
   private spawn(url: string): Promise<void> {
@@ -80,6 +86,15 @@ export class Engine {
     }
     this.send('setoption name Hash value 32');
     await this.waitFor('isready', (l) => l === 'readyok');
+    // From here on a worker crash fails the running search instead of hanging it.
+    this.worker.onerror = () => this.kill(new Error('engine crashed'));
+  }
+
+  private kill(err: Error) {
+    this.dead = true;
+    this.worker?.terminate();
+    this.failPending?.(err);
+    this.failPending = null;
   }
 
   private send(cmd: string) {
@@ -98,17 +113,25 @@ export class Engine {
   search(fen: string, opts: SearchOptions = {}): Promise<SearchResult> {
     const run = async () => {
       await this.ready;
+      if (this.dead) throw new Error('engine is dead');
       const skill = opts.skill ?? 20;
       if (skill !== this.skill) {
         this.send(`setoption name Skill Level value ${skill}`);
         this.skill = skill;
       }
-      return new Promise<SearchResult>((resolve) => {
+      return new Promise<SearchResult>((resolve, reject) => {
         let last: Omit<SearchResult, 'bestmove'> = { score: { cp: 0 }, pv: [], depth: 0 };
+        const timer = setTimeout(() => this.kill(new Error('engine search timed out')), SEARCH_TIMEOUT);
+        this.failPending = (err) => {
+          clearTimeout(timer);
+          reject(err);
+        };
         this.listener = (line) => {
           const info = parseInfo(line);
           if (info) last = info;
           else if (line.startsWith('bestmove')) {
+            clearTimeout(timer);
+            this.failPending = null;
             const best = line.split(' ')[1];
             resolve({ ...last, bestmove: best === '(none)' ? '' : best });
           }
@@ -123,12 +146,15 @@ export class Engine {
   }
 
   terminate() {
-    this.worker?.terminate();
+    this.kill(new Error('engine terminated'));
   }
 }
 
 let shared: Engine | null = null;
-export const getEngine = () => (shared ??= new Engine());
+export function getEngine(): Engine {
+  if (!shared || shared.dead) shared = new Engine();
+  return shared;
+}
 
 /** Mate scores folded into centipawns so they compare and average sensibly. */
 export function scoreToCp(s: Score): number {
