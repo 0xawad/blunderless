@@ -51,6 +51,9 @@ class BlunderlessDB extends Dexie {
 
 export const db = new BlunderlessDB();
 
+// The legacy fsrs() scheduler runs FSRS-6. ts-fsrs 6 defaults new integrations
+// to FSRS-7, but moving stored cards there needs a full history replay
+// (see ts-fsrs's migration guide), so stay on FSRS-6 for now.
 const scheduler = fsrs(generatorParameters({ enable_fuzz: true }));
 
 export type LineStatus = 'new' | 'learning' | 'due' | 'known';

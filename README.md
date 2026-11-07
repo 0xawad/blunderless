@@ -80,7 +80,7 @@ Connect the GitHub repo in Cloudflare Pages with these settings:
 - Framework preset: none
 - Build command: `npm run build`
 - Build output: `dist`
-- Environment variable: `NODE_VERSION=22`
+- Environment variable: `NODE_VERSION=24`
 
 ### Security headers
 
