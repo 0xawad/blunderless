@@ -7,6 +7,8 @@ import { applyTheme, readTheme, type Theme } from '../theme';
 import { useToast } from '../components/Toast';
 import { BOARD_THEMES, PIECE_SETS, setPrefs, usePrefs } from '../prefs';
 import { play, unlockAudio } from '../sound';
+import { download, isPersisted, markBackedUp, protectStorage } from '../storage';
+import { useLiveQuery } from 'dexie-react-hooks';
 
 const THEMES: { value: Theme; label: string }[] = [
   { value: 'system', label: 'System' },
@@ -38,13 +40,15 @@ export function Settings() {
     applyTheme(t);
   };
 
+  const [persisted, setPersisted] = useState<boolean | undefined>();
+  useEffect(() => {
+    isPersisted().then(setPersisted);
+  }, []);
+  const lastBackup = useLiveQuery(() => getSetting<string>('lastBackup'), []);
+
   const doExport = async () => {
-    const url = URL.createObjectURL(await exportBackup());
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `blunderless-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    download(await exportBackup(), `blunderless-${new Date().toISOString().slice(0, 10)}.json`);
+    await markBackedUp();
   };
 
   const doImport = async (f: File | undefined) => {
@@ -167,6 +171,16 @@ export function Settings() {
       <section className="card">
         <h2>Your data</h2>
         <p className="muted">{copy.settings.storageNote}</p>
+        <p className={`small ${persisted ? 'good-text' : 'warn-text'}`}>
+          {persisted === undefined ? copy.settings.persistUnknown : persisted ? copy.settings.persistOn : copy.settings.persistOff}
+          {persisted === false && (
+            <>
+              {' '}
+              <button className="linklike" onClick={() => protectStorage().then(setPersisted)}>{copy.settings.persistAsk}</button>
+            </>
+          )}
+        </p>
+        <p className="muted small">{lastBackup ? copy.settings.lastBackup(new Date(lastBackup).toLocaleDateString()) : copy.settings.neverBackedUp}</p>
         <div className="row">
           <button className="btn ghost" onClick={doExport}>{copy.settings.export}</button>
           <button className="btn ghost" onClick={() => file.current?.click()}>{copy.settings.import}</button>

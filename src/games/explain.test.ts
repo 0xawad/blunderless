@@ -41,7 +41,15 @@ describe('describeConsequence', () => {
     const plies = parseGamePgn('1. e4 e5 2. Nf3 Nc6 3. Ng5');
     const text = explainMove(plies[4], { cls: 'blunder', drop: 40, best: 'f1c4', kind: 'hung-piece' }, ['d8g5'], 'Bc4');
     expect(text).toMatch(/lose the knight/);
-    expect(text).toMatch(/Better was Bc4: it/);
+    // A quiet developing move gets named, not dressed up with a made-up reason.
+    expect(text).toMatch(/Better was Bc4\.$/);
+  });
+
+  it('says what the better line wins when it wins material', () => {
+    // 1.e4 e5 2.Nf3 Nc6 3.Ng5 Qxg5: the better move was simply to take the knight.
+    const plies = parseGamePgn('1. e4 e5 2. Nf3 d6 3. Ng5 Nf6');
+    const text = explainMove(plies[5], { cls: 'blunder', drop: 40, best: 'd8g5', pv: ['d8g5', 'd2d4', 'g5g6'] }, [], 'Qxg5');
+    expect(text).toMatch(/Better was Qxg5: it wins a free knight/);
   });
 });
 

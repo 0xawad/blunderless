@@ -14,13 +14,24 @@ import { useToast } from '../components/Toast';
 import { setPrefs, usePrefs } from '../prefs';
 import { play as sfx } from '../sound';
 
+// The bottom three use Skill Level (Stockfish can't limit itself below 1320
+// Elo), so their ratings are rough. The rest use UCI_Elo, which is calibrated.
 const LEVELS: SearchOptions[] = [
   { skill: 0, depth: 1 },
   { skill: 3, depth: 3 },
   { skill: 6, depth: 5 },
-  { skill: 10, depth: 8 },
-  { skill: 15, movetime: 600 },
+  { elo: 1400, movetime: 500 },
+  { elo: 1700, movetime: 600 },
+  { elo: 2000, movetime: 700 },
 ];
+const SETUP_KEY = 'play-setup';
+const readSetup = (): Partial<Setup> => {
+  try {
+    return JSON.parse(localStorage.getItem(SETUP_KEY) ?? '{}');
+  } catch {
+    return {};
+  }
+};
 const COACH_DEPTH = 10;
 
 interface Setup {
@@ -36,12 +47,23 @@ const VERDICT_MARK: Record<Verdict, string> = { best: '!', good: '', inaccuracy:
 export function Play() {
   const [params] = useSearchParams();
   const startFen = params.get('fen') ?? undefined;
-  const [setup, setSetup] = useState<Setup>({
-    level: 1,
-    color: params.get('color') === 'black' ? 'black' : 'white',
-    guard: true,
-    cct: false,
+  const [setup, setSetupState] = useState<Setup>(() => {
+    const saved = readSetup();
+    return {
+      level: typeof saved.level === 'number' && saved.level >= 0 && saved.level < LEVELS.length ? saved.level : 1,
+      color: params.get('color') === 'black' ? 'black' : params.get('color') === 'white' ? 'white' : (saved.color ?? 'white'),
+      guard: saved.guard ?? true,
+      cct: saved.cct ?? false,
+    };
   });
+  const setSetup = (s: Setup) => {
+    setSetupState(s);
+    try {
+      localStorage.setItem(SETUP_KEY, JSON.stringify(s));
+    } catch {
+      /* private mode */
+    }
+  };
   const [game, setGame] = useState<{ color: 'white' | 'black'; n: number } | null>(null);
 
   if (game) {
@@ -64,10 +86,11 @@ export function Play() {
       <p className="lead">{startFen && valid ? copy.play.fromLine : copy.play.lead}</p>
       <section className="card setup">
         <label>{copy.play.level}</label>
-        <div className="segmented">
+        <div className="segmented level-grid">
           {copy.play.levels.map((name, i) => (
-            <button key={name} className={setup.level === i ? 'on' : ''} onClick={() => setSetup({ ...setup, level: i })}>
-              {name}
+            <button key={name} className={`level ${setup.level === i ? 'on' : ''}`} aria-pressed={setup.level === i} onClick={() => setSetup({ ...setup, level: i })}>
+              <span>{name}</span>
+              <small>{copy.play.levelElo[i]}</small>
             </button>
           ))}
         </div>

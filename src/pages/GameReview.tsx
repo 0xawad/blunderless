@@ -10,7 +10,8 @@ import { parseGamePgn, playUci, uciToSan, type GamePly } from '../chess/game';
 import { START_FEN, formatPly, getLine, getRepertoire } from '../repertoire';
 import { db } from '../srs/db';
 import type { GameAnalysis, MoveReview } from '../srs/types';
-import { analyzeStoredGame } from '../games/store';
+import { enqueue, useQueue } from '../games/queue';
+import { fmtClock } from '../games/clock';
 import { ANALYSIS_VERSION } from '../games/analyze';
 import { explainMove, playLine } from '../games/explain';
 import { getEngine, scoreToCp, winPct, type PvLine } from '../engine/engine';
@@ -42,11 +43,14 @@ export function GameReview() {
   const [tab, setTab] = useState<Tab>('summary');
   const [retry, setRetry] = useState<Retry>(null);
   const [lines, setLines] = useState<PvLine[]>([]);
-  const [progress, setProgress] = useState<number | null>(null);
+  const [showBest, setShowBest] = useState(false);
+  const q = useQueue();
+  const progress = q.current === id ? q.progress : q.pending.includes(id) ? 0 : null;
 
   const go = useCallback((p: number) => {
     setVariation([]);
     setRetry(null);
+    setShowBest(false);
     setPly(p);
   }, []);
 
@@ -96,7 +100,7 @@ export function GameReview() {
   const retryable = !exploring && !!nextReview?.kind && plies[ply]?.color === mine;
 
   const shapes: DrawShape[] = [];
-  if (!exploring && !retry && nextReview?.best && plies[ply]?.color === mine && nextReview.kind) {
+  if (!exploring && !retry && showBest && nextReview?.best && plies[ply]?.color === mine && nextReview.kind) {
     shapes.push({ orig: nextReview.best.slice(0, 2) as Key, dest: nextReview.best.slice(2, 4) as Key, brush: 'green' });
   }
   if (retry?.pv?.[0]) shapes.push({ orig: retry.pv[0].slice(0, 2) as Key, dest: retry.pv[0].slice(2, 4) as Key, brush: 'green' });
@@ -113,22 +117,17 @@ export function GameReview() {
   const evalHeight = `${50 + Math.max(-48, Math.min(48, (evalCp ?? 0) / 20))}%`;
   const lastMove: [string, string] | undefined = varLast ? [varLast.from, varLast.to] : last ? [last.from, last.to] : undefined;
 
-  const run = async () => {
-    setProgress(0);
-    try {
-      const made = await analyzeStoredGame(game.id, setProgress);
-      toast(copy.games.madePuzzles(made), made ? 'neutral' : 'good');
-    } catch {
-      toast(copy.engine.failed, 'bad');
-    } finally {
-      setProgress(null);
-    }
-  };
+  const run = () => enqueue([game.id]);
+
+  // Your mistakes, as the ply index of the position before each one (where Retry works).
+  const myMistakes = a ? a.moves.flatMap((m, i) => (m.kind && plies[i]?.color === mine ? [i] : [])) : [];
+  const nextMistake = myMistakes.find((i) => i > ply);
+  const prevMistake = [...myMistakes].reverse().find((i) => i < ply);
 
   /** Any move on the board: a retry attempt, or an exploration branch. */
-  const onMove = async (from: string, to: string) => {
+  const onMove = async (from: string, to: string, promotion?: string) => {
     const c = new Chess(fen);
-    const m = playUci(c, from + to);
+    const m = playUci(c, from + to + (promotion ?? ''));
     if (!m) return;
     const uci = from + to + (m.promotion ?? '');
     if (retry && !retry.result) {
@@ -247,6 +246,24 @@ export function GameReview() {
             </button>
           )}
 
+          {retryable && !retry && !showBest && <p className="muted small">{copy.review.retryFirst}</p>}
+          {retryable && !retry && !showBest && (
+            <button className="btn ghost small" style={{ marginBottom: '0.7rem' }} onClick={() => setShowBest(true)}>
+              {copy.review.showBest}
+            </button>
+          )}
+
+          {a && !retry && !exploring && myMistakes.length > 0 && (
+            <div className="row mistake-nav">
+              <button className="btn ghost small" disabled={prevMistake === undefined} onClick={() => prevMistake !== undefined && go(prevMistake)}>
+                ← {copy.review.prevMistake}
+              </button>
+              <button className="btn small" disabled={nextMistake === undefined} onClick={() => nextMistake !== undefined && go(nextMistake)}>
+                {copy.review.nextMistake} →
+              </button>
+            </div>
+          )}
+
           {a && !retry && !exploring && (
             <div className="tabs compact" role="tablist">
               {(['summary', 'moves', 'engine'] as Tab[]).map((t) => (
@@ -271,6 +288,14 @@ export function GameReview() {
                     : b.status === 'they-deviated'
                       ? copy.book['they-deviated'](moveNo(b.ply), b.played!)
                       : copy.book['end-of-prep'](moveNo(b.ply))}
+                  {b.status === 'they-deviated' && a?.moves[b.ply + 1]?.best && plies[b.ply + 1]?.color === mine && (
+                    <>
+                      {' '}
+                      <button className="linklike" onClick={() => go(b.ply + 1)}>
+                        {copy.review.theyLeftBest(uciToSan(plies[b.ply + 1].fenBefore, a.moves[b.ply + 1].best))}
+                      </button>
+                    </>
+                  )}
                   {bookLine && bookRep && (
                     <>
                       {' '}
@@ -286,6 +311,11 @@ export function GameReview() {
                     <strong>{formatPly(ply - 1, last.san)}{MARK[review.cls]} · {copy.review.classes[review.cls]}</strong>
                     {review.kind && <> · {copy.kinds[review.kind].roast}</>}
                     {explanation && <div style={{ marginTop: '0.3rem', fontWeight: 500 }}>{explanation}</div>}
+                    {review.spent !== undefined && (
+                      <div className="muted small" style={{ marginTop: '0.3rem' }}>
+                        {copy.review.spent(fmtClock(review.spent))} · {fmtClock(review.left ?? 0)} left
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -399,6 +429,19 @@ function Summary({
         <p className="muted small">{copy.review.noMoments}</p>
       )}
       {a.decidedAt !== undefined && <p className="muted small">{copy.review.decided(moveNo(a.decidedAt))}</p>}
+
+      {a.time && (
+        <>
+          <h3>{copy.review.time}</h3>
+          <ul className="lessons">
+            <li>{copy.review.timeLine(fmtClock(a.time.openingSecs), fmtClock(a.time.totalSecs))}</li>
+            {a.time.lowTimeErrors > 0 && <li>{copy.review.lowTimeErrors(a.time.lowTimeErrors)}</li>}
+            {a.time.hastyErrors > 0 && <li>{copy.review.hastyErrors(a.time.hastyErrors)}</li>}
+            {a.time.endedLow && <li>{copy.review.endedLow}</li>}
+            {!a.time.lowTimeErrors && !a.time.hastyErrors && !a.time.endedLow && <li>{copy.review.noTimeIssues}</li>}
+          </ul>
+        </>
+      )}
 
       <h3>{copy.review.lessons}</h3>
       {lessons.length ? (

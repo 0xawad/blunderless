@@ -76,8 +76,11 @@ export function toGameRow(raw: unknown, username: string): GameRow | null {
   };
 }
 
-/** The most recent `months` monthly archives, newest first, fetched one at a time. */
-export async function fetchRecentGames(username: string, months = 3): Promise<GameRow[]> {
+/**
+ * The most recent `months` monthly archives, newest first, fetched one at a time.
+ * With `since`, only archives from that month on are fetched (incremental import).
+ */
+export async function fetchRecentGames(username: string, months = 3, since?: Date): Promise<GameRow[]> {
   if (!USERNAME_RE.test(username)) throw new Error('bad username');
   const u = encodeURIComponent(username.toLowerCase());
   const data = (await getJson(`${API}/player/${u}/games/archives`)) as { archives?: unknown };
@@ -86,7 +89,12 @@ export async function fetchRecentGames(username: string, months = 3): Promise<Ga
     : [];
 
   const rows: GameRow[] = [];
-  for (const url of archives.slice(-months).reverse()) {
+  const sinceKey = since ? since.getUTCFullYear() * 100 + since.getUTCMonth() + 1 : 0;
+  const keyOf = (url: string) => {
+    const [y, m] = url.split('/').slice(-2).map(Number);
+    return y * 100 + m;
+  };
+  for (const url of archives.slice(-months).filter((a) => keyOf(a) >= sinceKey).reverse()) {
     const month = (await getJson(url)) as { games?: unknown };
     if (!Array.isArray(month.games)) continue;
     for (const g of month.games) {

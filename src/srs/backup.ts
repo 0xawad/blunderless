@@ -4,7 +4,7 @@ import { db, type AttemptRow, type CardRow, type PuzzleRow, type ReviewRow, type
 // v2 adds puzzles and attempts. Games aren't included: they re-import from
 // Chess.com and re-analyse.
 const VERSION = 2;
-const SETTING_KEYS = new Set(['username', 'onboarded', 'puzzleRating']);
+const SETTING_KEYS = new Set(['username', 'onboarded', 'puzzleRating', 'importMonths', 'focus', 'endgameWins']);
 const UCI_RE = /^[a-h][1-8][a-h][1-8][qrbn]?$/;
 const FEN_RE = /^[1-8pnbrqkPNBRQK/]{15,71} [wb] [KQkq-]{1,4} [a-h1-8-]{1,2} \d+ \d+$/;
 
@@ -68,7 +68,11 @@ export async function importBackup(text: string): Promise<number> {
     if (!isObj(r) || !isStr(r.lineId) || !isNum(r.rating) || r.rating < 1 || r.rating > 4 || !isNum(r.mistakes)) {
       throw new Error('bad review row');
     }
-    return { lineId: r.lineId, rating: r.rating as ReviewRow['rating'], mistakes: r.mistakes, at: toDate(r.at) };
+    // failedPlies feed the weak-spots lists; keep them across a restore.
+    const failedPlies = Array.isArray(r.failedPlies) && r.failedPlies.length <= 60 && r.failedPlies.every((n) => isNum(n) && n >= 0 && n < 200)
+      ? (r.failedPlies as number[])
+      : undefined;
+    return { lineId: r.lineId, rating: r.rating as ReviewRow['rating'], mistakes: r.mistakes, failedPlies, at: toDate(r.at) };
   });
   const puzzles: PuzzleRow[] = (Array.isArray(data.puzzles) ? data.puzzles : []).map((p: unknown) => {
     if (
@@ -107,6 +111,14 @@ export async function importBackup(text: string): Promise<number> {
       if (s.key === 'username' && !isStr(s.value, 25)) throw new Error('bad username');
       if (s.key === 'onboarded' && typeof s.value !== 'boolean') throw new Error('bad onboarded');
       if (s.key === 'puzzleRating' && !isNum(s.value)) throw new Error('bad puzzleRating');
+      if (s.key === 'importMonths' && !isNum(s.value)) throw new Error('bad importMonths');
+      if (s.key === 'endgameWins' && !(isObj(s.value) && Object.keys(s.value).length <= 100 &&
+        Object.entries(s.value).every(([k, v]) => isStr(k, 64) && isStr(v, 16)))) {
+        throw new Error('bad endgameWins');
+      }
+      if (s.key === 'focus' && !(Array.isArray(s.value) && s.value.length <= 8 && s.value.every((v) => isStr(v, 64)))) {
+        throw new Error('bad focus');
+      }
       return { key: s.key as string, value: s.value };
     });
 

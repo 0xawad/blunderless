@@ -17,6 +17,8 @@ export interface SearchOptions {
   movetime?: number;
   /** 0-20; omitted means full strength */
   skill?: number;
+  /** Calibrated strength via UCI_LimitStrength (Stockfish accepts 1320-3190). Overrides skill. */
+  elo?: number;
 }
 
 export interface PvLine {
@@ -63,6 +65,7 @@ export class Engine {
   private chain: Promise<unknown> = Promise.resolve();
   private failPending: ((err: Error) => void) | null = null;
   private skill = 20;
+  private elo = 0; // 0 = not limited
   readonly ready: Promise<void>;
   threaded = false;
   dead = false;
@@ -135,11 +138,7 @@ export class Engine {
     const run = async () => {
       await this.ready;
       if (this.dead) throw new Error('engine is dead');
-      const skill = opts.skill ?? 20;
-      if (skill !== this.skill) {
-        this.send(`setoption name Skill Level value ${skill}`);
-        this.skill = skill;
-      }
+      this.setStrength(opts.elo ? 20 : (opts.skill ?? 20), opts.elo ?? 0);
       return new Promise<SearchResult>((resolve, reject) => {
         let last: Omit<SearchResult, 'bestmove'> = { score: { cp: 0 }, pv: [], depth: 0 };
         const timer = setTimeout(() => this.kill(new Error('engine search timed out')), SEARCH_TIMEOUT);
@@ -178,10 +177,7 @@ export class Engine {
     const run = async () => {
       await this.ready;
       if (this.dead || stopRequested) return;
-      if (this.skill !== 20) {
-        this.send('setoption name Skill Level value 20');
-        this.skill = 20;
-      }
+      this.setStrength(20, 0);
       this.send(`setoption name MultiPV value ${multipv}`);
       await new Promise<void>((resolve, reject) => {
         const lines: PvLine[] = [];
@@ -217,6 +213,18 @@ export class Engine {
         return p.catch(() => undefined);
       },
     };
+  }
+
+  private setStrength(skill: number, elo: number) {
+    if (skill !== this.skill) {
+      this.send(`setoption name Skill Level value ${skill}`);
+      this.skill = skill;
+    }
+    if (elo !== this.elo) {
+      if (elo) this.send(`setoption name UCI_Elo value ${Math.max(1320, Math.min(3190, elo))}`);
+      this.send(`setoption name UCI_LimitStrength value ${elo ? 'true' : 'false'}`);
+      this.elo = elo;
+    }
   }
 
   terminate() {

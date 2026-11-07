@@ -16,6 +16,8 @@ export interface MoveReview {
   best: string; // engine's best move here, UCI
   pv?: string[]; // engine's main line from before the move (UCI), a few plies
   kind?: BlunderKind; // only for your mistakes and blunders
+  left?: number; // seconds on the mover's clock before the move
+  spent?: number; // seconds the mover spent on it
 }
 
 export interface KeyMoment {
@@ -42,6 +44,16 @@ export interface GameAnalysis {
   keyMoments?: KeyMoment[];
   decidedAt?: number; // ply after which the eval never came back
   opening?: { eco: string; name: string; ply: number };
+  /** v3: clock use, when the PGN has clocks. */
+  time?: {
+    base: number;
+    inc: number;
+    lowTimeErrors: number; // your mistakes made in time trouble
+    hastyErrors: number; // your mistakes played in under 3s with time on the clock
+    openingSecs: number; // time you spent on your first ~10 moves
+    totalSecs: number;
+    endedLow: boolean;
+  };
   analyzedAt: Date;
 }
 
@@ -69,6 +81,8 @@ export interface GameRow {
   timeClass: string;
   endTime: Date;
   book?: BookReport;
+  /** Deepest named opening (Lichess ECO table), filled at import. */
+  opening?: { eco: string; name: string };
   analysis?: GameAnalysis;
 }
 

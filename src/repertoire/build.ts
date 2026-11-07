@@ -10,6 +10,7 @@ export interface Ply {
   color: 'w' | 'b';
   fenBefore: string;
   fenAfter: string;
+  promotion?: string;
   comment?: string;
   /** Arrows and highlights from [%cal] / [%csl] in the move's comment. */
   shapes?: PgnShape[];
@@ -87,6 +88,7 @@ function flatten(root: PgnNode, where: string): Ply[][] {
           color: m.color,
           fenBefore: m.before,
           fenAfter: m.after,
+          promotion: m.promotion,
           comment: child.comment,
           shapes: child.shapes,
         },

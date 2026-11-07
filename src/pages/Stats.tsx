@@ -4,20 +4,7 @@ import { db, statusOf } from '../srs/db';
 import { repertoires } from '../repertoire';
 import { RepertoireTile, useCards } from '../components/ui';
 
-const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; // local days
-
-/** Consecutive days (ending today or yesterday) with at least one review. */
-function streak(dates: Date[]): number {
-  const days = new Set(dates.map(dayKey));
-  const d = new Date();
-  if (!days.has(dayKey(d))) d.setDate(d.getDate() - 1);
-  let n = 0;
-  while (days.has(dayKey(d))) {
-    n++;
-    d.setDate(d.getDate() - 1);
-  }
-  return n;
-}
+import { streakOf } from '../streak';
 
 export function Stats() {
   const cards = useCards();
@@ -48,6 +35,19 @@ export function Stats() {
   const maxKind = kindRows[0]?.[1] ?? 1;
   const maxBlunders = Math.max(1, ...analyzed.map((g) => g.analysis!.blunders));
 
+  // Clock: how many of your errors came in time trouble vs. in a rush with time left.
+  const timed = analyzed.filter((g) => g.analysis!.time);
+  const errors = timed.reduce((n, g) => n + g.analysis!.blunders + g.analysis!.mistakes, 0);
+  const lowTime = timed.reduce((n, g) => n + g.analysis!.time!.lowTimeErrors, 0);
+  const hasty = timed.reduce((n, g) => n + g.analysis!.time!.hastyErrors, 0);
+  const endedLow = timed.filter((g) => g.analysis!.time!.endedLow).length;
+
+  // Accuracy by phase, averaged over games that had that phase.
+  const phase = (ph: 'opening' | 'middlegame' | 'endgame') => {
+    const xs = analyzed.map((g) => g.analysis!.phases?.[ph]).filter((p) => p && p.moves > 0).map((p) => p!.accuracy);
+    return xs.length ? `${Math.round(xs.reduce((a, b) => a + b, 0) / xs.length)}%` : '–';
+  };
+
   return (
     <>
       <h1>{copy.stats.title}</h1>
@@ -55,7 +55,7 @@ export function Stats() {
 
       <section className="tiles">
         <Tile label={copy.stats.linesKnown} value={`${known}/${total}`} />
-        <Tile label={copy.stats.streak} value={copy.stats.days(streak(reviews.map((r) => r.at)))} />
+        <Tile label={copy.stats.streak} value={copy.stats.days(streakOf([...reviews.map((r) => r.at), ...attempts.map((a) => a.at)]))} />
         <Tile
           label={copy.stats.puzzleRate}
           value={attempts.length ? `${Math.round((solved / attempts.length) * 100)}%` : '–'}
@@ -92,6 +92,24 @@ export function Stats() {
               <span>newer</span>
             </div>
           </section>
+
+          <section className="tiles">
+            <Tile label={copy.review.phases.opening} value={phase('opening')} sub={copy.stats.phaseAcc} />
+            <Tile label={copy.review.phases.middlegame} value={phase('middlegame')} sub={copy.stats.phaseAcc} />
+            <Tile label={copy.review.phases.endgame} value={phase('endgame')} sub={copy.stats.phaseAcc} />
+          </section>
+
+          {timed.length > 0 && (
+            <section className="card">
+              <h2>{copy.stats.clockTitle}</h2>
+              <ul className="lessons">
+                <li>{copy.stats.clockLow(lowTime, errors)}</li>
+                <li>{copy.stats.clockHasty(hasty)}</li>
+                <li>{copy.stats.clockEndedLow(endedLow, timed.length)}</li>
+              </ul>
+              {errors > 0 && (lowTime + hasty) / errors >= 0.4 && <div className="feedback info">{copy.stats.clockVerdict}</div>}
+            </section>
+          )}
 
           <section className="card">
             <h2>{copy.stats.kindsChart}</h2>

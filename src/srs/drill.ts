@@ -50,10 +50,11 @@ export class Drill {
     return p;
   }
 
-  attempt(from: string, to: string): Attempt {
+  attempt(from: string, to: string, promotion?: string): Attempt {
     const p = this.current;
     if (!p || !this.isUserTurn) throw new Error('Not your turn');
-    if (p.from === from && p.to === to) {
+    const samePromo = !p.promotion || !promotion || p.promotion === promotion;
+    if (p.from === from && p.to === to && samePromo) {
       this.advance();
       return 'correct';
     }

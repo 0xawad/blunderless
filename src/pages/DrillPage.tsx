@@ -150,9 +150,9 @@ function DrillRun({
     }
   }, [drill, afterMove]);
 
-  const onMove = (from: string, to: string) => {
+  const onMove = (from: string, to: string, promotion?: string) => {
     if (!drill.isUserTurn) return;
-    const result = drill.attempt(from, to);
+    const result = drill.attempt(from, to, promotion);
     if (result === 'correct') {
       setShapes([]);
       setFeedback({ tone: 'good', text: pick(copy.drill.correct) });

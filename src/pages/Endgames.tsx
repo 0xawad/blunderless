@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { Chess } from 'chess.js';
+import { getSetting, setSetting } from '../srs/db';
+import { dayKey } from '../streak';
 import { pick } from '../copy';
 import { Board, BoardOverlay } from '../chess/Board';
 import { playUci } from '../chess/game';
@@ -8,12 +11,18 @@ import { useToast } from '../components/Toast';
 import { ENDGAMES, ENDGAME_GROUPS, goalReached, myMoveCount, type Endgame } from '../endgames/positions';
 import { endgameCopy as copy } from '../endgames/copy';
 
-// Wins for this session only: survives route changes, forgotten on reload.
-const solved = new Set<string>();
+/** Endgame id -> local day you last won it. Persisted so wins survive a reload and count for the daily plan. */
+export const useEndgameWins = () => useLiveQuery(async () => (await getSetting<Record<string, string>>('endgameWins')) ?? {}, []);
+
+async function recordWin(id: string) {
+  const wins = (await getSetting<Record<string, string>>('endgameWins')) ?? {};
+  await setSetting('endgameWins', { ...wins, [id]: dayKey(new Date()) });
+}
 
 export function Endgames() {
   const [active, setActive] = useState<{ id: string; n: number } | null>(null);
-  const [, bump] = useState(0);
+  const wins = useEndgameWins();
+  const solved = new Set(Object.keys(wins ?? {}));
   const eg = active && ENDGAMES.find((e) => e.id === active.id);
 
   if (eg && active) {
@@ -26,10 +35,7 @@ export function Endgames() {
       <EndgameGame
         key={active.n}
         eg={eg}
-        onWin={() => {
-          solved.add(eg.id);
-          bump((x) => x + 1);
-        }}
+        onWin={() => void recordWin(eg.id)}
         onRetry={() => setActive({ id: eg.id, n: Date.now() })}
         onNext={() => setActive({ id: next.id, n: Date.now() })}
         onBack={() => setActive(null)}

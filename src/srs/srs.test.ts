@@ -73,13 +73,15 @@ describe('scheduling and backup', () => {
   it('round-trips a backup', async () => {
     await addLine(allLines[0]);
     await addLine(allLines[1]);
-    await recordReview(allLines[0].id, Rating.Hard, 1);
+    await recordReview(allLines[0].id, Rating.Hard, 1, [3]);
     const text = await (await exportBackup()).text();
     await db.cards.clear();
     expect(await importBackup(text)).toBe(2);
     const row = await db.cards.get(allLines[0].id);
     expect(row?.card.due).toBeInstanceOf(Date);
     expect(row?.card.reps).toBe(1);
+    // Weak spots survive the round trip.
+    expect((await db.reviews.toArray())[0].failedPlies).toEqual([3]);
   });
 
   it('rejects junk without touching existing data', async () => {

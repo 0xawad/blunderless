@@ -5,9 +5,42 @@ import type { BlunderKind, GameAnalysis, KeyMoment, MoveClass, MoveReview, Phase
 import { repertoires } from '../repertoire';
 import type { OpeningBook } from './openings';
 import { nameOpening } from './openings';
+import { lowTime, type PlyClock, type TimeControl } from './clock';
+
+const stdDev = (xs: number[]) => {
+  const m = xs.reduce((a, b) => a + b, 0) / xs.length;
+  return Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / xs.length);
+};
+
+/**
+ * Lichess's game accuracy: move accuracies weighted by how volatile the
+ * position was around them, averaged with their harmonic mean so one big
+ * blunder isn't drowned out by forty easy recaptures.
+ * `wins` is White's win% for every position (moves + 1 entries).
+ */
+export function gameAccuracy(wins: number[], color: 'w' | 'b'): number | undefined {
+  const n = wins.length - 1;
+  if (n < 1) return undefined;
+  const size = Math.max(2, Math.min(8, Math.floor(n / 10)));
+  const windows: number[][] = [];
+  for (let i = 0; i < size - 2; i++) windows.push(wins.slice(0, size));
+  for (let i = 0; i + size <= wins.length; i++) windows.push(wins.slice(i, i + size));
+  const accs: { acc: number; w: number }[] = [];
+  for (let i = 0; i < n; i++) {
+    if ((i % 2 === 0) !== (color === 'w')) continue;
+    const before = color === 'w' ? wins[i] : 100 - wins[i];
+    const after = color === 'w' ? wins[i + 1] : 100 - wins[i + 1];
+    const w = Math.max(0.5, Math.min(12, stdDev(windows[i] ?? windows[windows.length - 1])));
+    accs.push({ acc: moveAccuracy(before - after), w });
+  }
+  if (!accs.length) return undefined;
+  const weighted = accs.reduce((a, x) => a + x.acc * x.w, 0) / accs.reduce((a, x) => a + x.w, 0);
+  const harmonic = accs.length / accs.reduce((a, x) => a + 1 / Math.max(1, x.acc), 0);
+  return Math.round((weighted + harmonic) / 2);
+}
 
 export const ANALYSIS_DEPTH = 12;
-export const ANALYSIS_VERSION = 2;
+export const ANALYSIS_VERSION = 3;
 
 export function classify(drop: number, isBest: boolean, winBefore = 50, winAfter = 50): MoveClass {
   if (isBest) return 'best';
@@ -104,6 +137,7 @@ export async function analyzeGame(
   userColor: 'white' | 'black',
   onProgress?: (p: number) => void,
   openings?: OpeningBook,
+  clock?: { tc: TimeControl; plies: PlyClock[] } | null,
 ): Promise<GameAnalysis> {
   const engine = getEngine();
   const fens = [plies[0]?.fenBefore ?? new Chess().fen(), ...plies.map((p) => p.fenAfter)];
@@ -136,8 +170,6 @@ export async function analyzeGame(
   bookEnd = Math.min(bookEnd, 24);
 
   const accs = { opening: [] as number[], middlegame: [] as number[], endgame: [] as number[] };
-  const myAccs: number[] = [];
-  const oppAccs: number[] = [];
   const moments: KeyMoment[] = [];
   let blunders = 0;
   let mistakes = 0;
@@ -151,10 +183,14 @@ export async function analyzeGame(
     let cls = classify(drop, best === p.uci, before, after);
     if (i < bookEnd && drop < 10) cls = 'book';
     const review: MoveReview = { cls, drop: Math.round(drop * 10) / 10, best, pv: results[i].pv };
+    const ck = clock?.plies[i];
+    if (ck) {
+      review.left = ck.left;
+      review.spent = ck.spent;
+    }
     moments.push({ ply: i, swing: Math.round((after - before) * 10) / 10, mine: p.color === mine });
     const acc = moveAccuracy(drop);
     if (p.color === mine) {
-      myAccs.push(acc);
       accs[phaseOf(i, p.fenBefore, bookEnd)].push(acc);
       if (cls === 'blunder' || cls === 'mistake' || cls === 'missed-win') {
         if (cls === 'mistake') mistakes++;
@@ -168,8 +204,6 @@ export async function analyzeGame(
           { to: p.to, captured: p.captured },
         );
       }
-    } else {
-      oppAccs.push(acc);
     }
     return review;
   });
@@ -193,15 +227,37 @@ export async function analyzeGame(
     .slice(0, 5)
     .sort((a, b) => a.ply - b.ply);
 
-  const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : 100);
+  // White's win% for every position, for the volatility-weighted accuracy.
+  const wins = evals.map((cp) => winPct(cp));
+  const errors = (i: number) => {
+    const c = moves[i].cls;
+    return plies[i].color === mine && (c === 'blunder' || c === 'mistake' || c === 'missed-win');
+  };
+  let time: GameAnalysis['time'];
+  if (clock) {
+    const low = lowTime(clock.tc);
+    const myIdx = plies.map((_, i) => i).filter((i) => plies[i].color === mine);
+    const spentIn = (from: number, to: number) =>
+      myIdx.filter((i) => i >= from && i < to).reduce((a, i) => a + clock.plies[i].spent, 0);
+    time = {
+      base: clock.tc.base,
+      inc: clock.tc.inc,
+      lowTimeErrors: myIdx.filter((i) => errors(i) && clock.plies[i].left < low).length,
+      hastyErrors: myIdx.filter((i) => errors(i) && clock.plies[i].left >= low && clock.plies[i].spent < 3 && i >= bookEnd).length,
+      openingSecs: Math.round(spentIn(0, Math.max(bookEnd, 20))),
+      totalSecs: Math.round(spentIn(0, plies.length)),
+      endedLow: myIdx.length > 0 && clock.plies[myIdx[myIdx.length - 1]].left < low,
+    };
+  }
 
   return {
     version: ANALYSIS_VERSION,
     depth: ANALYSIS_DEPTH,
     evals,
     moves,
-    accuracy: avg(myAccs),
-    oppAccuracy: avg(oppAccs),
+    accuracy: gameAccuracy(wins, mine) ?? 100,
+    oppAccuracy: gameAccuracy(wins, mine === 'w' ? 'b' : 'w'),
+    time,
     blunders,
     mistakes,
     phases: { opening: phaseStats(accs.opening), middlegame: phaseStats(accs.middlegame), endgame: phaseStats(accs.endgame) },

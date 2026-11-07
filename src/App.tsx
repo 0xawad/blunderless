@@ -6,9 +6,10 @@ import { copy } from './copy';
 import { applyTheme, readTheme, type Theme } from './theme';
 import { ToastProvider } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { BookIcon, GamesIcon, GearIcon, HomeIcon, MoonIcon, PlayIcon, PuzzleIcon, SoundOffIcon, SoundOnIcon, SunIcon } from './components/icons';
+import { BookIcon, GamesIcon, GearIcon, HomeIcon, MoonIcon, PlayIcon, PuzzleIcon, SoundOffIcon, SoundOnIcon, StatsIcon, SunIcon } from './components/icons';
 import { setPrefs, usePrefs } from './prefs';
 import { play, unlockAudio } from './sound';
+import { protectStorage } from './storage';
 import { Home } from './pages/Home';
 import { Welcome } from './pages/Welcome';
 import { Openings } from './pages/Openings';
@@ -23,6 +24,7 @@ const GameReview = lazy(() => import('./pages/GameReview').then((m) => ({ defaul
 const Puzzles = lazy(() => import('./pages/Puzzles').then((m) => ({ default: m.Puzzles })));
 const Play = lazy(() => import('./pages/Play').then((m) => ({ default: m.Play })));
 const Stats = lazy(() => import('./pages/Stats').then((m) => ({ default: m.Stats })));
+const OpeningMap = lazy(() => import('./pages/OpeningMap').then((m) => ({ default: m.OpeningMap })));
 const Endgames = lazy(() => import('./pages/Endgames').then((m) => ({ default: m.Endgames })));
 
 function Skeleton() {
@@ -97,6 +99,12 @@ function Shell() {
     window.scrollTo({ top: 0 });
   }, [pathname]);
 
+  // Once you have progress worth keeping, ask the browser not to evict it.
+  const hasProgress = useLiveQuery(async () => (await db.cards.count()) + (await db.attempts.count()) > 0, [], false);
+  useEffect(() => {
+    if (hasProgress) void protectStorage();
+  }, [hasProgress]);
+
   if (onboarded === null) return null;
   if (!onboarded && pathname !== '/welcome') return <Navigate to="/welcome" replace />;
 
@@ -132,6 +140,16 @@ function Shell() {
             <SoundButton />
             <ThemeButton />
             {onboarded && (
+              <>
+                <NavLink to="/endgames" className="iconbtn mobile-only" aria-label="Endgames" title="Endgames">
+                  <span aria-hidden className="glyph">♔</span>
+                </NavLink>
+                <NavLink to="/stats" className="iconbtn mobile-only" aria-label="Stats" title="Stats">
+                  <StatsIcon />
+                </NavLink>
+              </>
+            )}
+            {onboarded && (
               <NavLink to="/settings" className="iconbtn" aria-label="Settings" title="Settings">
                 <GearIcon />
               </NavLink>
@@ -149,6 +167,7 @@ function Shell() {
               <Route path="/welcome" element={<Welcome />} />
               <Route path="/openings" element={<Openings />} />
               <Route path="/openings/:repId" element={<RepertoirePage />} />
+              <Route path="/openings/:repId/map" element={<OpeningMap />} />
               <Route path="/learn/:repId/:index" element={<Learn />} />
               <Route path="/drill" element={<DrillPage />} />
               <Route path="/settings" element={<Settings />} />

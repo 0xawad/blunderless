@@ -6,9 +6,14 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 
 const URL = 'https://database.lichess.org/lichess_db_puzzle.csv.zst';
-const PER_THEME = 400;
+// Spread evenly over 100-point rating bands so the adaptive rating finds
+// puzzles near you anywhere from beginner to ~2200.
 const MIN_RATING = 500;
-const MAX_RATING = 1500;
+const MAX_RATING = 2200;
+const BAND = 100;
+const PER_BAND = 36;
+const BANDS = Math.ceil((MAX_RATING - MIN_RATING) / BAND);
+const PER_THEME = PER_BAND * BANDS;
 const THEMES = [
   'hangingPiece', 'fork', 'pin', 'skewer', 'discoveredAttack',
   'mateIn1', 'mateIn2', 'backRankMate', 'trappedPiece', 'defensiveMove',
@@ -50,7 +55,11 @@ async function* lines() {
 }
 
 const buckets = Object.fromEntries(THEMES.map((t) => [t, []]));
-const full = () => THEMES.every((t) => buckets[t].length >= PER_THEME);
+const bands = Object.fromEntries(THEMES.map((t) => [t, new Array(BANDS).fill(0)]));
+const bandOf = (r) => Math.min(BANDS - 1, Math.floor((r - MIN_RATING) / BAND));
+// High bands fill slowly for some themes; stop after a fixed scan budget too.
+const MAX_ROWS = 3_000_000;
+const full = () => seen > MAX_ROWS || THEMES.every((t) => buckets[t].length >= PER_THEME);
 
 let seen = 0;
 for await (const line of lines()) {
@@ -61,12 +70,15 @@ for await (const line of lines()) {
   if (r < MIN_RATING || r > MAX_RATING || Number(rd) > 90 || Number(pop) < 85 || Number(plays) < 300) continue;
   if (!/^[a-zA-Z0-9]{5,8}$/.test(id) || !/^([a-h][1-8][a-h][1-8][qrbn]? ?)+$/.test(moves)) continue;
   for (const t of themes.split(' ')) {
-    if (buckets[t] && buckets[t].length < PER_THEME) {
+    const b = bandOf(r);
+    if (buckets[t] && bands[t][b] < PER_BAND) {
+      bands[t][b]++;
       buckets[t].push([id, fen, moves, r]);
       break; // each puzzle lands in one bucket only
     }
   }
   if (full()) break;
+  if (seen % 500_000 === 0) console.log(`scanned ${seen}`);
 }
 
 const out = path.resolve('public/puzzles');

@@ -64,8 +64,17 @@ export function describeMove(fen: string, uci: string): string {
       /* position with the king capturable; skip */
     }
   }
-  if (!parts.length) parts.push(`${m.san} keeps everything protected and improves your position`);
-  return parts.join(' ') + '.';
+  return parts.length ? parts.join(' ') + '.' : '';
+}
+
+/** What the engine's line after the better move wins, if it wins material. */
+function lineGain(fen: string, pv: string[]): string {
+  const mover = new Chess(fen).turn();
+  const start = new Chess(fen);
+  const { chess, sans } = playLine(fen, pv.slice(0, 5));
+  if (chess.isCheckmate() && chess.turn() !== mover) return `it leads to mate: ${sans.join(' ')}.`;
+  const gain = balance(chess, mover) - balance(start, mover);
+  return gain >= 2 ? `it wins ${unit(gain)}: ${sans.join(' ')}.` : '';
 }
 
 /** What your move allowed, read off the engine's reply line after it. */
@@ -99,7 +108,9 @@ export function explainMove(p: GamePly, review: MoveReview, nextPv: string[] | u
     const better = describeMove(p.fenBefore, review.best);
     // describeMove starts its sentence with the move; swap that for "it" after "Better was X:".
     const rest = better.startsWith(bestSan) ? `it${better.slice(bestSan.length)}` : better;
-    parts.push(better ? `Better was ${bestSan}: ${rest}` : `Better was ${bestSan}.`);
+    // Nothing tactical to point at: say what the engine line gains, or just name the move.
+    const why = better ? rest : review.pv?.[0] === review.best ? lineGain(p.fenBefore, review.pv) : '';
+    parts.push(why ? `Better was ${bestSan}: ${why}` : `Better was ${bestSan}.`);
   }
   return parts.join(' ');
 }

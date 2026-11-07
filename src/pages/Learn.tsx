@@ -25,7 +25,7 @@ export function Learn() {
   const toast = useToast();
   const rep = getRepertoire(repId);
   const line = rep?.lines[Number(index)];
-  const [ply, setPly] = useState(0); // number of plies played
+  const [ply, setPly] = useState(-1); // number of plies played; -1 until the line's start is set
   const [think, setThink] = useState(readThink);
   const [misses, setMisses] = useState(0);
   const [quizMsg, setQuizMsg] = useState<{ tone: 'good' | 'bad' | 'info'; text: string } | null>(null);
@@ -33,13 +33,27 @@ export function Learn() {
   const inQueue = useLiveQuery(async () => !!(line && (await db.cards.get(line.id))), [line?.id]);
 
   const mine = (color: 'w' | 'b') => (color === 'w') === (rep?.side === 'white');
+
+  // Lines in a chapter share their opening moves. Start where this one branches
+  // off the earlier lines instead of replaying moves you just learned.
+  const branchAt = (() => {
+    if (!rep || !line) return 0;
+    let best = 0;
+    for (const other of rep.lines.slice(0, Number(index))) {
+      let i = 0;
+      while (i < line.plies.length - 1 && other.plies[i]?.san === line.plies[i].san) i++;
+      best = Math.max(best, i);
+    }
+    return best >= 4 ? best : 0;
+  })();
   const pending = line?.plies[ply]; // the move that comes next
   const yourTurn = think && !!pending && mine(pending.color);
 
   useEffect(() => {
-    setPly(0);
+    setPly(branchAt);
     setMisses(0);
     setQuizMsg(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [line?.id]);
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
@@ -64,6 +78,7 @@ export function Learn() {
   }, [line]);
 
   if (!rep || !line) return <p className="empty">{copy.notFound}</p>;
+  if (ply < 0) return null;
 
   const last = line.plies[ply - 1];
   const fen = last?.fenAfter ?? line.plies[0].fenBefore;
@@ -136,6 +151,9 @@ export function Learn() {
             </button>
           </div>
 
+          {branchAt > 0 && ply === branchAt && !quizMsg && (
+            <p className="muted small">{copy.learn.skipped(Math.floor(branchAt / 2) + 1)}</p>
+          )}
           {yourTurn && (
             <div className={`feedback ${quizMsg?.tone ?? 'info'}`} role="status">
               {quizMsg?.text ?? copy.learn.yourMove}

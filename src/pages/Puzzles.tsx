@@ -1,22 +1,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Chess } from 'chess.js';
 import type { DrawShape } from 'chessground/draw';
 import type { Key } from 'chessground/types';
 import { copy, pick } from '../copy';
 import { Board } from '../chess/Board';
-import { playUci } from '../chess/game';
+import { playUci, uciToSan } from '../chess/game';
+import { getEngine, scoreToCp, winPct } from '../engine/engine';
 import { db, getSetting, recordPuzzle, savePuzzle, setSetting } from '../srs/db';
 import type { PuzzleRow } from '../srs/types';
 import { play as sfx } from '../sound';
 
-type Puzzle = Pick<PuzzleRow, 'id' | 'source' | 'fen' | 'moves' | 'theme' | 'rating'>;
+type Puzzle = Pick<PuzzleRow, 'id' | 'source' | 'fen' | 'moves' | 'theme' | 'rating' | 'gameId' | 'ply'>;
+
+/** A different move than the engine's still solves one of your own puzzles if it's this close (win%). */
+const ALT_TOLERANCE = 5;
 
 const THEMES = Object.keys(copy.puzzles.themeNames);
 const OPP_DELAY = 500;
 const themeCache = new Map<string, Puzzle[]>();
 
 async function loadTheme(theme: string): Promise<Puzzle[]> {
+  if (theme === 'mixed') return (await Promise.all(THEMES.map(loadTheme))).flat();
   const hit = themeCache.get(theme);
   if (hit) return hit;
   const res = await fetch(`/puzzles/${theme}.json`);
@@ -49,17 +55,26 @@ export function Puzzles() {
 
   return (
     <>
+      <div className="tall-head" />
       <h1>{copy.puzzles.title}</h1>
       <p className="lead">{copy.puzzles.lead}</p>
-      <div className="tabs" role="tablist">
-        <button role="tab" aria-selected={tab === 'mine'} className={tab === 'mine' ? 'on' : ''} onClick={() => setTab('mine')}>
-          {copy.puzzles.mine} {due?.length ? <span className="badge due">{due.length}</span> : null}
-        </button>
-        {THEMES.map((t) => (
-          <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
-            {copy.puzzles.themeNames[t]}
+      <div className="puzzle-modes">
+        <div className="tabs" role="tablist">
+          <button role="tab" aria-selected={tab === 'mine'} className={tab === 'mine' ? 'on' : ''} onClick={() => setTab('mine')}>
+            {copy.puzzles.mine} {due?.length ? <span className="badge due">{due.length}</span> : null}
           </button>
-        ))}
+          <button role="tab" aria-selected={tab !== 'mine'} className={tab !== 'mine' ? 'on' : ''} onClick={() => setTab(tab === 'mine' ? 'mixed' : tab)}>
+            {copy.puzzles.themed}
+          </button>
+        </div>
+        {tab !== 'mine' && (
+          <select aria-label={copy.puzzles.themeLabel} value={tab} onChange={(e) => setTab(e.target.value)}>
+            <option value="mixed">{copy.puzzles.mixed}</option>
+            {THEMES.map((t) => (
+              <option key={t} value={t}>{copy.puzzles.themeNames[t]}</option>
+            ))}
+          </select>
+        )}
       </div>
       {tab === 'mine' ? (
         <ReviewQueue due={due} />
@@ -129,7 +144,7 @@ function ThemeTrainer({ theme, rating }: { theme: string; rating: number }) {
     <PuzzleRun
       key={current.id}
       puzzle={current}
-      label={`${copy.puzzles.themeNames[theme]} · ${copy.puzzles.rating(rating)}`}
+      label={`${theme === 'mixed' ? copy.puzzles.themeNames[current.theme] : copy.puzzles.themeNames[theme]} · ${copy.puzzles.rating(rating)}`}
       onDone={async (solved) => {
         await setSetting('puzzleRating', nextRating(rating, current.rating ?? rating, solved));
         if (!solved) await savePuzzle(current); // missed ones join your review queue
@@ -163,6 +178,7 @@ function PuzzleRun({
   const [last, setLast] = useState<[string, string]>();
   const [state, setState] = useState<'playing' | 'solved' | 'failed'>('playing');
   const [shapes, setShapes] = useState<DrawShape[]>([]);
+  const [checking, setChecking] = useState(false);
   const [msg, setMsg] = useState<string>(
     puzzle.source === 'mine' ? copy.puzzles.yourBlunder : copy.puzzles.findMove(userColor === 'white' ? 'White' : 'Black'),
   );
@@ -194,26 +210,59 @@ function PuzzleRun({
     if (offset) opponent(0);
   }, [offset, opponent]);
 
-  const finish = (solved: boolean) => {
+  const finish = (solved: boolean, text?: string) => {
     setState(solved ? 'solved' : 'failed');
     sfx(solved ? 'correct' : 'wrong');
-    setMsg(pick(solved ? copy.puzzles.solved : copy.puzzles.failed));
+    setMsg(text ?? pick(solved ? copy.puzzles.solved : copy.puzzles.failed));
     onDone(solved);
   };
 
-  const onMove = (from: string, to: string, promotion?: string) => {
-    if (state !== 'playing') return;
+  const fail = (want: string) => {
+    setFen(chess.fen()); // snap back
+    setShapes([{ orig: want.slice(0, 2) as Key, dest: want.slice(2, 4) as Key, brush: 'green' }]);
+    finish(false);
+  };
+
+  /** Your own puzzles have one stored answer, but any move about as good as it solves them. */
+  const closeEnough = async (fenBefore: string, uci: string): Promise<boolean> => {
+    const probe = new Chess(fenBefore);
+    if (!playUci(probe, uci)) return false;
+    const engine = getEngine();
+    const [best, mine] = await Promise.all([
+      engine.search(fenBefore, { depth: 12 }),
+      engine.search(probe.fen(), { depth: 12 }),
+    ]);
+    return winPct(scoreToCp(best.score)) - winPct(-scoreToCp(mine.score)) < ALT_TOLERANCE;
+  };
+
+  const onMove = async (from: string, to: string, promotion?: string) => {
+    if (state !== 'playing' || checking) return;
     const want = puzzle.moves[idx];
     if (!want) return;
     const promo = promotion ?? (want.slice(0, 4) === from + to ? want.slice(4) : '');
     const probe = new Chess(chess.fen());
     playUci(probe, from + to + promo);
     // Any other mate counts too; Lichess does the same.
-    const right = from + to === want.slice(0, 4) || probe.isCheckmate();
+    let right = from + to === want.slice(0, 4) || probe.isCheckmate();
+    if (!right && puzzle.source === 'mine' && puzzle.moves.length === 1) {
+      setChecking(true);
+      setMsg(copy.puzzles.checking);
+      try {
+        right = await closeEnough(chess.fen(), from + to + promo);
+      } catch {
+        right = false;
+      } finally {
+        setChecking(false);
+      }
+      if (right) {
+        apply(from + to + promo);
+        setShapes([{ orig: want.slice(0, 2) as Key, dest: want.slice(2, 4) as Key, brush: 'blue' }]);
+        finish(true, copy.puzzles.altSolved(uciToSan(puzzle.fen, want)));
+        return;
+      }
+    }
     if (!right) {
-      setFen(chess.fen()); // snap back
-      setShapes([{ orig: want.slice(0, 2) as Key, dest: want.slice(2, 4) as Key, brush: 'green' }]);
-      finish(false);
+      fail(want);
       return;
     }
     apply(from + to + promo);
@@ -230,7 +279,7 @@ function PuzzleRun({
       <Board
         fen={fen}
         orientation={userColor}
-        interactive={state === 'playing' && idx >= offset && chess.turn() === userColor[0]}
+        interactive={state === 'playing' && !checking && idx >= offset && chess.turn() === userColor[0]}
         lastMove={last}
         shapes={shapes}
         onMove={onMove}
@@ -242,6 +291,11 @@ function PuzzleRun({
         </div>
         {puzzle.source === 'mine' && copy.kinds[puzzle.theme] && (
           <p className="muted">{copy.kinds[puzzle.theme].roast}</p>
+        )}
+        {puzzle.source === 'mine' && state !== 'playing' && puzzle.gameId && (
+          <p className="small">
+            <Link to={`/games/${encodeURIComponent(puzzle.gameId)}`}>{copy.puzzles.seeGame}</Link>
+          </p>
         )}
         {state !== 'playing' && (
           <button className="btn primary" onClick={onNext} autoFocus>
