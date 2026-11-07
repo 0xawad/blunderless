@@ -67,7 +67,7 @@ export function DrillPage() {
     const perfect = results.filter((r) => r === Rating.Good).length;
     return (
       <section className="card empty-state">
-        <div className="big-emoji" aria-hidden>{perfect === results.length ? '🏆' : '♟'}</div>
+        <div className="big-emoji" aria-hidden>{perfect === results.length ? '♔' : '♟'}</div>
         <h1>Session done</h1>
         <p className="lead">{copy.drill.sessionDone(results.length, perfect)}</p>
         <div className="row">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { copy } from '../copy';
@@ -128,13 +128,13 @@ export function Games() {
       {games && games.length === 0 && <p className="empty">{copy.games.empty}</p>}
 
       <ul className="games">
-        {shown.map((g) => {
+        {shown.map((g, i) => {
           const opp = g.userColor === 'white' ? g.black : g.white;
           const oppElo = g.userColor === 'white' ? g.blackElo : g.whiteElo;
           const myElo = g.userColor === 'white' ? g.whiteElo : g.blackElo;
           const a = g.analysis;
           return (
-            <li key={g.id} className="card game-row">
+            <li key={g.id} className="card game-row" style={{ '--i': i } as CSSProperties}>
               <span className={`result ${g.result}`} aria-label={g.result}>{g.result[0].toUpperCase()}</span>
               <Link to={`/games/${encodeURIComponent(g.id)}`} className="game-main">
                 <strong>

@@ -11,7 +11,7 @@ export interface Prefs {
 }
 
 export const BOARD_THEMES: { id: BoardTheme; label: string; light: string; dark: string }[] = [
-  { id: 'slate', label: 'Slate', light: '#eceff4', dark: '#8f9bb8' },
+  { id: 'slate', label: 'Stone', light: '#ebe6db', dark: '#a0978a' },
   { id: 'walnut', label: 'Walnut', light: '#f0d9b5', dark: '#b58863' },
   { id: 'forest', label: 'Forest', light: '#eeeed2', dark: '#769656' },
   { id: 'ocean', label: 'Ocean', light: '#dee3e6', dark: '#8ca2ad' },

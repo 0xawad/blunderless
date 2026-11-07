@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { copy, pick } from '../copy';
@@ -132,8 +132,8 @@ export function Home() {
           )}
         </div>
         <ul className="tasks">
-          {tasks.map((x) => (
-            <li key={x.to + x.label} className={x.done ? 'done' : ''}>
+          {tasks.map((x, i) => (
+            <li key={x.to + x.label} className={x.done ? 'done' : ''} style={{ '--i': i } as CSSProperties}>
               <Link to={x.to}>
                 <span className={`action-icon ${x.tone}`} aria-hidden>{x.done ? '✓' : x.icon}</span>
                 <span>{x.label}</span>

@@ -21,5 +21,5 @@ export function applyTheme(t: Theme) {
     /* private mode */
   }
   const dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0e1016' : '#f5f6fa');
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', dark ? '#141413' : '#f7f6f3'));
 }

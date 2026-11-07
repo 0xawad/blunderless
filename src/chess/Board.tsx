@@ -82,7 +82,12 @@ export function Board({ fen, orientation, interactive, premovable, lastMove, sha
         },
       },
     });
-    return () => api.current?.destroy();
+    // Shapes set before the board has its size are drawn into a 0x0 box; redraw once it's laid out.
+    const raf = requestAnimationFrame(() => api.current?.redrawAll());
+    return () => {
+      cancelAnimationFrame(raf);
+      api.current?.destroy();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -118,6 +118,7 @@ function Shell() {
 
   return (
     <ToastProvider>
+      <a href="#main" className="skip">Skip to content</a>
       <header className="topbar">
         <div className="topbar-inner">
           <NavLink to="/" className="logo">
@@ -158,7 +159,7 @@ function Shell() {
         </div>
       </header>
 
-      <main>
+      <main id="main" tabIndex={-1}>
         <ErrorBoundary resetKey={pathname}>
         <Suspense fallback={<Skeleton />}>
           <div className="page" key={pathname}>

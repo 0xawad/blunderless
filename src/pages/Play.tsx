@@ -99,7 +99,7 @@ export function Play() {
         <div className="segmented">
           {(['white', 'black', 'random'] as const).map((c) => (
             <button key={c} className={setup.color === c ? 'on' : ''} onClick={() => setSetup({ ...setup, color: c })}>
-              {c === 'white' ? '♔ White' : c === 'black' ? '♚ Black' : '🎲 Random'}
+              {c === 'white' ? '♔ White' : c === 'black' ? '♚ Black' : 'Random'}
             </button>
           ))}
         </div>
@@ -386,7 +386,7 @@ function PlayGame({
         overlay={
           result && !dismissed ? (
             <BoardOverlay>
-              <div className="big" aria-hidden>{result === 'win' ? '🏆' : result === 'loss' ? '♟' : '🤝'}</div>
+              <div className="big" aria-hidden>{result === 'win' ? '♔' : result === 'loss' ? '♟' : '½'}</div>
               <h2>{copy.play.overTitle[result]}</h2>
               <p className="muted">{pick(copy.play.over[result])}</p>
               {summary.length > 0 && (

@@ -169,7 +169,7 @@ function EndgameGame({
           overlay={
             result ? (
               <BoardOverlay>
-                <div className="big" aria-hidden>{result === 'win' ? '🏆' : '♟'}</div>
+                <div className="big" aria-hidden>{result === 'win' ? '♔' : '♟'}</div>
                 <h2>{result === 'win' ? lines.win : lines.fail}</h2>
                 {result === 'fail' && <p className="muted">{eg.tip}</p>}
                 <div className="row">
