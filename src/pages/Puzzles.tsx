@@ -201,11 +201,11 @@ function PuzzleRun({
     onDone(solved);
   };
 
-  const onMove = (from: string, to: string) => {
+  const onMove = (from: string, to: string, promotion?: string) => {
     if (state !== 'playing') return;
     const want = puzzle.moves[idx];
     if (!want) return;
-    const promo = want.slice(0, 4) === from + to ? want.slice(4) : '';
+    const promo = promotion ?? (want.slice(0, 4) === from + to ? want.slice(4) : '');
     const probe = new Chess(chess.fen());
     playUci(probe, from + to + promo);
     // Any other mate counts too; Lichess does the same.

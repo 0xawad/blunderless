@@ -4,7 +4,7 @@ import { Chess } from 'chess.js';
 import type { DrawShape } from 'chessground/draw';
 import type { Key } from 'chessground/types';
 import { copy, pick } from '../copy';
-import { Board } from '../chess/Board';
+import { Board, BoardOverlay } from '../chess/Board';
 import { playUci, uciToSan } from '../chess/game';
 import { guardCheck, type GuardWarning } from '../chess/guard';
 import { getEngine, scoreToCp, winPct, type SearchOptions } from '../engine/engine';
@@ -151,6 +151,7 @@ function PlayGame({
   const [hint, setHint] = useState<{ level: 1 | 2; uci: string } | null>(null);
   const [thinking, setThinking] = useState(false);
   const [result, setResult] = useState<'win' | 'loss' | 'draw' | null>(null);
+  const [dismissed, setDismissed] = useState(false);
   const [log, setLog] = useState<Logged[]>([]);
   const [verdict, setVerdict] = useState<{ v: Verdict; san: string; better?: string } | null>(null);
   const pre = useRef<{ fen: string; best: string; win: number } | null>(null); // eval before your move
@@ -254,9 +255,9 @@ function PlayGame({
     engineMove();
   };
 
-  const onMove = (from: string, to: string) => {
+  const onMove = (from: string, to: string, promotion?: string) => {
     const probe = new Chess(chess.fen());
-    const m = playUci(probe, from + to);
+    const m = playUci(probe, from + to + (promotion ?? ''));
     if (!m) return sync();
     const uci = from + to + (m.promotion ?? '');
     if (setup.guard) {
@@ -351,7 +352,32 @@ function PlayGame({
 
   return (
     <div className="play">
-      <Board fen={pending ? pending.fen : fen} orientation={color} interactive={myTurn && cctReady} lastMove={last} shapes={shapes} onMove={onMove} />
+      <Board
+        fen={pending ? pending.fen : fen}
+        orientation={color}
+        interactive={myTurn && cctReady}
+        premovable={!result && !pending && !setup.cct}
+        lastMove={last}
+        shapes={shapes}
+        onMove={onMove}
+        overlay={
+          result && !dismissed ? (
+            <BoardOverlay>
+              <div className="big" aria-hidden>{result === 'win' ? '🏆' : result === 'loss' ? '♟' : '🤝'}</div>
+              <h2>{copy.play.overTitle[result]}</h2>
+              <p className="muted">{pick(copy.play.over[result])}</p>
+              {summary.length > 0 && (
+                <p className="muted">{summary.map((s) => `${s.n} ${copy.play.verdicts[s.v].toLowerCase()}`).join(' · ')}</p>
+              )}
+              <div className="row">
+                {chess.history().length > 0 && <button className="btn primary" onClick={review}>{copy.play.review}</button>}
+                <button className="btn ghost" onClick={onNew}>{copy.play.newGame}</button>
+                <button className="btn small" onClick={() => setDismissed(true)}>{copy.play.lookAtBoard}</button>
+              </div>
+            </BoardOverlay>
+          ) : null
+        }
+      />
       <aside className="card side playside">
         <div className="opp-row">
           <span className="opp-avatar" aria-hidden>🤖</span>

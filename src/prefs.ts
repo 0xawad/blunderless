@@ -1,8 +1,10 @@
 import { useSyncExternalStore } from 'react';
 
 export type BoardTheme = 'slate' | 'walnut' | 'forest' | 'ocean' | 'rose';
+export type PieceSet = 'chessnut' | 'cburnett' | 'merida' | 'pirouetti' | 'kiwen-suwi' | 'firi';
 export interface Prefs {
   boardTheme: BoardTheme;
+  pieces: PieceSet;
   sound: boolean;
   animation: 'off' | 'normal' | 'slow';
   coach: boolean;
@@ -16,8 +18,17 @@ export const BOARD_THEMES: { id: BoardTheme; label: string; light: string; dark:
   { id: 'rose', label: 'Rosewood', light: '#f3e5e0', dark: '#b07a74' },
 ];
 
+export const PIECE_SETS: { id: PieceSet; label: string }[] = [
+  { id: 'chessnut', label: 'Chessnut' },
+  { id: 'cburnett', label: 'Classic' },
+  { id: 'merida', label: 'Merida' },
+  { id: 'pirouetti', label: 'Pirouetti' },
+  { id: 'kiwen-suwi', label: 'Kiwen-Suwi' },
+  { id: 'firi', label: 'Firi' },
+];
+
 const KEY = 'prefs';
-const DEFAULTS: Prefs = { boardTheme: 'slate', sound: true, animation: 'normal', coach: true };
+const DEFAULTS: Prefs = { boardTheme: 'slate', pieces: 'chessnut', sound: true, animation: 'normal', coach: true };
 
 let current: Prefs = (() => {
   try {
@@ -38,6 +49,7 @@ export function setPrefs(patch: Partial<Prefs>) {
     /* private mode */
   }
   document.documentElement.dataset.board = current.boardTheme;
+  document.documentElement.dataset.pieces = current.pieces;
   listeners.forEach((l) => l());
 }
 
@@ -53,4 +65,5 @@ export function usePrefs(): Prefs {
 
 export const applyPrefsToDocument = () => {
   document.documentElement.dataset.board = current.boardTheme;
+  document.documentElement.dataset.pieces = current.pieces;
 };

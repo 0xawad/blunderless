@@ -5,7 +5,7 @@ import { getSetting, setSetting } from '../srs/db';
 import { exportBackup, importBackup, resetAll } from '../srs/backup';
 import { applyTheme, readTheme, type Theme } from '../theme';
 import { useToast } from '../components/Toast';
-import { BOARD_THEMES, setPrefs, usePrefs } from '../prefs';
+import { BOARD_THEMES, PIECE_SETS, setPrefs, usePrefs } from '../prefs';
 import { play, unlockAudio } from '../sound';
 
 const THEMES: { value: Theme; label: string }[] = [
@@ -113,6 +113,28 @@ export function Settings() {
                   style={{ backgroundImage: `conic-gradient(${b.light} 25%, ${b.dark} 0 50%, ${b.light} 0 75%, ${b.dark} 0)` }}
                 />
                 <span>{b.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="setting-row">
+          <div>
+            <strong>{copy.settings.pieces}</strong>
+            <div className="muted">{copy.settings.piecesHint}</div>
+          </div>
+          <div className="piece-sets" role="radiogroup" aria-label="Piece set">
+            {PIECE_SETS.map((p) => (
+              <button
+                key={p.id}
+                role="radio"
+                aria-checked={prefs.pieces === p.id}
+                className={`piece-set ${prefs.pieces === p.id ? 'on' : ''}`}
+                onClick={() => setPrefs({ pieces: p.id })}
+              >
+                <span className="swatch cg-wrap" data-set={p.id}>
+                  <piece className="white knight" style={p.id === 'cburnett' ? undefined : { backgroundImage: `url(/pieces/${p.id}/wN.svg)` }} />
+                </span>
+                <span>{p.label}</span>
               </button>
             ))}
           </div>

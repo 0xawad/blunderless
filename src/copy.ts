@@ -115,6 +115,8 @@ export const copy = {
     themeHint: 'System follows your OS. The header button flips it too.',
     board: 'Board colours',
     boardHint: 'Pick the one your eyes like. The pieces stay the same.',
+    pieces: 'Piece set',
+    piecesHint: 'Chessnut is the clean modern default. Classic is the Wikipedia set.',
     animation: 'Piece animation',
     animationHint: 'How pieces glide between squares.',
     animations: { off: 'Off', normal: 'Normal', slow: 'Slow' } as Record<string, string>,
@@ -295,6 +297,8 @@ export const copy = {
     resign: 'Resign',
     newGame: 'New game',
     review: 'Review this game',
+    overTitle: { win: 'You won', loss: 'You lost', draw: 'Draw' } as Record<string, string>,
+    lookAtBoard: 'Look at the board',
     over: {
       win: ['You won! Stockfish demands a rematch.', 'Victory. Screenshot it.'],
       loss: ['Lost. Review it, learn, return.', 'The machine wins this round.'],

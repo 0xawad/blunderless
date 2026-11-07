@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Chess } from 'chess.js';
 import { pick } from '../copy';
-import { Board } from '../chess/Board';
+import { Board, BoardOverlay } from '../chess/Board';
 import { playUci } from '../chess/game';
 import { getEngine } from '../engine/engine';
 import { useToast } from '../components/Toast';
@@ -137,8 +137,8 @@ function EndgameGame({
     if (chess.turn() !== mine && !chess.isGameOver()) engineMove();
   }, [chess, mine, engineMove]);
 
-  const onMove = (from: string, to: string) => {
-    const m = playUci(chess, from + to);
+  const onMove = (from: string, to: string, promotion?: string) => {
+    const m = playUci(chess, from + to + (promotion ?? ''));
     if (!m) return sync();
     setLast([m.from, m.to]);
     sync();
@@ -154,7 +154,30 @@ function EndgameGame({
         {copy.back}
       </button>
       <div className="play">
-        <Board fen={chess.fen()} orientation={eg.side} interactive={myTurn} lastMove={last} onMove={onMove} />
+        <Board
+          fen={chess.fen()}
+          orientation={eg.side}
+          interactive={myTurn}
+          lastMove={last}
+          onMove={onMove}
+          overlay={
+            result ? (
+              <BoardOverlay>
+                <div className="big" aria-hidden>{result === 'win' ? '🏆' : '♟'}</div>
+                <h2>{result === 'win' ? lines.win : lines.fail}</h2>
+                {result === 'fail' && <p className="muted">{eg.tip}</p>}
+                <div className="row">
+                  {result === 'win' ? (
+                    <button className="btn primary" onClick={onNext} autoFocus>{copy.next}</button>
+                  ) : (
+                    <button className="btn primary" onClick={onRetry} autoFocus>{copy.retry}</button>
+                  )}
+                  <button className="btn ghost" onClick={onBack}>{copy.another}</button>
+                </div>
+              </BoardOverlay>
+            ) : null
+          }
+        />
         <aside className="card side">
           <p className="eyebrow">
             {copy.side(eg.side)} · {copy.goal[eg.goal](eg.maxMoves)}

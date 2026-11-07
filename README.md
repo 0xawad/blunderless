@@ -30,7 +30,7 @@ A local-first chess trainer for improving club players. It runs entirely in the 
 
   Finished games go straight to review.
 - **Stats.** Lines known, drill streak, puzzle accuracy, blunders per game, average accuracy, and the mistake you keep making.
-- **Feel.** Five board colour schemes, light/dark app theme, adjustable piece animation, and synthesized sound effects (move, capture, check, castle, promote, right/wrong, win/lose), all generated with Web Audio so nothing is downloaded.
+- **Feel.** Six piece sets (Chessnut default; see `public/pieces/LICENSES.md`), five board colour schemes, light/dark app theme, a promotion picker, premoves, result cards on the board, adjustable piece animation, and synthesized sound effects (move, capture, check, castle, promote, right/wrong, win/lose), all generated with Web Audio so nothing is downloaded.
 - **Offline.** It's an installable PWA. `src/sw.js` is emitted at build time with a per-build cache name, so each deploy drops the old cache. It caches the shell, assets, engine and puzzle packs.
 
 All jokes live in `src/copy.ts`.
