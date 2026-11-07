@@ -5,6 +5,8 @@ import { getSetting, setSetting } from '../srs/db';
 import { exportBackup, importBackup, resetAll } from '../srs/backup';
 import { applyTheme, readTheme, type Theme } from '../theme';
 import { useToast } from '../components/Toast';
+import { BOARD_THEMES, setPrefs, usePrefs } from '../prefs';
+import { play, unlockAudio } from '../sound';
 
 const THEMES: { value: Theme; label: string }[] = [
   { value: 'system', label: 'System' },
@@ -16,6 +18,7 @@ export function Settings() {
   const toast = useToast();
   const [name, setName] = useState('');
   const [theme, setTheme] = useState<Theme>(readTheme);
+  const prefs = usePrefs();
   const file = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -89,6 +92,52 @@ export function Settings() {
                 {t.label}
               </button>
             ))}
+          </div>
+        </div>
+        <div className="setting-row">
+          <div>
+            <strong>{copy.settings.board}</strong>
+            <div className="muted">{copy.settings.boardHint}</div>
+          </div>
+          <div className="board-themes" role="radiogroup" aria-label="Board colours">
+            {BOARD_THEMES.map((b) => (
+              <button
+                key={b.id}
+                role="radio"
+                aria-checked={prefs.boardTheme === b.id}
+                className={`board-theme ${prefs.boardTheme === b.id ? 'on' : ''}`}
+                onClick={() => setPrefs({ boardTheme: b.id })}
+              >
+                <span
+                  className="swatch"
+                  style={{ backgroundImage: `conic-gradient(${b.light} 25%, ${b.dark} 0 50%, ${b.light} 0 75%, ${b.dark} 0)` }}
+                />
+                <span>{b.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="setting-row">
+          <div>
+            <strong>{copy.settings.animation}</strong>
+            <div className="muted">{copy.settings.animationHint}</div>
+          </div>
+          <div className="segmented" style={{ margin: 0 }} role="radiogroup" aria-label="Piece animation">
+            {(['off', 'normal', 'slow'] as const).map((a) => (
+              <button key={a} role="radio" aria-checked={prefs.animation === a} className={prefs.animation === a ? 'on' : ''} onClick={() => setPrefs({ animation: a })}>
+                {copy.settings.animations[a]}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="setting-row">
+          <div>
+            <strong>{copy.settings.sound}</strong>
+            <div className="muted">{copy.settings.soundHint}</div>
+          </div>
+          <div className="segmented" style={{ margin: 0 }} role="radiogroup" aria-label="Sound">
+            <button role="radio" aria-checked={prefs.sound} className={prefs.sound ? 'on' : ''} onClick={() => { setPrefs({ sound: true }); unlockAudio(); play('move'); }}>On</button>
+            <button role="radio" aria-checked={!prefs.sound} className={!prefs.sound ? 'on' : ''} onClick={() => setPrefs({ sound: false })}>Off</button>
           </div>
         </div>
       </section>

@@ -6,7 +6,9 @@ import { copy } from './copy';
 import { applyTheme, readTheme, type Theme } from './theme';
 import { ToastProvider } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { BookIcon, GamesIcon, GearIcon, HomeIcon, MoonIcon, PlayIcon, PuzzleIcon, SunIcon } from './components/icons';
+import { BookIcon, GamesIcon, GearIcon, HomeIcon, MoonIcon, PlayIcon, PuzzleIcon, SoundOffIcon, SoundOnIcon, SunIcon } from './components/icons';
+import { setPrefs, usePrefs } from './prefs';
+import { play, unlockAudio } from './sound';
 import { Home } from './pages/Home';
 import { Welcome } from './pages/Welcome';
 import { Openings } from './pages/Openings';
@@ -46,6 +48,26 @@ function useDueCounts() {
 
 function Count({ n }: { n?: number }) {
   return n ? <span className="count">{n > 99 ? '99+' : n}</span> : null;
+}
+
+function SoundButton() {
+  const prefs = usePrefs();
+  return (
+    <button
+      className="iconbtn"
+      onClick={() => {
+        setPrefs({ sound: !prefs.sound });
+        if (!prefs.sound) {
+          unlockAudio();
+          play('move');
+        }
+      }}
+      aria-label={prefs.sound ? 'Mute sounds' : 'Unmute sounds'}
+      title={prefs.sound ? 'Sounds on' : 'Sounds off'}
+    >
+      {prefs.sound ? <SoundOnIcon /> : <SoundOffIcon />}
+    </button>
+  );
 }
 
 function ThemeButton() {
@@ -107,6 +129,7 @@ function Shell() {
             </nav>
           )}
           <div className="topbar-right">
+            <SoundButton />
             <ThemeButton />
             {onboarded && (
               <NavLink to="/settings" className="iconbtn" aria-label="Settings" title="Settings">

@@ -8,6 +8,7 @@ import { Board } from '../chess/Board';
 import { playUci } from '../chess/game';
 import { db, getSetting, recordPuzzle, savePuzzle, setSetting } from '../srs/db';
 import type { PuzzleRow } from '../srs/types';
+import { play as sfx } from '../sound';
 
 type Puzzle = Pick<PuzzleRow, 'id' | 'source' | 'fen' | 'moves' | 'theme' | 'rating'>;
 
@@ -195,6 +196,7 @@ function PuzzleRun({
 
   const finish = (solved: boolean) => {
     setState(solved ? 'solved' : 'failed');
+    sfx(solved ? 'correct' : 'wrong');
     setMsg(pick(solved ? copy.puzzles.solved : copy.puzzles.failed));
     onDone(solved);
   };

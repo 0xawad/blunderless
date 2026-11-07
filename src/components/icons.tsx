@@ -38,6 +38,12 @@ export const SunIcon = (p: SVGProps<SVGSVGElement>) => (
 export const MoonIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
 );
+export const SoundOnIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M4 10v4h4l5 4V6L8 10z" /><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11" /></svg>
+);
+export const SoundOffIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M4 10v4h4l5 4V6L8 10z" /><path d="M17 9l4 6M21 9l-4 6" /></svg>
+);
 export const TargetIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1" /></svg>
 );

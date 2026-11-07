@@ -8,6 +8,7 @@ import { Board } from '../chess/Board';
 import { getLine, getRepertoire, type Line } from '../repertoire';
 import { Drill } from '../srs/drill';
 import { db, dueLines, recordReview } from '../srs/db';
+import { play as sfx } from '../sound';
 
 type Feedback = { tone: 'good' | 'bad' | 'info'; text: string };
 const OPPONENT_DELAY = 450;
@@ -155,6 +156,7 @@ function DrillRun({
     if (result === 'correct') {
       setShapes([]);
       setFeedback({ tone: 'good', text: pick(copy.drill.correct) });
+      sfx('correct');
       afterMove();
       return;
     }
@@ -162,8 +164,10 @@ function DrillRun({
       const p = drill.current!;
       setShapes([{ orig: p.from as Key, dest: p.to as Key, brush: 'green' }]);
       setFeedback({ tone: 'bad', text: copy.drill.revealed });
+      sfx('wrong');
     } else {
       setFeedback({ tone: 'bad', text: pick(copy.drill.wrong) });
+      sfx('wrong');
     }
     tick();
   };

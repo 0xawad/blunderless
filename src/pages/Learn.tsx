@@ -8,6 +8,7 @@ import { Board } from '../chess/Board';
 import { formatPly, getRepertoire } from '../repertoire';
 import { addLine, db } from '../srs/db';
 import { useToast } from '../components/Toast';
+import { play as sfx } from '../sound';
 
 const THINK_KEY = 'learn-think-first';
 const readThink = () => {
@@ -103,6 +104,7 @@ export function Learn() {
     }
     const n = misses + 1;
     setMisses(n);
+    sfx('wrong');
     setQuizMsg({ tone: 'bad', text: n >= 2 ? copy.learn.reveal(pending.san) : pick(copy.learn.wrong) });
   };
 

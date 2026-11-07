@@ -24,12 +24,13 @@ A local-first chess trainer for improving club players. It runs entirely in the 
   - Every mistake from your analyzed games becomes a spaced-repetition puzzle.
   - Themed sets (forks, pins, mates, free pieces and more) come from the Lichess puzzle database, rated 500–1500, with an adaptive puzzle rating.
   - Themed puzzles you miss join your review queue.
-- **Play.** Play Stockfish at five levels, with two optional training aids:
+- **Play.** Play Stockfish at five levels, with hints (piece first, then the move), undo, a live coach that grades every move you play with the better move when there was one, and two optional training aids:
   - **Guard rails** warn you before you hang a piece, make a losing trade, or allow mate in one. No engine is involved; it's a static check.
   - **Checks/Captures/Threats** makes you tick all three before every move.
 
   Finished games go straight to review.
 - **Stats.** Lines known, drill streak, puzzle accuracy, blunders per game, average accuracy, and the mistake you keep making.
+- **Feel.** Five board colour schemes, light/dark app theme, adjustable piece animation, and synthesized sound effects (move, capture, check, castle, promote, right/wrong, win/lose), all generated with Web Audio so nothing is downloaded.
 - **Offline.** It's an installable PWA. `src/sw.js` is emitted at build time with a per-build cache name, so each deploy drops the old cache. It caches the shell, assets, engine and puzzle packs.
 
 All jokes live in `src/copy.ts`.
