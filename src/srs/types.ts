@@ -1,6 +1,6 @@
 import type { Card } from 'ts-fsrs';
 
-export type MoveClass = 'best' | 'good' | 'inaccuracy' | 'mistake' | 'blunder';
+export type MoveClass = 'book' | 'best' | 'good' | 'inaccuracy' | 'mistake' | 'blunder' | 'missed-win';
 
 export type BlunderKind =
   | 'hung-piece'
@@ -14,16 +14,34 @@ export interface MoveReview {
   cls: MoveClass;
   drop: number; // win% lost by the mover, 0-100
   best: string; // engine's best move here, UCI
+  pv?: string[]; // engine's main line from before the move (UCI), a few plies
   kind?: BlunderKind; // only for your mistakes and blunders
 }
 
+export interface KeyMoment {
+  ply: number; // index of the move
+  swing: number; // win% change from the mover's point of view (negative = they lost ground)
+  mine: boolean;
+}
+
+export interface PhaseStats {
+  accuracy: number;
+  moves: number;
+}
+
 export interface GameAnalysis {
+  version?: number; // 2 adds pv, phases, key moments, opening
   depth: number;
   evals: number[]; // per position, centipawns from White's POV (mates folded in)
   moves: MoveReview[]; // per ply
   accuracy: number; // your accuracy, 0-100
+  oppAccuracy?: number;
   blunders: number;
   mistakes: number;
+  phases?: { opening: PhaseStats; middlegame: PhaseStats; endgame: PhaseStats };
+  keyMoments?: KeyMoment[];
+  decidedAt?: number; // ply after which the eval never came back
+  opening?: { eco: string; name: string; ply: number };
   analyzedAt: Date;
 }
 

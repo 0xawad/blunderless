@@ -8,6 +8,8 @@ export class Drill {
   index = 0;
   mistakes = 0;
   hints = 0;
+  /** Plies where you went wrong or asked for a hint; feeds the weak-spots list. */
+  readonly failedPlies: number[] = [];
   private wrongHere = 0;
 
   constructor(
@@ -57,6 +59,7 @@ export class Drill {
     }
     this.mistakes++;
     this.wrongHere++;
+    this.markFailed();
     return 'wrong';
   }
 
@@ -64,7 +67,12 @@ export class Drill {
     if (!this.isUserTurn) return undefined;
     this.hints++;
     this.wrongHere = Math.max(this.wrongHere, 2);
+    this.markFailed();
     return this.current;
+  }
+
+  private markFailed() {
+    if (!this.failedPlies.includes(this.index)) this.failedPlies.push(this.index);
   }
 
   grade(): Grade {

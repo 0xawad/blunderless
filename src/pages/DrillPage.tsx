@@ -83,7 +83,7 @@ export function DrillPage() {
       line={queue[pos]}
       counter={`${pos + 1} / ${queue.length}${practice ? ' · practice' : ''}`}
       onFinish={async (d) => {
-        if (!practice) await recordReview(d.line.id, d.grade(), d.mistakes);
+        if (!practice) await recordReview(d.line.id, d.grade(), d.mistakes, d.failedPlies);
         setResults((r) => [...r, d.grade()]);
       }}
       onNext={() => setPos((p) => p + 1)}

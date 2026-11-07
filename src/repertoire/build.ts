@@ -1,5 +1,5 @@
 import { Chess } from 'chess.js';
-import { parsePgn, type PgnNode } from './pgn';
+import { parsePgn, type PgnNode, type PgnShape } from './pgn';
 
 export type Side = 'white' | 'black';
 
@@ -11,6 +11,8 @@ export interface Ply {
   fenBefore: string;
   fenAfter: string;
   comment?: string;
+  /** Arrows and highlights from [%cal] / [%csl] in the move's comment. */
+  shapes?: PgnShape[];
 }
 
 export interface Line {
@@ -26,6 +28,8 @@ export interface Chapter {
   id: string;
   title: string;
   intro?: string;
+  /** What to do once the line runs out, from the [Plans "..."] header. */
+  plans?: string;
   lines: Line[];
 }
 
@@ -84,6 +88,7 @@ function flatten(root: PgnNode, where: string): Ply[][] {
           fenBefore: m.before,
           fenAfter: m.after,
           comment: child.comment,
+          shapes: child.shapes,
         },
       ]);
     }
@@ -116,6 +121,7 @@ export function buildRepertoire(pgnText: string): Repertoire {
       id: chapterId,
       title,
       intro: g.root.comment,
+      plans: g.headers.Plans,
       lines: paths.map((plies) => ({
         id: `${id}:${plies.map((p) => p.san).join(' ')}`,
         repertoireId: id,

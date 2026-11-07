@@ -6,11 +6,20 @@ A local-first chess trainer for improving club players. It runs entirely in the 
 
 ## What it does
 
-- **Openings.** A small repertoire with the plans explained (130 lines). Learn each line move by move, then drill it with spaced repetition (FSRS) until you play it on autopilot. "Play it out" starts a game against Stockfish from the end of any line.
+- **Today's plan.** Four small daily targets on the home page (due lines, puzzles, review your last game, one endgame) with a streak. Consistency is what moves rating.
+- **Openings.** A small repertoire with the plans explained (130 lines, arrows and highlights on the key moves, a "what now" plan at the end of every chapter).
+  - **Think first:** each of your moves is hidden until you play it on the board; two misses reveal it. Opponent moves play themselves.
+  - Drill with spaced repetition (FSRS) until you play it on autopilot. Moves you keep forgetting are listed per opening as weak spots.
+  - Each opening shows your real results from imported games: games, score, how deep you stay in book, and who leaves book first.
+  - "Play it out" starts a game against Stockfish from the end of any line.
 - **Games.** Imports your last 3 months from Chess.com.
   - Every game gets a book report: where you left your prep, or where your opponent did. Lines you had already learned and then got wrong go back into your drill queue.
   - Stockfish 19 (lite WASM, multi-threaded when cross-origin isolated) reviews every move.
-  - Mistakes are classified with Lichess's win% thresholds and bucketed by cause: hung a piece, allowed mate, missed mate, walked into a fork, missed a tactic, walked into a tactic.
+  - **Review:** opening name (ECO, from the Lichess openings database), accuracy for both sides, per-phase accuracy, a clickable eval graph, key moments, and the game's "decided at" move.
+  - Every mistake gets a plain-language explanation built from the engine line: what your move allowed ("After Qxg5 you lose the knight") and what the better move does.
+  - **Retry** any mistake on the board; the engine grades your attempt. **Explore** any position: move pieces and the top three engine lines follow you.
+  - Mistakes are classified with Lichess's win% thresholds (plus "missed win" and "book") and bucketed by cause: hung a piece, allowed mate, missed mate, walked into a fork, missed a tactic, walked into a tactic.
+- **Endgames.** Thirteen must-know endings (mates, pawn endings, rook endings) played out against full-strength Stockfish from set positions, each with a one-line technique tip. Every position was checked with Stockfish.
 - **Puzzles.**
   - Every mistake from your analyzed games becomes a spaced-repetition puzzle.
   - Themed sets (forks, pins, mates, free pieces and more) come from the Lichess puzzle database, rated 500–1500, with an adaptive puzzle rating.

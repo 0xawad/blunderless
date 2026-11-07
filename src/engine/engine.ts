@@ -19,21 +19,42 @@ export interface SearchOptions {
   skill?: number;
 }
 
+export interface PvLine {
+  multipv: number;
+  score: Score; // side to move's POV
+  depth: number;
+  pv: string[];
+}
+
+export interface AnalysisHandle {
+  /** Stops the search; resolves once the engine has acknowledged. */
+  stop(): Promise<void>;
+}
+
 const MULTI = '/engine/stockfish-19-lite.js';
 const SINGLE = '/engine/stockfish-19-lite-single.js';
 const BOOT_TIMEOUT = 10_000;
 const SEARCH_TIMEOUT = 60_000;
 
-function parseInfo(line: string): Omit<SearchResult, 'bestmove'> | null {
+function parsePv(line: string): PvLine | null {
   const t = line.split(' ');
   if (t[0] !== 'info' || !t.includes('pv') || !t.includes('score')) return null;
   const mpv = t.indexOf('multipv');
-  if (mpv !== -1 && t[mpv + 1] !== '1') return null;
   const s = t.indexOf('score');
   const kind = t[s + 1];
   const val = Number(t[s + 2]);
   const score: Score = kind === 'mate' ? { mate: val } : { cp: val };
-  return { score, depth: Number(t[t.indexOf('depth') + 1]), pv: t.slice(t.indexOf('pv') + 1) };
+  return {
+    multipv: mpv === -1 ? 1 : Number(t[mpv + 1]),
+    score,
+    depth: Number(t[t.indexOf('depth') + 1]),
+    pv: t.slice(t.indexOf('pv') + 1),
+  };
+}
+
+function parseInfo(line: string): Omit<SearchResult, 'bestmove'> | null {
+  const l = parsePv(line);
+  return l && l.multipv === 1 ? { score: l.score, depth: l.depth, pv: l.pv } : null;
 }
 
 export class Engine {
@@ -143,6 +164,59 @@ export class Engine {
     const p = this.chain.then(run, run);
     this.chain = p.catch(() => undefined);
     return p;
+  }
+
+  /**
+   * Streams the top `multipv` lines for a position until stopped or `depth`
+   * is reached. Queued behind other searches like everything else.
+   */
+  analyse(fen: string, opts: { multipv?: number; depth?: number }, onLines: (lines: PvLine[]) => void): AnalysisHandle {
+    let stopRequested = false;
+    let sendStop: (() => void) | null = null;
+    const multipv = opts.multipv ?? 3;
+
+    const run = async () => {
+      await this.ready;
+      if (this.dead || stopRequested) return;
+      if (this.skill !== 20) {
+        this.send('setoption name Skill Level value 20');
+        this.skill = 20;
+      }
+      this.send(`setoption name MultiPV value ${multipv}`);
+      await new Promise<void>((resolve, reject) => {
+        const lines: PvLine[] = [];
+        let stopped = false;
+        this.failPending = (err) => reject(err);
+        this.listener = (line) => {
+          const l = parsePv(line);
+          if (l) {
+            lines[l.multipv - 1] = l;
+            if (!stopped) onLines(lines.filter(Boolean));
+          } else if (line.startsWith('bestmove')) {
+            this.failPending = null;
+            resolve();
+          }
+        };
+        sendStop = () => {
+          stopped = true;
+          this.send('stop');
+        };
+        this.send(`position fen ${fen}`);
+        this.send(`go depth ${opts.depth ?? 20}`);
+        if (stopRequested) sendStop();
+      });
+      this.send('setoption name MultiPV value 1');
+    };
+
+    const p = this.chain.then(run, run);
+    this.chain = p.catch(() => undefined);
+    return {
+      stop: () => {
+        stopRequested = true;
+        sendStop?.();
+        return p.catch(() => undefined);
+      },
+    };
   }
 
   terminate() {

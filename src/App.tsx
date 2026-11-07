@@ -21,6 +21,7 @@ const GameReview = lazy(() => import('./pages/GameReview').then((m) => ({ defaul
 const Puzzles = lazy(() => import('./pages/Puzzles').then((m) => ({ default: m.Puzzles })));
 const Play = lazy(() => import('./pages/Play').then((m) => ({ default: m.Play })));
 const Stats = lazy(() => import('./pages/Stats').then((m) => ({ default: m.Stats })));
+const Endgames = lazy(() => import('./pages/Endgames').then((m) => ({ default: m.Endgames })));
 
 function Skeleton() {
   return (
@@ -101,6 +102,7 @@ function Shell() {
                   <Count n={l.count} />
                 </NavLink>
               ))}
+              <NavLink to="/endgames">Endgames</NavLink>
               <NavLink to="/stats">Stats</NavLink>
             </nav>
           )}
@@ -132,6 +134,7 @@ function Shell() {
               <Route path="/puzzles" element={<Puzzles />} />
               <Route path="/play" element={<Play />} />
               <Route path="/stats" element={<Stats />} />
+              <Route path="/endgames" element={<Endgames />} />
               <Route path="*" element={<p className="empty">{copy.notFound}</p>} />
             </Routes>
           </div>

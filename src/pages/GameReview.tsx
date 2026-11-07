@@ -1,18 +1,29 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { Chess } from 'chess.js';
 import type { DrawShape } from 'chessground/draw';
 import type { Key } from 'chessground/types';
-import { copy } from '../copy';
+import { copy, pick } from '../copy';
 import { Board } from '../chess/Board';
-import { parseGamePgn, uciToSan } from '../chess/game';
+import { parseGamePgn, playUci, uciToSan, type GamePly } from '../chess/game';
 import { START_FEN, formatPly, getLine, getRepertoire } from '../repertoire';
 import { db } from '../srs/db';
+import type { GameAnalysis, MoveReview } from '../srs/types';
 import { analyzeStoredGame } from '../games/store';
+import { ANALYSIS_VERSION } from '../games/analyze';
+import { explainMove, playLine } from '../games/explain';
+import { getEngine, scoreToCp, winPct, type PvLine } from '../engine/engine';
+import { EvalGraph } from '../components/EvalGraph';
 import { BookChip } from './Games';
 import { useToast } from '../components/Toast';
 
-const MARK: Record<string, string> = { blunder: '??', mistake: '?', inaccuracy: '?!' };
+const MARK: Record<string, string> = { blunder: '??', 'missed-win': '??', mistake: '?', inaccuracy: '?!', best: '!', book: '' };
+type Tab = 'summary' | 'moves' | 'engine';
+type Retry = { result?: 'best' | 'good' | 'bad'; text?: string; pv?: string[] } | null;
+
+const moveNo = (ply: number) => Math.floor(ply / 2) + 1;
+const fmtCp = (cp: number) => (Math.abs(cp) >= 9000 ? (cp > 0 ? '+M' : '-M') : `${cp > 0 ? '+' : ''}${(cp / 100).toFixed(1)}`);
 
 export function GameReview() {
   const { id = '' } = useParams();
@@ -25,40 +36,82 @@ export function GameReview() {
       return null; // chess.js rejected the PGN; show the game header, not a white screen
     }
   }, [game?.pgn]);
+
   const [ply, setPly] = useState(0);
+  const [variation, setVariation] = useState<GamePly[]>([]);
+  const [tab, setTab] = useState<Tab>('summary');
+  const [retry, setRetry] = useState<Retry>(null);
+  const [lines, setLines] = useState<PvLine[]>([]);
   const [progress, setProgress] = useState<number | null>(null);
 
+  const go = useCallback((p: number) => {
+    setVariation([]);
+    setRetry(null);
+    setPly(p);
+  }, []);
+
   useEffect(() => {
+    const n = plies?.length ?? 0;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight') setPly((p) => Math.min(plies?.length ?? 0, p + 1));
-      if (e.key === 'ArrowLeft') setPly((p) => Math.max(0, p - 1));
+      if (e.key === 'ArrowRight') go(Math.min(n, ply + 1));
+      if (e.key === 'ArrowLeft') variation.length ? setVariation((v) => v.slice(0, -1)) : go(Math.max(0, ply - 1));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [plies?.length]);
+  }, [plies?.length, ply, variation.length, go]);
+
+  const a = game?.analysis;
+  const mine = game?.userColor === 'white' ? 'w' : 'b';
+  const last = plies?.[ply - 1];
+  const mainFen = last?.fenAfter ?? plies?.[0]?.fenBefore ?? START_FEN;
+  const varLast = variation[variation.length - 1];
+  const fen = varLast?.fenAfter ?? mainFen;
+  const exploring = variation.length > 0;
+
+  // Live engine lines for whatever is on the board, when the Engine tab is open or you're exploring.
+  const wantEngine = (tab === 'engine' || exploring) && !!plies && !retry;
+  useEffect(() => {
+    if (!wantEngine) {
+      setLines([]);
+      return;
+    }
+    if (new Chess(fen).isGameOver()) {
+      setLines([]);
+      return;
+    }
+    let alive = true;
+    const h = getEngine().analyse(fen, { multipv: 3, depth: 18 }, (ls) => alive && setLines([...ls]));
+    return () => {
+      alive = false;
+      h.stop();
+    };
+  }, [fen, wantEngine]);
 
   if (game === undefined) return null;
   if (!game) return <p className="empty">{copy.notFound}</p>;
   if (!plies) return <p className="empty">{copy.games.badPgn}</p>;
 
-  const a = game.analysis;
-  const mine = game.userColor === 'white' ? 'w' : 'b';
-  const last = plies[ply - 1];
-  const fen = last?.fenAfter ?? plies[0]?.fenBefore ?? START_FEN;
-  const review = ply > 0 ? a?.moves[ply - 1] : undefined;
+  const review = ply > 0 && !exploring ? a?.moves[ply - 1] : undefined;
   const nextReview = a?.moves[ply];
+  const retryable = !exploring && !!nextReview?.kind && plies[ply]?.color === mine;
+
   const shapes: DrawShape[] = [];
-  if (nextReview?.best && plies[ply]?.color === mine && nextReview.kind) {
+  if (!exploring && !retry && nextReview?.best && plies[ply]?.color === mine && nextReview.kind) {
     shapes.push({ orig: nextReview.best.slice(0, 2) as Key, dest: nextReview.best.slice(2, 4) as Key, brush: 'green' });
   }
+  if (retry?.pv?.[0]) shapes.push({ orig: retry.pv[0].slice(0, 2) as Key, dest: retry.pv[0].slice(2, 4) as Key, brush: 'green' });
+  if ((tab === 'engine' || exploring) && lines[0]?.pv[0] && !retry) {
+    shapes.push({ orig: lines[0].pv[0].slice(0, 2) as Key, dest: lines[0].pv[0].slice(2, 4) as Key, brush: 'blue' });
+  }
 
-  const evalCp = a ? a.evals[ply] : undefined;
-  const evalText =
-    evalCp === undefined ? '' : Math.abs(evalCp) >= 9000 ? (evalCp > 0 ? '+M' : '-M') : (evalCp / 100).toFixed(1);
-  const bookLine = game.book?.lineId ? getLine(game.book.lineId) : undefined;
-  const bookRep = bookLine ? getRepertoire(bookLine.repertoireId) : undefined;
-  const mistakes = a ? plies.map((p, i) => ({ p, i, r: a.moves[i] })).filter((x) => x.r.kind) : [];
-  const b = game.book;
+  const evalCp = exploring
+    ? lines[0]
+      ? (new Chess(fen).turn() === 'w' ? 1 : -1) * scoreToCp(lines[0].score)
+      : undefined
+    : a?.evals[ply];
+  const evalText = evalCp === undefined ? '' : fmtCp(evalCp);
+  const evalHeight = `${50 + Math.max(-48, Math.min(48, (evalCp ?? 0) / 20))}%`;
+  const lastMove: [string, string] | undefined = varLast ? [varLast.from, varLast.to] : last ? [last.from, last.to] : undefined;
 
   const run = async () => {
     setProgress(0);
@@ -71,91 +124,194 @@ export function GameReview() {
       setProgress(null);
     }
   };
-  const evalHeight = `${50 + Math.max(-48, Math.min(48, (evalCp ?? 0) / 20))}%`;
+
+  /** Any move on the board: a retry attempt, or an exploration branch. */
+  const onMove = async (from: string, to: string) => {
+    const c = new Chess(fen);
+    const m = playUci(c, from + to);
+    if (!m) return;
+    const uci = from + to + (m.promotion ?? '');
+    if (retry && !retry.result) {
+      const r = nextReview!;
+      const before = winPct((mine === 'w' ? 1 : -1) * a!.evals[ply]);
+      if (uci === r.best) {
+        setRetry({ result: 'best', text: pick(copy.review.retryBest), pv: r.pv });
+        return;
+      }
+      setRetry({ text: copy.review.engineWaiting });
+      try {
+        const res = await getEngine().search(c.fen(), { depth: 10 });
+        const after = winPct((mine === 'w' ? 1 : -1) * (c.turn() === 'w' ? 1 : -1) * scoreToCp(res.score));
+        const drop = before - after;
+        const bestSan = uciToSan(plies[ply].fenBefore, r.best);
+        setRetry(drop < 8 ? { result: 'good', text: copy.review.retryGood, pv: r.pv } : { result: 'bad', text: copy.review.retryBad(bestSan), pv: r.pv });
+      } catch {
+        setRetry(null);
+        toast(copy.engine.failed, 'bad');
+      }
+      return;
+    }
+    setVariation((v) => [
+      ...v,
+      { san: m.san, uci, from: m.from, to: m.to, color: m.color, captured: m.captured, fenBefore: m.before, fenAfter: m.after },
+    ]);
+  };
+
+  const bookLine = game.book?.lineId ? getLine(game.book.lineId) : undefined;
+  const bookRep = bookLine ? getRepertoire(bookLine.repertoireId) : undefined;
+  const b = game.book;
+  const explanation =
+    review && last && a ? explainMove(last, review, a.moves[ply]?.pv ?? [], uciToSan(last.fenBefore, review.best)) : '';
+  const stale = a && (a.version ?? 1) < ANALYSIS_VERSION;
 
   return (
     <>
       <Link to="/games" className="back">← Games</Link>
-      <div className="play">
-        <div className="board-col">
-          {a && (
-            <div className="evalbar-v" aria-label={`Evaluation ${evalText}`} style={game.userColor === 'black' ? { transform: 'scaleY(-1)' } : undefined}>
-              <span style={{ height: evalHeight }} />
-              <b className={evalCp !== undefined && evalCp >= 0 ? 'bottom' : 'top'} style={game.userColor === 'black' ? { transform: 'scaleY(-1)' } : undefined}>
-                {evalText.replace('-', '')}
-              </b>
-            </div>
-          )}
-          <Board fen={fen} orientation={game.userColor} lastMove={last && [last.from, last.to]} shapes={shapes} />
+      <div className="play review">
+        <div>
+          <div className="board-col">
+            {a && (
+              <div className="evalbar-v" aria-label={`Evaluation ${evalText}`} style={game.userColor === 'black' ? { transform: 'scaleY(-1)' } : undefined}>
+                <span style={{ height: evalHeight }} />
+                <b className={evalCp !== undefined && evalCp >= 0 ? 'bottom' : 'top'} style={game.userColor === 'black' ? { transform: 'scaleY(-1)' } : undefined}>
+                  {evalText.replace('-', '')}
+                </b>
+              </div>
+            )}
+            <Board fen={fen} orientation={game.userColor} lastMove={lastMove} shapes={shapes} interactive={!retry?.result} onMove={onMove} />
+          </div>
+          {a && <EvalGraph evals={a.evals} moves={a.moves} userColor={game.userColor} ply={ply} onSelect={go} />}
+          <div className="row stepper under-board">
+            <button className="btn ghost" onClick={() => go(0)} aria-label="Start">⏮</button>
+            <button className="btn ghost" onClick={() => (exploring ? setVariation((v) => v.slice(0, -1)) : go(Math.max(0, ply - 1)))} aria-label="Back">◀</button>
+            <button className="btn ghost" onClick={() => go(Math.min(plies.length, ply + 1))} aria-label="Forward" disabled={exploring}>▶</button>
+            <button className="btn ghost" onClick={() => go(plies.length)} aria-label="End">⏭</button>
+            {exploring && (
+              <button className="btn small" onClick={() => setVariation([])}>{copy.review.backToGame}</button>
+            )}
+            <span className="hint" style={{ margin: 0 }}>{exploring ? '' : copy.review.exploreHint}</span>
+          </div>
         </div>
+
         <aside className="card side">
           <p className="eyebrow">
             {game.white} vs {game.black} · {game.result}
+            {a?.opening && <> · {a.opening.eco}</>}
           </p>
-          {b && (
-            <div className="comment">
-              <BookChip game={game} />{' '}
-              {b.status === 'you-deviated'
-                ? copy.book['you-deviated'](Math.floor(b.ply / 2) + 1, b.played!, b.expected!)
-                : b.status === 'they-deviated'
-                  ? copy.book['they-deviated'](Math.floor(b.ply / 2) + 1, b.played!)
-                  : copy.book['end-of-prep'](Math.floor(b.ply / 2) + 1)}
-              {bookLine && bookRep && (
-                <>
-                  {' '}
-                  <Link to={`/learn/${bookRep.id}/${bookRep.lines.indexOf(bookLine)}`}>Review the line →</Link>
-                </>
-              )}
-            </div>
-          )}
+          {a?.opening && <h2 className="opening-name">{a.opening.name}</h2>}
 
           {!a && (
-            <div className="row">
+            <div className="row" style={{ marginBottom: '0.8rem' }}>
               <button className="btn primary" onClick={run} disabled={progress !== null}>
                 {progress === null ? copy.games.analyze : copy.games.analyzing(Math.round(progress * 100))}
               </button>
             </div>
           )}
-
-          {review?.kind && (
-            <div className="feedback bad">
-              {copy.kinds[review.kind].label}. {copy.kinds[review.kind].roast} Best was{' '}
-              {uciToSan(plies[ply - 1].fenBefore, review.best)}.
+          {stale && (
+            <div className="feedback info">
+              {copy.review.oldAnalysis}
+              <div className="row">
+                <button className="btn small" onClick={run} disabled={progress !== null}>
+                  {progress === null ? copy.review.reanalyze : copy.games.analyzing(Math.round(progress * 100))}
+                </button>
+              </div>
             </div>
           )}
 
-          {mistakes.length > 0 && (
-            <ul className="mistakes">
-              {mistakes.map(({ p, i, r }) => (
-                <li key={i}>
-                  <button className="mv" onClick={() => setPly(i)}>
-                    <strong>{formatPly(i, p.san)}{MARK[r.cls]}</strong> {copy.kinds[r.kind!].label}
-                  </button>
-                </li>
-              ))}
-            </ul>
+          {exploring && (
+            <div className="feedback info">
+              <strong>{copy.review.variation}:</strong> {variation.map((v, i) => (v.color === 'w' || i === 0 ? formatPly(ply + i, v.san) : v.san)).join(' ')}
+            </div>
           )}
 
-          <ol className="movelist">
-            {plies.map((p, i) => {
-              const cls = a?.moves[i]?.cls;
-              return (
-                <li key={i}>
-                  <button className={`mv ${i === ply - 1 ? 'on' : ''} ${p.color === mine && cls ? cls : ''}`} onClick={() => setPly(i + 1)}>
-                    {i % 2 === 0 ? formatPly(i, p.san) : p.san}
-                    {p.color === mine && cls && MARK[cls]}
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-          <div className="row stepper">
-            <button className="btn ghost" onClick={() => setPly(0)} aria-label="Start">⏮</button>
-            <button className="btn ghost" onClick={() => setPly((x) => Math.max(0, x - 1))} aria-label="Back">◀</button>
-            <button className="btn ghost" onClick={() => setPly((x) => Math.min(plies.length, x + 1))} aria-label="Forward">▶</button>
-            <button className="btn ghost" onClick={() => setPly(plies.length)} aria-label="End">⏭</button>
-          </div>
-          {a && <p className="hint">Accuracy {a.accuracy}% · depth {a.depth} · green arrow = what you should've played</p>}
+          {retry && (
+            <div className={`feedback ${retry.result === 'best' ? 'good' : retry.result === 'bad' ? 'bad' : 'info'}`} role="status">
+              <div>
+                {retry.text ?? copy.review.retrying}
+                {retry.result && retry.pv?.length ? (
+                  <div className="muted small" style={{ marginTop: '0.3rem' }}>{playLine(plies[ply].fenBefore, retry.pv).sans.join(' ')}</div>
+                ) : null}
+                <div className="row">
+                  {retry.result && retry.result !== 'best' && (
+                    <button className="btn small" onClick={() => setRetry({})}>Try again</button>
+                  )}
+                  <button className="btn small ghost" onClick={() => setRetry(null)}>{copy.review.retryCancel}</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {retryable && !retry && (
+            <button className="btn primary" style={{ marginBottom: '0.7rem' }} onClick={() => setRetry({})}>
+              {copy.review.retry}
+            </button>
+          )}
+
+          {a && !retry && !exploring && (
+            <div className="tabs compact" role="tablist">
+              {(['summary', 'moves', 'engine'] as Tab[]).map((t) => (
+                <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
+                  {copy.review.tabs[t]}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {a && tab === 'summary' && !exploring && !retry && (
+            <Summary a={a} plies={plies} userColor={game.userColor} onJump={go} />
+          )}
+
+          {(tab === 'moves' || !a || exploring || retry) && (
+            <>
+              {b && !exploring && (
+                <div className="comment">
+                  <BookChip game={game} />{' '}
+                  {b.status === 'you-deviated'
+                    ? copy.book['you-deviated'](moveNo(b.ply), b.played!, b.expected!)
+                    : b.status === 'they-deviated'
+                      ? copy.book['they-deviated'](moveNo(b.ply), b.played!)
+                      : copy.book['end-of-prep'](moveNo(b.ply))}
+                  {bookLine && bookRep && (
+                    <>
+                      {' '}
+                      <Link to={`/learn/${bookRep.id}/${bookRep.lines.indexOf(bookLine)}`}>Review the line →</Link>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {review && last && review.cls !== 'book' && review.cls !== 'best' && review.cls !== 'good' && (
+                <div className={`feedback ${review.kind ? 'bad' : 'info'}`}>
+                  <div>
+                    <strong>{formatPly(ply - 1, last.san)}{MARK[review.cls]} · {copy.review.classes[review.cls]}</strong>
+                    {review.kind && <> · {copy.kinds[review.kind].roast}</>}
+                    {explanation && <div style={{ marginTop: '0.3rem', fontWeight: 500 }}>{explanation}</div>}
+                  </div>
+                </div>
+              )}
+
+              {!exploring && (
+                <ol className="movelist">
+                  {plies.map((p, i) => {
+                    const cls = a?.moves[i]?.cls;
+                    return (
+                      <li key={i}>
+                        <button className={`mv ${i === ply - 1 ? 'on' : ''} ${cls ?? ''}`} onClick={() => go(i + 1)}>
+                          {i % 2 === 0 ? formatPly(i, p.san) : p.san}
+                          {cls && MARK[cls]}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </>
+          )}
+
+          {a && (tab === 'engine' || exploring) && !retry && (
+            <EngineLines fen={fen} lines={lines} onPlay={(uci) => onMove(uci.slice(0, 2), uci.slice(2, 4))} />
+          )}
+
           {game.url && (
             <p className="hint">
               <a href={game.url} target="_blank" rel="noopener noreferrer">Open on Chess.com ↗</a>
@@ -164,5 +320,119 @@ export function GameReview() {
         </aside>
       </div>
     </>
+  );
+}
+
+function Summary({
+  a,
+  plies,
+  userColor,
+  onJump,
+}: {
+  a: GameAnalysis;
+  plies: GamePly[];
+  userColor: 'white' | 'black';
+  onJump: (ply: number) => void;
+}) {
+  const mine = userColor === 'white' ? 'w' : 'b';
+  const kinds = new Map<string, number>();
+  for (const m of a.moves) if (m.kind) kinds.set(m.kind, (kinds.get(m.kind) ?? 0) + 1);
+  const lessons = [...kinds.entries()].sort((x, y) => y[1] - x[1]).slice(0, 2);
+  const counts = (cls: MoveReview['cls'], who: 'w' | 'b') => a.moves.filter((m, i) => m.cls === cls && plies[i].color === who).length;
+  const rows: MoveReview['cls'][] = ['best', 'good', 'inaccuracy', 'mistake', 'blunder', 'missed-win'];
+
+  return (
+    <div className="summary">
+      <div className="acc-compare">
+        <div>
+          <span className="muted small">{copy.review.you}</span>
+          <strong>{a.accuracy}%</strong>
+        </div>
+        <div className="acc-track"><span style={{ width: `${a.accuracy}%` }} /></div>
+        <div>
+          <span className="muted small">{copy.review.opp}</span>
+          <strong>{a.oppAccuracy ?? '–'}%</strong>
+        </div>
+        <div className="acc-track opp"><span style={{ width: `${a.oppAccuracy ?? 0}%` }} /></div>
+      </div>
+
+      <table className="cls-table">
+        <tbody>
+          {rows.map((cls) => (
+            <tr key={cls}>
+              <td>{counts(cls, mine)}</td>
+              <td className={`cls-${cls}`}>{copy.review.classes[cls]}</td>
+              <td>{counts(cls, mine === 'w' ? 'b' : 'w')}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {a.phases && (
+        <div className="phases">
+          {(['opening', 'middlegame', 'endgame'] as const).map((ph) => (
+            <div key={ph} className="phase">
+              <span className="muted small">{copy.review.phases[ph]}</span>
+              <strong>{a.phases![ph].moves ? `${a.phases![ph].accuracy}%` : '–'}</strong>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <h3>{copy.review.keyMoments}</h3>
+      {a.keyMoments?.length ? (
+        <ul className="moments">
+          {a.keyMoments.map((k) => {
+            const p = plies[k.ply];
+            return (
+              <li key={k.ply}>
+                <button className="mv" onClick={() => onJump(k.ply)}>
+                  <strong>{formatPly(k.ply, p.san)}</strong>
+                  <span className={k.swing < 0 ? 'bad-text' : 'good-text'}> {k.swing > 0 ? '+' : ''}{k.swing}%</span>
+                  <span className="muted small"> · {k.mine ? copy.review.you : copy.review.opp}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="muted small">{copy.review.noMoments}</p>
+      )}
+      {a.decidedAt !== undefined && <p className="muted small">{copy.review.decided(moveNo(a.decidedAt))}</p>}
+
+      <h3>{copy.review.lessons}</h3>
+      {lessons.length ? (
+        <ul className="lessons">
+          {lessons.map(([k, n]) => (
+            <li key={k}>
+              <strong>{copy.kinds[k].label}</strong> ×{n}. {copy.kinds[k].roast}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="muted small">{copy.review.lessonNone}</p>
+      )}
+    </div>
+  );
+}
+
+function EngineLines({ fen, lines, onPlay }: { fen: string; lines: PvLine[]; onPlay: (uci: string) => void }) {
+  const turn = new Chess(fen).turn();
+  const ref = useRef<HTMLDivElement>(null);
+  if (!lines.length) return <p className="muted small">{copy.review.engineWaiting}</p>;
+  return (
+    <div className="engine-lines" ref={ref}>
+      {lines.map((l) => {
+        const cp = (turn === 'w' ? 1 : -1) * scoreToCp(l.score);
+        const { sans } = playLine(fen, l.pv.slice(0, 8));
+        return (
+          <button key={l.multipv} className="engine-line" onClick={() => onPlay(l.pv[0])}>
+            <b className={cp >= 0 ? 'w' : 'b'}>{l.score.mate !== undefined ? `M${Math.abs(l.score.mate)}` : fmtCp(cp)}</b>
+            <span>{sans.join(' ')}</span>
+            <span className="muted small">d{l.depth}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }

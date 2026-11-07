@@ -5,6 +5,7 @@ import { db, makeLineDue, savePuzzle } from '../srs/db';
 import type { GameRow } from '../srs/types';
 import { analyzeGame } from './analyze';
 import { bookReport } from './book';
+import { loadOpenings } from './openings';
 
 export function withBook(row: GameRow): GameRow {
   try {
@@ -42,7 +43,8 @@ export async function analyzeStoredGame(id: string, onProgress?: (p: number) => 
   const g = await db.games.get(id);
   if (!g) return 0;
   const plies = parseGamePgn(g.pgn);
-  const analysis = await analyzeGame(plies, g.userColor, onProgress);
+  const openings = await loadOpenings().catch(() => undefined); // names are a nice-to-have
+  const analysis = await analyzeGame(plies, g.userColor, onProgress, openings);
   await db.games.update(id, { analysis });
 
   let made = 0;

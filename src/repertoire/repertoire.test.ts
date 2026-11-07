@@ -15,6 +15,36 @@ describe('pgn parser', () => {
     expect(e4.children[0].children[0].san).toBe('Nf3');
   });
 
+  it('reads [%cal] arrows and [%csl] highlights out of comments', () => {
+    const root = parseMovetext(
+      '1. e4 {Grab the center. [%cal Ge2e4,Rd7d5] Watch d5. [%csl Yd5]} e5 {[%csl Rf7,Bg4]} *',
+    );
+    const e4 = root.children[0];
+    expect(e4.comment).toBe('Grab the center. Watch d5.');
+    expect(e4.shapes).toEqual([
+      { orig: 'e2', dest: 'e4', brush: 'green' },
+      { orig: 'd7', dest: 'd5', brush: 'red' },
+      { orig: 'd5', brush: 'yellow' },
+    ]);
+    const e5 = e4.children[0];
+    expect(e5.comment).toBeUndefined();
+    expect(e5.shapes).toEqual([
+      { orig: 'f7', brush: 'red' },
+      { orig: 'g4', brush: 'blue' },
+    ]);
+  });
+
+  it('carries shapes onto plies and Plans onto chapters', () => {
+    const pgn =
+      '[Repertoire "x"]\n[Side "white"]\n[Chapter "C"]\n[Plans "Castle and push d4."]\n\n1. e4 {[%cal Ge2e4]} e5 *';
+    const rep = buildRepertoire(pgn);
+    expect(rep.chapters[0].plans).toBe('Castle and push d4.');
+    const [e4, e5] = rep.lines[0].plies;
+    expect(e4.comment).toBeUndefined();
+    expect(e4.shapes).toEqual([{ orig: 'e2', dest: 'e4', brush: 'green' }]);
+    expect(e5.shapes).toBeUndefined();
+  });
+
   it('rejects unbalanced variations', () => {
     expect(() => parseMovetext('1. e4 ( 1. d4')).toThrow();
     expect(() => parseMovetext('1. e4 )')).toThrow();

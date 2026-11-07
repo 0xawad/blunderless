@@ -463,3 +463,70 @@ cg-board square.check { background: radial-gradient(ellipse at center, rgb(255 6
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- game review 2.0 ---------- */
+.evalgraph { margin-top: 0.6rem; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
+.evalgraph svg { display: block; width: 100%; height: 90px; }
+.eg-bg { fill: var(--surface); }
+.eg-area.good { fill: var(--good); opacity: 0.28; }
+.eg-area.bad { fill: var(--bad); opacity: 0.22; }
+.eg-mid { stroke: var(--line-strong); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.eg-line { fill: none; stroke: var(--text); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.eg-cursor { stroke: var(--accent); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.eg-mark { stroke: var(--surface); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.under-board { margin-top: 0.6rem; }
+.tabs.compact { margin-bottom: 0.7rem; }
+.tabs.compact button { height: 30px; padding: 0 0.7rem; font-size: 0.82rem; }
+.opening-name { font-size: 1.05rem; margin-bottom: 0.7rem; }
+.summary h3 { margin: 1rem 0 0.4rem; font-size: 0.95rem; }
+.acc-compare { display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 0.8rem; align-items: center; margin-bottom: 0.8rem; }
+.acc-compare > div:not(.acc-track) { display: flex; flex-direction: column; line-height: 1.1; }
+.acc-compare strong { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.acc-track { height: 8px; background: var(--surface-2); border-radius: 99px; overflow: hidden; }
+.acc-track span { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+.acc-track.opp span { background: var(--muted); }
+.cls-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-bottom: 0.6rem; }
+.cls-table td { padding: 0.15rem 0.3rem; font-variant-numeric: tabular-nums; }
+.cls-table td:first-child { text-align: right; width: 2.5rem; font-weight: 600; }
+.cls-table td:nth-child(2) { text-align: center; color: var(--text-2); }
+.cls-table td:last-child { text-align: left; width: 2.5rem; font-weight: 600; color: var(--muted); }
+.cls-best { color: var(--good); } .cls-blunder, .cls-missed-win { color: var(--bad); } .cls-mistake { color: var(--warn); } .cls-inaccuracy { color: var(--brand); }
+.phases { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+.phase { background: var(--surface-2); border-radius: var(--radius-sm); padding: 0.5rem 0.7rem; display: flex; flex-direction: column; line-height: 1.15; }
+.phase strong { font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+.moments, .lessons { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.25rem; }
+.moments .mv { width: 100%; text-align: left; }
+.lessons li { font-size: 0.9rem; background: var(--surface-2); padding: 0.5rem 0.7rem; border-radius: var(--radius-sm); }
+.good-text { color: var(--good); font-weight: 600; } .bad-text { color: var(--bad); font-weight: 600; }
+.mv.good { color: var(--text-2); } .mv.best { color: var(--good); } .mv.book { color: var(--muted); } .mv.missed-win { color: var(--bad); font-weight: 700; }
+.mv.on.best, .mv.on.good, .mv.on.book { color: var(--accent-ink); }
+.engine-lines { display: grid; gap: 0.3rem; }
+.engine-line {
+  display: grid; grid-template-columns: 3.2rem 1fr auto; gap: 0.5rem; align-items: center; text-align: left;
+  border: 1px solid var(--line); background: var(--surface-2); border-radius: var(--radius-sm); padding: 0.45rem 0.6rem;
+  cursor: pointer; font-size: 0.86rem; font-variant-numeric: tabular-nums;
+}
+.engine-line:hover { border-color: var(--line-strong); }
+.engine-line b { padding: 0.1rem 0.35rem; border-radius: 6px; text-align: center; font-size: 0.8rem; }
+.engine-line b.w { background: #eef0f5; color: #1b2033; } .engine-line b.b { background: #1f2330; color: #eef0f5; }
+.engine-line > span:first-of-type { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- repertoire page + today ---------- */
+.rep-panels { display: grid; gap: 0.9rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-bottom: 1rem; }
+.rep-panel { margin: 0; }
+.rep-nums { display: flex; gap: 1.4rem; margin: 0.3rem 0 0.4rem; }
+.rep-nums div { display: flex; flex-direction: column; line-height: 1.1; }
+.rep-nums strong { font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+.spots { list-style: none; padding: 0; margin: 0.3rem 0 0; display: grid; gap: 0.3rem; }
+.spots a { display: flex; align-items: center; gap: 0.4rem; text-decoration: none; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); background: var(--surface-2); font-size: 0.9rem; }
+.spots a:hover { background: var(--surface-3); }
+.spots .badge { margin-left: auto; }
+.today h2 { margin-bottom: 0.1rem; }
+.tasks { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.4rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.tasks a { display: flex; align-items: center; gap: 0.7rem; text-decoration: none; padding: 0.55rem 0.7rem; border-radius: var(--radius-sm); background: var(--surface-2); font-weight: 600; font-size: 0.92rem; }
+.tasks a:hover { background: var(--surface-3); }
+.tasks .action-icon { width: 34px; height: 34px; font-size: 1.05rem; border-radius: 9px; }
+.tasks li.done a { color: var(--muted); text-decoration: line-through; font-weight: 500; }
+.tasks li.done .action-icon { background: var(--good-soft); color: var(--good); }
+.mv.hidden-mv { color: var(--muted); opacity: 0.6; cursor: default; }
+.review .board-wrap { width: min(100%, calc(100dvh - var(--header) - var(--tabbar) - 200px)); }

@@ -3,52 +3,57 @@
 [Title "1.e4: everything else"]
 [Tagline "Black didn't play 1...e5. Rude. Here's what you do."]
 [Chapter "Sicilian: Alapin (2.c3)"]
+[Plans "You own an isolated pawn on d4: weak in an endgame, a weapon in the middlegame. So keep pieces on: rook to e1, bishop to d3 aiming at h7, a knight on e5, and look for d4-d5 when Black's pieces are lined up in front of it. Trading queens is Black's dream, not yours."]
 
 {The Sicilian's main lines are a library of theory. 2.c3 skips all of it: you prepare d4 and grab the center with pawns.}
-1. e4 c5 2. c3 {Prepares d4. Black can't stop it.} d5 {The most popular reply. Black hits the center first.}
-( 2... Nf6 3. e5 {Kick the knight.} Nd5 4. d4 cxd4 5. Nf3 Nc6 6. cxd4 d6 7. Bc4 Nb6 8. Bb5 {Space, development, and Black's knights on awkward squares.} )
-( 2... e6 3. d4 d5 4. exd5 exd5 5. Nf3 Nc6 6. Bb5 Bd6 7. dxc5 Bxc5 8. O-O {Black has an isolated pawn on d5. Blockade it, attack it, win it.} )
+1. e4 c5 2. c3 {Prepares d4. Black can't stop it. [%cal Gd2d4]} d5 {The most popular reply. Black hits the center first.}
+( 2... Nf6 3. e5 {Kick the knight. [%cal Ge5f6]} Nd5 4. d4 cxd4 5. Nf3 Nc6 6. cxd4 d6 7. Bc4 Nb6 8. Bb5 {Space, development, and Black's knights on awkward squares.} )
+( 2... e6 3. d4 d5 4. exd5 exd5 5. Nf3 Nc6 6. Bb5 Bd6 7. dxc5 Bxc5 8. O-O {Black has an isolated pawn on d5. Blockade it, attack it, win it. [%csl Rd5,Gd4]} )
 ( 2... d6 3. d4 cxd4 4. cxd4 Nf6 5. Nc3 g6 6. Nf3 Bg7 7. Be2 O-O 8. O-O {Big center. Develop, castle, don't do anything silly.} )
 ( 2... g6 3. d4 cxd4 4. cxd4 Bg7 5. Nc3 d6 6. Nf3 Nf6 7. Be2 O-O 8. O-O )
 ( 2... Nc6 3. d4 cxd4 4. cxd4 d5 5. exd5 Qxd5 6. Nf3 Bg4 7. Be2 e6 8. Nc3 {Tempo on the queen. Every free move counts.} )
 ( 2... e5 3. Nf3 Nc6 4. Bc4 {Feels Italian-ish. Bc4, d3, castle. You know this.} )
-3. exd5 Qxd5 4. d4 {You'll hit the queen with Nc3 later, and every tempo matters.} Nf6
+3. exd5 Qxd5 4. d4 {You'll hit the queen with Nc3 later, and every tempo matters. [%cal Gb1c3]} Nf6
 ( 4... Nc6 5. Nf3 Bg4 6. Be2 cxd4 7. cxd4 e6 8. Nc3 {Develop with tempo on the queen.} )
-5. Nf3 e6 6. Be2 Nc6 7. O-O cxd4 8. cxd4 Be7 9. Nc3 {An isolated d-pawn, but your pieces are active. Aim for d5 or a kingside attack.}
+5. Nf3 e6 6. Be2 Nc6 7. O-O cxd4 8. cxd4 Be7 9. Nc3 {An isolated d-pawn, but your pieces are active. Aim for d5 or a kingside attack. [%cal Gc3d5] [%csl Yd4]}
 
 [Chapter "French: Advance (3.e5)"]
+[Plans "The center is locked, so the kingside is yours: Re1, Nf1-g3, and h4-h5 to gain more space. Keep e5 rock solid, because ...f6 is Black's only real way to hit it back. With ...c4 played the queenside is closed, so watch for ...b5-b4 and ...Nb3, and don't waste time over there."]
 
 {The French is solid and annoying. 3.e5 grabs space and locks the center. Black's light-squared bishop is stuck behind its own pawns. Enjoy that.}
-1. e4 e6 2. d4 d5 3. e5 {Space! Black's pieces get squeezed.} c5 {Black always attacks the chain from the front. Always.} 4. c3 {Support d4 with a pawn.} Nc6
+1. e4 e6 2. d4 d5 3. e5 {Space! Black's pieces get squeezed. [%csl Ge5,Gd4]} c5 {Black always attacks the chain from the front. Always. [%cal Rc5d4]} 4. c3 {Support d4 with a pawn. [%cal Gc3d4]} Nc6
 ( 4... Qb6 5. Nf3 Nc6 6. a3 {Transposes to the main line.} )
-5. Nf3 Qb6 {Black is ganging up on d4: queen, knight, pawn.}
-( 5... Bd7 6. Be2 Nge7 7. Na3 {The knight goes Na3-c2 to defend d4. Cute and solid.} cxd4 8. cxd4 Nf5 9. Nc2 )
-6. a3 {Threatens b4, grabbing queenside space too.} c4
+5. Nf3 Qb6 {Black is ganging up on d4: queen, knight, pawn. [%cal Rb6b2,Rc6d4,Rc5d4]}
+( 5... Bd7 6. Be2 Nge7 7. Na3 {The knight goes Na3-c2 to defend d4. Cute and solid. [%cal Ga3c2,Gc2d4]} cxd4 8. cxd4 Nf5 9. Nc2 )
+6. a3 {Threatens b4, grabbing queenside space too. [%cal Gb2b4]} c4
 ( 6... Bd7 7. b4 cxd4 8. cxd4 Rc8 9. Bb2 {Everything's defended. Your space advantage is real.} )
-7. Nbd2 Na5 8. Be2 Bd7 9. O-O {The center is locked, so the kingside is your playground. Plan Re1, Nf1, maybe h4.}
+7. Nbd2 Na5 8. Be2 Bd7 9. O-O {The center is locked, so the kingside is your playground. Plan Re1, Nf1, maybe h4. [%cal Gf1e1,Gd2f1]}
 
 [Chapter "Caro-Kann: Advance (3.e5)"]
+[Plans "Your e5 pawn cramps Black, so keep it. Castle, bring the b1 knight to c3, and open the center with cxd5 while Black's king is still on e8. Watch ...Nbc6 hitting your d4 knight and ...Nf5 hitting e3: keep your bishops, because Black's position gets uncomfortable when they have nothing to trade."]
 
 {You'll play the Caro as Black. Facing it as White teaches you what Black wants. Same structure as the Advance French, but Black's bishop gets out first.}
 1. e4 c6 2. d4 d5 3. e5 Bf5
 ( 3... c5 4. dxc5 {Grab it.} Nc6 5. Bb5 e6 6. Be3 {Hold the extra pawn. Black's play is slower than it looks.} )
-4. Nf3 {The Short system: quiet development, no drama.} e6 5. Be2 c5
+4. Nf3 {The Short system: quiet development, no drama.} e6 5. Be2 c5 {[%cal Rc5d4]}
 ( 5... Nd7 6. O-O h6 7. Nbd2 Ne7 8. Nb3 {Restrain ...c5 and enjoy your space.} )
 6. Be3 {Defends d4 and eyes c5.} cxd4
-( 6... Nd7 7. O-O Ne7 8. c4 {Break open the queenside while Black is still unpacking.} )
+( 6... Nd7 7. O-O Ne7 8. c4 {Break open the queenside while Black is still unpacking. [%cal Gc4d5]} )
 7. Nxd4 Ne7 8. c4 {Hit d5 and play in the center.}
 
 [Chapter "Scandinavian (1...d5)"]
+[Plans "Castle, put a rook on e1 and a knight on e5, and keep the queen on a5 feeling nervous. Your lead in development only matters if lines open, so look for Nd5 tricks and the d4-d5 break. Don't chase the queen with pawns just because you can: every pawn move is a free tempo for Black."]
 
 {Black attacks e4 on move one. Take the pawn, then chase the queen around with your pieces.}
 1. e4 d5 2. exd5 Qxd5
 ( 2... Nf6 3. d4 Nxd5 4. Nf3 g6 5. Be2 Bg7 6. O-O O-O 7. c4 Nb6 8. Nc3 {Big center, easy life.} )
-3. Nc3 {Tempo on the queen. Free development!} Qa5
-( 3... Qd6 4. d4 Nf6 5. Nf3 a6 6. Be2 {Calm. Castle and push the queen around with Nb5 or Ne4 when it helps.} )
+3. Nc3 {Tempo on the queen. Free development! [%cal Gc3d5]} Qa5
+( 3... Qd6 4. d4 Nf6 5. Nf3 a6 6. Be2 {Calm. Castle, then push the queen around with Ne4 or Bf4 when it helps.} )
 ( 3... Qd8 4. d4 Nf6 5. Nf3 Bg4 6. h3 Bxf3 7. Qxf3 {You get the bishop pair. Very nice.} )
-4. d4 Nf6 5. Nf3 c6 6. Bc4 Bf5 7. Bd2 {Unpins the knight so Nd5 tricks become real.} e6 8. O-O {Lead in development. Aim for Nd5 or d5 breaks.}
+4. d4 Nf6 5. Nf3 c6 6. Bc4 Bf5 7. Bd2 {Unpins the knight so Nd5 tricks become real. [%cal Gc3d5]} e6 8. O-O {Lead in development. Aim for Nd5 or d5 breaks.}
 
 [Chapter "Pirc and Modern"]
+[Plans "You have the classic two-pawn center, so don't hand it back. Play h3 against ...Bg4, Re1, and a4 against ...b5. Black will break with ...e5 or ...c5: meet ...e5 with d5 or dxe5 depending on which leaves Black's pieces worse, and keep e4 well defended. No pawn storms; you win this one by being bigger in the middle."]
 
 {Black lets you have the center and plans to attack it later. Take it, develop sensibly, and don't overextend.}
 1. e4 d6
@@ -60,23 +65,25 @@
 3. Nc3 {Defends e4.} g6
 ( 3... e5 4. Nf3 Nbd7 5. Bc4 Be7 6. O-O O-O 7. Re1 {Philidor by another name.} )
 4. Nf3 Bg7 5. Be2 O-O 6. O-O {The Classical system. No theory needed, just good moves.} c6
-( 6... Bg4 7. Be3 Nc6 8. Qd2 {Solid. Plan d5 to kick the knight.} )
-7. a4 {Stops ...b5 expansion.}
+( 6... Bg4 7. Be3 Nc6 8. Qd2 {Solid. Plan d5 to kick the knight. [%cal Gd4d5]} )
+7. a4 {Stops ...b5 expansion. [%csl Rb5]}
 
 [Chapter "Alekhine (1...Nf6)"]
+[Plans "You have more space than you know what to do with; the job is keeping it supported. Play b3 to secure c4, Rc1 or Qd2, and keep d4 rock solid behind e5. Black will hit e5 with ...dxe5 and ...Nc6 or ...f6: if the center opens, your pieces are better placed. Avoid an early f4 unless everything behind it is protected."]
 
 {Black's knight attacks e4 and dares you to chase it. Chase it, but not too far.}
-1. e4 Nf6 2. e5 Nd5
+1. e4 Nf6 2. e5 {[%cal Ge5f6]} Nd5
 ( 2... Ng8 {It went home. Respect.} 3. d4 d6 4. Nf3 )
 3. d4 d6 4. Nf3 {The Modern variation. Sensible and strong.} Bg4
 ( 4... dxe5 5. Nxe5 g6 6. Bc4 c6 7. O-O Bg7 8. Re1 {Your pieces are alive. Black's are thinking about it.} )
 ( 4... g6 5. Bc4 Nb6 6. Bb3 Bg7 7. Qe2 Nc6 8. O-O {Defend e5 and develop.} )
-5. Be2 e6 6. O-O Be7 7. c4 Nb6 8. Nc3 O-O 9. Be3 {More space than you know what to do with.}
+5. Be2 e6 6. O-O Be7 7. c4 {[%cal Gc4d5]} Nb6 8. Nc3 O-O 9. Be3 {More space than you know what to do with.}
 
 [Chapter "Weird first moves"]
+[Plans "Same medicine every time: two center pawns, knights out, castle, then h3 and Re1. If a bishop on b7 is staring at e4, keep it covered with Nc3, Bd3 or Qe2. Push d5 or e5 only when it gains space and kicks a piece."]
 
 {1...Nc6, 1...b6, 1...a6. Build the center, develop, castle. No panicking.}
 1. e4 Nc6
-( 1... b6 2. d4 Bb7 3. Bd3 e6 4. Nf3 {e4 is protected. Develop and enjoy the center.} )
+( 1... b6 2. d4 Bb7 3. Bd3 e6 4. Nf3 {e4 is protected. Develop and enjoy the center. [%cal Rb7e4,Gd3e4]} )
 ( 1... a6 2. d4 b5 3. Nf3 Bb7 4. Bd3 )
 2. Nf3 d6 3. d4 Nf6 4. Nc3 Bg4 5. Be2 e6 6. O-O {Normal development beats weird every time.}

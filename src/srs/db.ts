@@ -17,6 +17,7 @@ export interface ReviewRow {
   lineId: string;
   rating: Grade;
   mistakes: number;
+  failedPlies?: number[];
   at: Date;
 }
 
@@ -77,15 +78,44 @@ export async function liveCards(): Promise<CardRow[]> {
   return (await db.cards.toArray()).filter((c) => getLine(c.lineId));
 }
 
-export async function recordReview(lineId: string, rating: Grade, mistakes: number): Promise<void> {
+export async function recordReview(
+  lineId: string,
+  rating: Grade,
+  mistakes: number,
+  failedPlies: number[] = [],
+): Promise<void> {
   await db.transaction('rw', db.cards, db.reviews, async () => {
     const row = await db.cards.get(lineId);
     if (!row) return;
     const now = new Date();
     const { card } = scheduler.next(row.card, now, rating);
     await db.cards.put({ ...row, card });
-    await db.reviews.add({ lineId, rating, mistakes, at: now });
+    await db.reviews.add({ lineId, rating, mistakes, failedPlies, at: now });
   });
+}
+
+export interface WeakSpot {
+  line: Line;
+  ply: number;
+  misses: number;
+}
+
+/** Moves you keep getting wrong in drills, most-missed first. */
+export async function weakSpots(repertoireId?: string, limit = 8): Promise<WeakSpot[]> {
+  const counts = new Map<string, number>();
+  for (const r of await db.reviews.toArray()) {
+    for (const ply of r.failedPlies ?? []) {
+      const k = `${r.lineId}\u0000${ply}`;
+      counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+  }
+  const spots: WeakSpot[] = [];
+  for (const [k, misses] of counts) {
+    const [lineId, ply] = k.split('\u0000');
+    const line = getLine(lineId);
+    if (line && (!repertoireId || line.repertoireId === repertoireId)) spots.push({ line, ply: Number(ply), misses });
+  }
+  return spots.sort((a, b) => b.misses - a.misses).slice(0, limit);
 }
 
 /** Due cards whose line still exists (a PGN edit can orphan old ids). */
