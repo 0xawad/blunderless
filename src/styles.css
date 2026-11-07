@@ -350,12 +350,15 @@ label.check input { width: 18px; height: 18px; flex: 0 0 auto; margin-top: 2px; 
 .side h2 { font-size: 1.05rem; }
 .under-board { margin-top: 0.6rem; justify-content: center; }
 
+/* conic-gradient runs clockwise from 12 o'clock, so each 2x2 tile is
+   top-right, bottom-right, bottom-left, top-left. From White's side the
+   top-left square of the board (a8) is light and a1/h8 are dark. */
 cg-board {
   background-color: var(--board-light);
-  background-image: conic-gradient(var(--board-light) 25%, var(--board-dark) 0 50%, var(--board-light) 0 75%, var(--board-dark) 0);
+  background-image: conic-gradient(var(--board-dark) 25%, var(--board-light) 0 50%, var(--board-dark) 0 75%, var(--board-light) 0);
   background-size: 25% 25%;
 }
-.cg-wrap.orientation-black cg-board { background-image: conic-gradient(var(--board-dark) 25%, var(--board-light) 0 50%, var(--board-dark) 0 75%, var(--board-light) 0); }
+.cg-wrap.orientation-black cg-board { background-image: conic-gradient(var(--board-light) 25%, var(--board-dark) 0 50%, var(--board-light) 0 75%, var(--board-dark) 0); }
 cg-board square.last-move { background-color: rgb(255 204 0 / 0.38); }
 cg-board square.selected { background-color: rgb(255 204 0 / 0.5); }
 cg-board square.move-dest { background: radial-gradient(rgb(20 24 42 / 0.2) 19%, transparent 21%); }
