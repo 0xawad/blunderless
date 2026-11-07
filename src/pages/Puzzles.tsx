@@ -124,7 +124,9 @@ function ThemeTrainer({ theme, rating }: { theme: string; rating: number }) {
       const fresh = all.filter((p) => !seen.current.has(p.id));
       const pool = fresh.length ? fresh : all;
       const near = pool.filter((p) => Math.abs((p.rating ?? 0) - r) <= 150);
-      const choice = pick(near.length ? near : pool);
+      // Thin rating band (e.g. very easy trapped-piece puzzles): take the closest ones, never a random 2000.
+      const closest = near.length >= 5 ? near : [...pool].sort((a, b) => Math.abs((a.rating ?? 0) - r) - Math.abs((b.rating ?? 0) - r)).slice(0, 10);
+      const choice = pick(closest);
       seen.current.add(choice.id);
       setCurrent(choice);
     },
