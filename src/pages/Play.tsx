@@ -14,6 +14,8 @@ import { withBook } from '../games/store';
 import { useToast } from '../components/Toast';
 import { setPrefs, usePrefs } from '../prefs';
 import { PlayerBar } from '../components/PlayerBar';
+import { clearSavedGame, saveGame, useSavedGame, type SavedGame } from '../play/saved';
+import { loadOpenings, nameOpening } from '../games/openings';
 import { play as sfx } from '../sound';
 
 // The bottom three use Skill Level (Stockfish can't limit itself below 1320
@@ -75,10 +77,23 @@ export function Play() {
       /* private mode */
     }
   };
-  const [game, setGame] = useState<{ color: 'white' | 'black'; n: number } | null>(null);
+  const [game, setGame] = useState<{ color: 'white' | 'black'; n: number; resume?: SavedGame } | null>(null);
+  const saved = useSavedGame();
 
   if (game) {
-    return <PlayGame key={game.n} setup={setup} color={game.color} startFen={startFen} onNew={() => setGame(null)} />;
+    return (
+      <PlayGame
+        key={game.n}
+        setup={game.resume ? { ...game.resume.setup, color: game.resume.color } : setup}
+        color={game.color}
+        startFen={game.resume ? game.resume.startFen : startFen}
+        resume={game.resume}
+        onNew={() => {
+          clearSavedGame();
+          setGame(null);
+        }}
+      />
+    );
   }
 
   const valid = (() => {
@@ -95,9 +110,21 @@ export function Play() {
     <>
       <h1>{copy.play.title}</h1>
       <p className="lead">{startFen && valid ? copy.play.fromLine : copy.play.lead}</p>
+      {saved && !startFen && (
+        <section className="card resume">
+          <div>
+            <strong>{copy.play.resumeTitle}</strong>
+            <div className="muted small">{copy.play.resumeSub(saved.moves.length, copy.play.levels[saved.setup.level] ?? '', saved.color)}</div>
+          </div>
+          <div className="row">
+            <button className="btn primary" onClick={() => { window.scrollTo({ top: 0 }); setGame({ color: saved.color, n: Date.now(), resume: saved }); }}>{copy.play.resume}</button>
+            <button className="btn ghost" onClick={clearSavedGame}>{copy.play.discard}</button>
+          </div>
+        </section>
+      )}
       <section className="card setup">
-        <label>{copy.play.level}</label>
-        <div className="segmented level-grid">
+        <p className="label" id="lbl-level">{copy.play.level}</p>
+        <div className="segmented level-grid" role="group" aria-labelledby="lbl-level">
           {copy.play.levels.map((name, i) => (
             <button key={name} className={`level ${setup.level === i ? 'on' : ''}`} aria-pressed={setup.level === i} onClick={() => setSetup({ ...setup, level: i })}>
               <span>{name}</span>
@@ -106,8 +133,8 @@ export function Play() {
           ))}
         </div>
 
-        <label>{copy.play.time}</label>
-        <div className="segmented">
+        <p className="label" id="lbl-time">{copy.play.time}</p>
+        <div className="segmented" role="group" aria-labelledby="lbl-time">
           {TIMES.map((t, i) => (
             <button key={t.label} className={setup.time === i ? 'on' : ''} aria-pressed={setup.time === i} onClick={() => setSetup({ ...setup, time: i })}>
               {t.label}
@@ -115,8 +142,8 @@ export function Play() {
           ))}
         </div>
 
-        <label>{copy.play.color}</label>
-        <div className="segmented">
+        <p className="label" id="lbl-color">{copy.play.color}</p>
+        <div className="segmented" role="group" aria-labelledby="lbl-color">
           {(['white', 'black', 'random'] as const).map((c) => (
             <button key={c} className={setup.color === c ? 'on' : ''} onClick={() => setSetup({ ...setup, color: c })}>
               {c === 'white' ? '♔ White' : c === 'black' ? '♚ Black' : 'Random'}
@@ -141,12 +168,13 @@ export function Play() {
         <button
           className="btn primary lg"
           disabled={!valid}
-          onClick={() =>
+          onClick={() => {
+            window.scrollTo({ top: 0 });
             setGame({
               color: setup.color === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : setup.color,
               n: Date.now(),
-            })
-          }
+            });
+          }}
         >
           {copy.play.start}
         </button>
@@ -178,29 +206,38 @@ function PlayGame({
   setup,
   color,
   startFen,
+  resume,
   onNew,
 }: {
   setup: Setup;
   color: 'white' | 'black';
   startFen?: string;
+  resume?: SavedGame;
   onNew: () => void;
 }) {
   const navigate = useNavigate();
   const toast = useToast();
   const prefs = usePrefs();
-  const [chess] = useState(() => new Chess(startFen));
+  const [chess] = useState(() => {
+    const c = new Chess(startFen);
+    for (const u of resume?.moves ?? []) if (!playUci(c, u)) break;
+    return c;
+  });
   const [fen, setFen] = useState(chess.fen());
-  const [last, setLast] = useState<[string, string]>();
+  const [last, setLast] = useState<[string, string] | undefined>(() => {
+    const m = chess.history({ verbose: true }).at(-1);
+    return m ? [m.from, m.to] : undefined;
+  });
   const [pending, setPending] = useState<Pending | null>(null);
   const [cct, setCct] = useState([false, false, false]);
-  const [saves, setSaves] = useState(0);
-  const [hints, setHints] = useState(0);
+  const [saves, setSaves] = useState(resume?.saves ?? 0);
+  const [hints, setHints] = useState(resume?.hints ?? 0);
   const [hint, setHint] = useState<{ level: 1 | 2; uci: string } | null>(null);
   const [thinking, setThinking] = useState(false);
   const [result, setResult] = useState<'win' | 'loss' | 'draw' | null>(null);
   const [reason, setReason] = useState<'time' | 'resign' | null>(null);
   const [dismissed, setDismissed] = useState(false);
-  const [log, setLog] = useState<Logged[]>([]);
+  const [log, setLog] = useState<Logged[]>((resume?.log as Logged[] | undefined) ?? []);
   const [verdict, setVerdict] = useState<{ v: Verdict; san: string; better?: string } | null>(null);
   const [view, setView] = useState<number | null>(null); // ply being looked at; null = live
   const [flipped, setFlipped] = useState(false);
@@ -224,7 +261,19 @@ function PlayGame({
   // ---- clocks -------------------------------------------------------------
   const tc = TIMES[setup.time] ?? TIMES[0];
   const timed = tc.base > 0;
-  const clock = useRef({ w: tc.base * 1000, b: tc.base * 1000, since: performance.now(), moved: { w: 0, b: 0 }, warned: false });
+  const clock = useRef(
+    (() => {
+      const hist = chess.history({ verbose: true });
+      const moved = { w: hist.filter((m) => m.color === 'w').length, b: hist.filter((m) => m.color === 'b').length };
+      return {
+        w: resume?.clocks.w ?? tc.base * 1000,
+        b: resume?.clocks.b ?? tc.base * 1000,
+        since: performance.now(),
+        moved,
+        warned: false,
+      };
+    })(),
+  );
   /** Milliseconds left for a side, counting the running turn. */
   const left = (side: Side) => {
     const c = clock.current;
@@ -260,14 +309,57 @@ function PlayGame({
         finish(side === mine ? 'loss' : 'win', 'time');
         return;
       }
-      if (side === mine && !clock.current.warned && ms < 10_000 && clock.current.moved[mine] > 0) {
-        clock.current.warned = true;
-        sfx('tick');
+      if (side === mine && clock.current.moved[mine] > 0) {
+        if (!clock.current.warned && ms < 10_000) {
+          clock.current.warned = true;
+          sfx('tick');
+        } else if (clock.current.warned && ms > 15_000) {
+          clock.current.warned = false; // increment brought you back; warn again next time
+        }
       }
     }, 100);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timed, result]);
+
+  // Keep the game on disk so leaving the page (or the app) doesn't lose it.
+  useEffect(() => {
+    const moves = chess.history({ verbose: true }).map((m) => m.from + m.to + (m.promotion ?? ''));
+    if (result || moves.length === 0) {
+      if (result) clearSavedGame();
+      return;
+    }
+    saveGame({
+      v: 1,
+      setup: { level: setup.level, time: setup.time, guard: setup.guard, cct: setup.cct },
+      color,
+      startFen,
+      moves,
+      clocks: { w: left('w'), b: left('b') },
+      log,
+      saves,
+      hints,
+      savedAt: Date.now(),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fen, log, result, saves, hints]);
+
+  // Name the opening as it develops (Chess.com shows this under the moves).
+  const [openingName, setOpeningName] = useState<string>();
+  useEffect(() => {
+    const hist = chess.history({ verbose: true });
+    if (hist.length > 30 || startFen) return;
+    let alive = true;
+    loadOpenings()
+      .then((book) => {
+        if (!alive) return;
+        const o = nameOpening(hist.map((m) => ({ fenAfter: m.after })), book);
+        if (o) setOpeningName(o.name);
+      })
+      .catch(() => undefined);
+    return () => void (alive = false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fen]);
 
   const checkOver = useCallback(() => {
     if (!chess.isGameOver()) return false;
@@ -295,7 +387,8 @@ function PlayGame({
       // Short on time, the engine plays faster, like a person would.
       const budget = timed ? left(theirs) : Infinity;
       const opts = { ...LEVELS[setup.level] };
-      if (budget < 30_000) opts.movetime = Math.max(60, Math.min(opts.movetime ?? 300, budget / 25));
+      // Depth-limited (weak) levels stay weak; only the timed levels speed up.
+      if (budget < 30_000 && opts.movetime) opts.movetime = Math.max(60, Math.min(opts.movetime, budget / 25));
       const r = await getEngine().search(chess.fen(), opts);
       // A human-ish pause: instant replies feel robotic, long ones feel broken.
       // Openings go quickly, like they do for people who know them.
@@ -407,7 +500,7 @@ function PlayGame({
   const resign = () => {
     if (!confirmResign) {
       setConfirmResign(true);
-      window.setTimeout(() => alive.current && setConfirmResign(false), 3000);
+      window.setTimeout(() => alive.current && setConfirmResign(false), 8000);
       return;
     }
     finish('loss', 'resign');
@@ -428,7 +521,10 @@ function PlayGame({
     setHint((h) => ({ level: h?.uci === best && h.level === 1 ? 2 : 1, uci: best }));
   };
 
+  const saving = useRef(false);
   const review = async () => {
+    if (saving.current) return;
+    saving.current = true;
     chess.setHeader('White', color === 'white' ? 'You' : 'Stockfish');
     chess.setHeader('Black', color === 'black' ? 'You' : 'Stockfish');
     const r = result ?? 'loss';
@@ -446,6 +542,7 @@ function PlayGame({
       endTime: new Date(),
     });
     await db.games.add(row);
+    clearSavedGame();
     navigate(`/games/${encodeURIComponent(row.id)}`);
   };
 
@@ -533,8 +630,8 @@ function PlayGame({
                   <p className="muted">{summary.map((s) => `${s.n} ${copy.play.verdicts[s.v].toLowerCase()}`).join(' · ')}</p>
                 )}
                 <div className="row">
-                  {plyCount > 0 && <button className="btn primary" onClick={review}>{copy.play.review}</button>}
-                  <button className="btn ghost" onClick={onNew}>{copy.play.newGame}</button>
+                  {plyCount > 0 && <button className="btn primary" onClick={review} autoFocus>{copy.play.review}</button>}
+                  <button className="btn ghost" onClick={onNew} autoFocus={plyCount === 0}>{copy.play.newGame}</button>
                   <button className="btn small" onClick={() => setDismissed(true)}>{copy.play.lookAtBoard}</button>
                 </div>
               </BoardOverlay>
@@ -624,6 +721,8 @@ function PlayGame({
           ))}
         </ol>
 
+        {openingName && <p className="muted small opening-line">{openingName}</p>}
+
         <div className="row stepper play-nav">
           <button className="btn ghost" onClick={() => setView(0)} aria-label="First move" disabled={!plyCount}>⏮</button>
           <button className="btn ghost" onClick={() => setView((v) => Math.max(0, (v ?? plyCount) - 1))} aria-label="Previous move" disabled={!plyCount || view === 0}>◀</button>
@@ -637,9 +736,14 @@ function PlayGame({
             <>
               <button className="btn ghost" onClick={askHint} disabled={!myTurn || viewing}>{copy.play.hint}</button>
               {!timed && <button className="btn ghost" onClick={undo} disabled={thinking || log.length === 0}>{copy.play.undo}</button>}
-              <button className={`btn ${confirmResign ? 'danger-solid' : 'danger'}`} onClick={resign}>
-                {confirmResign ? copy.play.resignConfirm : copy.play.resign}
-              </button>
+              {confirmResign ? (
+                <>
+                  <button className="btn danger-solid" onClick={resign}>{copy.play.resignConfirm}</button>
+                  <button className="btn ghost" onClick={() => setConfirmResign(false)}>{copy.play.cancel}</button>
+                </>
+              ) : (
+                <button className="btn danger" onClick={resign}>{copy.play.resign}</button>
+              )}
             </>
           )}
           {result && plyCount > 0 && (

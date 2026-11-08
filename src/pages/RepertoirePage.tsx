@@ -146,10 +146,21 @@ export function RepertoirePage() {
         )}
       </div>
 
-      {rep.chapters.map((ch) => (
-        <section key={ch.id} className="card chapter">
-          <h2>{ch.title}</h2>
-          {ch.intro && <p className="muted">{ch.intro}</p>}
+      {rep.chapters.map((ch, ci) => {
+        const dueIn = ch.lines.filter((l) => statusOf(cards?.get(l.id)) === 'due').length;
+        const known = ch.lines.filter((l) => statusOf(cards?.get(l.id)) === 'known').length;
+        return (
+        <details key={ch.id} className="card chapter" open={ci === 0 || dueIn > 0}>
+          <summary>
+            <span>
+              <h2>{ch.title}</h2>
+              {ch.intro && <p className="muted small">{ch.intro}</p>}
+            </span>
+            <span className="chapter-meta muted small">
+              {copy.rep.chapterMeta(ch.lines.length, known)}
+              {dueIn > 0 && <StatusBadge status="due" />}
+            </span>
+          </summary>
           <ul className="lines">
             {ch.lines.map((line) => {
               const index = rep.lines.indexOf(line);
@@ -157,15 +168,16 @@ export function RepertoirePage() {
                 <li key={line.id}>
                   <Link to={`/learn/${rep.id}/${index}`}>
                     <span className="line-label">{line.label}</span>
-                    <span className="line-moves">{formatLine(line.plies)}</span>
+                    <span className="line-moves">{formatLine(line.plies.slice(0, 12))}{line.plies.length > 12 ? ' …' : ''}</span>
                     <StatusBadge status={statusOf(cards?.get(line.id))} />
                   </Link>
                 </li>
               );
             })}
           </ul>
-        </section>
-      ))}
+        </details>
+        );
+      })}
     </>
   );
 }

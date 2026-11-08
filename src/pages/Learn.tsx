@@ -161,10 +161,12 @@ export function Learn() {
           )}
           {!yourTurn && quizMsg?.tone === 'good' && <div className="feedback good" role="status">{quizMsg.text}</div>}
 
-          <div className="comment">
-            {ply > 0 && <strong>{formatPly(ply - 1, last!.san)} </strong>}
-            {comment ?? copy.learn.noComment}
-          </div>
+          {(comment || ply === 0) && (
+            <div className="comment">
+              {ply > 0 && <strong>{formatPly(ply - 1, last!.san)} </strong>}
+              {comment}
+            </div>
+          )}
 
           <ol className="movelist">
             {line.plies.map((p, i) => {
@@ -189,7 +191,7 @@ export function Learn() {
           <div className="row stepper">
             <button className="btn ghost" onClick={() => step(0)} aria-label="Start">⏮</button>
             <button className="btn ghost" onClick={() => step(Math.max(0, ply - 1))} aria-label="Back">◀</button>
-            <button className={`btn ${yourTurn ? 'ghost' : 'primary'}`} onClick={() => step(Math.min(line.plies.length, ply + 1))} aria-label="Forward" disabled={atEnd}>
+            <button className={`btn ${yourTurn ? 'ghost wide' : 'primary'}`} onClick={() => step(Math.min(line.plies.length, ply + 1))} aria-label="Forward" disabled={atEnd}>
               {yourTurn ? copy.learn.showMe : '▶'}
             </button>
             <button className="btn ghost" onClick={() => step(line.plies.length)} aria-label="End">⏭</button>

@@ -6,7 +6,7 @@
 [Plans "Now the knight takes the scenic route: Nbd2-f1-g3, where it eyes f5 and h5. Then pick your moment for d3-d4 to open the center, or go Be3 and Nh4-f5 if Black's king looks lonely. When ...Na5 or ...b5 shows up, tuck the bishop back to a2 and keep it. No rush: this structure doesn't crack, so let Black run out of useful moves first."]
 
 {The "very quiet game". You build a fortress with c3 and d3, castle, and only then think about attacking. No gambits, no 12-move theory, no excuses.}
-1. e4 {Center pawn, opens the bishop and queen. You know this one.} e5 2. Nf3 {Attack e5 and develop. Two birds, one knight.} Nc6 3. Bc4 {The Italian bishop. It stares at f7, the weakest square in Black's camp. [%cal Gc4f7]} Bc5 {Black copies you. Rude, but common. [%cal Rc5f2]}
+1. e4 {Center pawn, opens the bishop and queen. You know this one.} e5 2. Nf3 {Attack e5 and develop. Two birds, one knight.} Nc6 3. Bc4 {The Italian bishop. It stares at f7, the weakest square in Black's camp. [%cal Gc4f7]} Bc5 {Black copies you. Common, and fine for you. [%cal Rc5f2]}
 4. c3 {Prepares d4 one day, and gives the bishop a retreat square on c2 later. [%cal Gd2d4] [%csl Gc2]} Nf6
 ( 4... d6 5. d3 Nf6 6. O-O {Same setup. Every road leads to c3, d3, castle.} )
 ( 4... Qe7 5. d3 Nf6 6. O-O d6 7. h3 {Same plan. The queen on e7 changes nothing for you.} )

@@ -105,6 +105,30 @@ function labelFor(plies: Ply[], main: Ply[]): string {
   return i === -1 ? 'Main line' : `vs ${formatPly(i, plies[i].san)}`;
 }
 
+/**
+ * Two lines can leave the main line at the same move and only split later
+ * ("vs 4.c4" twice). Such labels get the move where the lines part ways.
+ */
+function disambiguate(lines: { label: string; plies: Ply[] }[]) {
+  for (let pass = 0; pass < 3; pass++) {
+    const groups = new Map<string, typeof lines>();
+    for (const l of lines) groups.set(l.label, [...(groups.get(l.label) ?? []), l]);
+    let changed = false;
+    for (const group of groups.values()) {
+      if (group.length < 2) continue;
+      for (const l of group) {
+        const others = group.filter((o) => o !== l);
+        const i = l.plies.findIndex((p, idx) => others.some((o) => o.plies[idx]?.san !== p.san));
+        if (i >= 0) {
+          l.label = `${l.label} … ${formatPly(i, l.plies[i].san)}`;
+          changed = true;
+        }
+      }
+    }
+    if (!changed) break;
+  }
+}
+
 export function buildRepertoire(pgnText: string): Repertoire {
   const games = parsePgn(pgnText);
   const meta = games[0]?.headers ?? {};
@@ -119,20 +143,16 @@ export function buildRepertoire(pgnText: string): Repertoire {
     const chapterId = slug(title);
     const paths = flatten(g.root, `${id}/${title}`);
     const main = paths[0] ?? [];
-    return {
-      id: chapterId,
-      title,
-      intro: g.root.comment,
-      plans: g.headers.Plans,
-      lines: paths.map((plies) => ({
-        id: `${id}:${plies.map((p) => p.san).join(' ')}`,
-        repertoireId: id,
-        chapterId,
-        chapterTitle: title,
-        label: labelFor(plies, main),
-        plies,
-      })),
-    };
+    const lines = paths.map((plies) => ({
+      id: `${id}:${plies.map((p) => p.san).join(' ')}`,
+      repertoireId: id,
+      chapterId,
+      chapterTitle: title,
+      label: labelFor(plies, main),
+      plies,
+    }));
+    disambiguate(lines);
+    return { id: chapterId, title, intro: g.root.comment, plans: g.headers.Plans, lines };
   });
 
   return {

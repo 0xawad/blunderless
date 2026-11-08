@@ -143,6 +143,7 @@ export function Settings() {
                 onChange={(e) => setPrefs({ boardScale: Number(e.target.value) / 100 })}
                 aria-label={copy.settings.boardSize}
               />
+              <span className="mono small range-value">{Math.round(prefs.boardScale * 100)}%</span>
             </div>
           </div>
         </div>

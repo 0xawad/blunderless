@@ -730,3 +730,55 @@ input[type='range'] { accent-color: var(--text); width: 160px; }
 @media (pointer: coarse) {
   .drag-over { box-shadow: inset 0 0 0 5px rgb(255 255 255 / 0.85); }
 }
+
+
+/* review pass: flows, mobile, tap targets */
+.resume { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; border-left: 3px solid var(--brand); }
+.resume-nudge { text-decoration: none; }
+.resume-nudge .btn { pointer-events: none; }
+.home-head { margin: 0.4rem 0 0.9rem; }
+.home-head .lead { margin-bottom: 0; }
+.turn-row { display: flex; align-items: center; gap: 0.5rem; margin: 0.2rem 0 0.5rem; }
+.puzzle-actions { margin-top: 0.6rem; }
+.puzzle-actions .btn { flex: 1 1 auto; }
+.mistake-count { flex: 1; text-align: center; white-space: nowrap; }
+.stepper .btn.wide { width: auto; padding: 0 0.8rem; }
+.opening-line { margin: 0.2rem 0 0.4rem; }
+.range-value { margin-left: 0.5rem; min-width: 3ch; text-align: right; }
+.badge { font-size: 0.72rem; }
+.review .clock::before { content: '⏱ '; font-size: 0.75em; opacity: 0.7; }
+.review .board-stack { width: min(100%, calc((100dvh - var(--header) - var(--tabbar) - 300px) * var(--board-scale, 1))); }
+@supports (width: round(down, 100px, 8px)) {
+  .review .board-stack { width: round(down, min(100%, calc((100dvh - var(--header) - var(--tabbar) - 300px) * var(--board-scale, 1))), 8px); }
+}
+/* chapters fold */
+details.chapter > summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+details.chapter > summary::-webkit-details-marker { display: none; }
+details.chapter > summary h2 { margin-bottom: 0.1rem; }
+details.chapter > summary p { margin: 0; max-width: 60ch; }
+details.chapter > summary::after { content: '+'; font-size: 1.2rem; color: var(--muted); line-height: 1; margin-left: auto; }
+details.chapter[open] > summary::after { content: '–'; }
+.chapter-meta { display: flex; align-items: center; gap: 0.5rem; white-space: nowrap; }
+details.chapter[open] > summary { margin-bottom: 0.5rem; }
+/* current move in the Play move list */
+button.mvcell.on { background: var(--brand-soft); color: var(--text); box-shadow: inset 0 0 0 1px var(--brand); }
+
+@media (max-width: 760px) {
+  .iconbtn { width: 40px; height: 40px; }
+  .tabs button, .segmented button, .chip { height: 38px; }
+  .tabs.compact button { height: 34px; }
+  .back { padding: 0.45rem 0; min-height: 40px; }
+  .focus-toggle, .small-chip { height: 34px; }
+  .linklike { padding: 0.4rem 0; display: inline-block; }
+  .mvcell { padding: 0.4rem 0.45rem; }
+  .mv { padding: 0.35rem 0.45rem; }
+  .stepper .btn { width: 42px; height: 42px; }
+  .stepper .btn.wide { width: auto; }
+}
+@media (max-width: 900px) {
+  /* The board stays put while you scroll the panel under it, like Chess.com. */
+  .play > .board-stack, .play > .board-wrap, .play > div:first-child > .board-stack {
+    position: sticky; top: var(--header); z-index: 6; background: var(--bg); padding-bottom: 6px;
+  }
+}
+p.label { display: block; font-weight: 600; font-size: 0.88rem; margin: 0 0 0.4rem; }

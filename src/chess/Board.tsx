@@ -193,7 +193,8 @@ export function Board({ fen, orientation, interactive, premovable, lastMove, sha
     const [from, to] = lastMove ?? [];
     const moved = to ? chess.get(to as Square) : undefined;
     const castle = !!from && !!to && moved?.type === 'k' && Math.abs(from.charCodeAt(0) - to.charCodeAt(0)) === 2;
-    const promote = !!from && !!moved && moved.type !== 'p' && moved.type !== 'k' && /[27]$/.test(from) && /[18]$/.test(to ?? '');
+    const pawns = (f: string) => (f.split(' ')[0].match(/[pP]/g) ?? []).length;
+    const promote = !!moved && moved.type !== 'p' && moved.type !== 'k' && /[18]$/.test(to ?? '') && pawns(before) > pawns(fen);
     playMove({ capture: pieceCount(before) > pieceCount(fen), check: chess.inCheck(), mate: chess.isCheckmate(), castle, promote });
   }, [fen, lastMove, silent]);
 
@@ -304,7 +305,7 @@ export function Board({ fen, orientation, interactive, premovable, lastMove, sha
 /** A centred card over the board, for results and the like. */
 export function BoardOverlay({ children }: { children: ReactNode }) {
   return (
-    <div className="board-overlay">
+    <div className="board-overlay" role="dialog" aria-modal="false">
       <div className="overlay-card">{children}</div>
     </div>
   );

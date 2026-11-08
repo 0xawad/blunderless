@@ -257,7 +257,15 @@ export const copy = {
     slipsHint: 'Real games where you played something else. Click to see the right move on the map.',
     timesSeen: (n: number) => `×${n}`,
     instead: (played: string, expected: string) => `${played} instead of ${expected}`,
-    whoLeft: (you: number, they: number, full: number) => `You left book first ${you}×, they did ${they}×, prep ran out ${full}×.`,
+    whoLeft: (you: number, they: number, full: number) => {
+      const parts = [];
+      if (you) parts.push(`you left your prep first ${you === 1 ? 'once' : `${you} times`}`);
+      if (they) parts.push(`your opponent left first ${they === 1 ? 'once' : `${they} times`}`);
+      if (full) parts.push(`the line ran out ${full === 1 ? 'once' : `${full} times`}`);
+      const text = parts.join(', ');
+      return text ? text[0].toUpperCase() + text.slice(1) + '.' : '';
+    },
+    chapterMeta: (lines: number, known: number) => `${known}/${lines} known`,
     focus: 'Focus',
     focusOn: 'In focus',
     focusHint: 'Focus openings lead the page and the daily plan.',
@@ -312,6 +320,7 @@ export const copy = {
     reanalyze: 'Re-analyze',
     oldAnalysis: 'This review is from an older version. Re-analyze for clock stats and the fairer accuracy score.',
     nextMistake: 'Next mistake',
+    mistakeCount: (seen: number, total: number) => `${Math.min(seen + 1, total)} of ${total} of your mistakes`,
     prevMistake: 'Previous mistake',
     noMoreMistakes: 'No more mistakes after this point.',
     showBest: 'Show the best move',
@@ -363,7 +372,14 @@ export const copy = {
     mixed: 'Mixed themes',
     checking: 'Not the move we stored. Checking yours...',
     altSolved: (best: string) => `That works too. Stockfish's pick was ${best} (blue arrow), but yours is just as good.`,
-    seeGame: 'See it in the game →',
+    seeGame: 'Open the game',
+    hint: 'Hint',
+    hintMore: 'Show the move',
+    skip: 'Skip',
+    toMove: (side: string, yours: boolean) => `${side} to move${yours ? '' : '…'}`,
+    over: 'Puzzle over',
+    puzzleRating: (r: number) => `rated ${r}`,
+    solvedWithHint: 'Solved, with a hint. It will come back.',
     themeNames: {
       hangingPiece: 'Free pieces',
       fork: 'Forks',
@@ -416,7 +432,13 @@ export const copy = {
     playAnyway: 'Play it anyway',
     saves: (n: number) => `${n} blunder${n === 1 ? '' : 's'} caught`,
     resign: 'Resign',
-    resignConfirm: 'Sure? Click again',
+    resignConfirm: 'Yes, resign',
+    cancel: 'Cancel',
+    resumeTitle: 'You have a game in progress',
+    resumeSub: (n: number, level: string, color: string) => `${n} move${n === 1 ? '' : 's'} in, vs Stockfish (${level}), you are ${color}.`,
+    resume: 'Resume',
+    discard: 'Discard',
+    resumeHome: 'Resume your game against Stockfish',
     resigned: 'You resigned. Live to fight another game.',
     onTime: { win: 'Stockfish ran out of time. A rare sight.', loss: 'You ran out of time. The clock is part of the game.', draw: 'Out of time, but nobody could mate.' } as Record<string, string>,
     time: 'Time control',
@@ -438,8 +460,12 @@ export const copy = {
 
   stats: {
     title: 'Stats',
-    lead: 'The honest mirror. No filters.',
+    lead: 'Where your rating is really coming from.',
     linesKnown: 'Lines known',
+    ofLines: (n: number) => `of ${n}`,
+    streakSub: 'drill or solve daily',
+    noPuzzles: 'no puzzles solved yet',
+    noGames: 'no games analysed yet',
     streak: 'Training streak',
     days: (n: number) => `${n} day${n === 1 ? '' : 's'}`,
     phaseAcc: 'accuracy, last 20 games',

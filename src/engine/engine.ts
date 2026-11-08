@@ -182,13 +182,20 @@ export class Engine {
       await new Promise<void>((resolve, reject) => {
         const lines: PvLine[] = [];
         let stopped = false;
-        this.failPending = (err) => reject(err);
+        // A deep search that never answers (or a `stop` that is never acknowledged)
+        // would otherwise block every later search behind it.
+        const timer = setTimeout(() => this.kill(new Error('engine analysis timed out')), SEARCH_TIMEOUT * 2);
+        this.failPending = (err) => {
+          clearTimeout(timer);
+          reject(err);
+        };
         this.listener = (line) => {
           const l = parsePv(line);
           if (l) {
             lines[l.multipv - 1] = l;
             if (!stopped) onLines(lines.filter(Boolean));
           } else if (line.startsWith('bestmove')) {
+            clearTimeout(timer);
             this.failPending = null;
             resolve();
           }
@@ -196,6 +203,9 @@ export class Engine {
         sendStop = () => {
           stopped = true;
           this.send('stop');
+          // After `stop` the engine must answer within a moment.
+          clearTimeout(timer);
+          setTimeout(() => this.failPending && this.kill(new Error('engine ignored stop')), 5_000);
         };
         this.send(`position fen ${fen}`);
         this.send(`go depth ${opts.depth ?? 20}`);

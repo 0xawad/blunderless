@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { copy } from '../copy';
@@ -70,8 +70,22 @@ export function FocusCard({ rep, cards, report, onUnfocus }: { rep: Repertoire; 
   );
 }
 
+/** Replaying every PGN is heavy with a year of blitz; do it after the page has painted. */
 export function useRepReports(games: GameRow[] | undefined) {
-  return useMemo(() => new Map(games ? repertoires.map((r) => [r.id, repReport(r, games)]) : []), [games]);
+  const [reports, setReports] = useState<Map<string, RepReport>>(() => new Map());
+  useEffect(() => {
+    if (!games) return;
+    let alive = true;
+    const id = window.setTimeout(() => {
+      const next = new Map(repertoires.map((r) => [r.id, repReport(r, games)]));
+      if (alive) setReports(next);
+    }, 0);
+    return () => {
+      alive = false;
+      clearTimeout(id);
+    };
+  }, [games]);
+  return reports;
 }
 
 export function Openings() {

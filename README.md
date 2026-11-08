@@ -29,14 +29,14 @@ A local-first chess trainer for improving club players. It runs entirely in the 
   - Every mistake from your analyzed games becomes a spaced-repetition puzzle. Any move about as good as the engine's (within 5% win chance) also solves it.
   - Themed sets (forks, pins, mates, free pieces and more, or all mixed) come from the Lichess puzzle database with an adaptive puzzle rating. `npm run puzzles` builds packs spread over 100-point bands from 500 to 2200.
   - Themed puzzles you miss join your review queue.
-- **Play.** Play Stockfish at six levels (rough ~400/~700/~1000, then calibrated 1400/1700/2000 via UCI_Elo), with hints (piece first, then the move), undo, a live coach that grades every move you play with the better move when there was one, and two optional training aids:
+- **Play.** Play Stockfish at six levels (rough ~400/~700/~1000, then calibrated 1400/1700/2000 via UCI_Elo), timed or untimed, with player bars and clocks, an opening name as the game develops, hints (piece first, then the move), undo in untimed games, a game that survives leaving the page (resume from Play or Home), a live coach that grades every move you play with the better move when there was one, and two optional training aids:
   - **Guard rails** warn you before you hang a piece, make a losing trade, or allow mate in one. No engine is involved; it's a static check.
   - **Checks/Captures/Threats** makes you tick all three before every move.
 
   Finished games go straight to review.
 - **Stats.** Lines known, training streak, puzzle accuracy, blunders per game, accuracy overall and by phase, clock trouble, and the mistake you keep making.
-- **Feel.** Six piece sets (Chessnut default; see `public/pieces/LICENSES.md`), five board colour schemes, light/dark app theme, a promotion picker, premoves, result cards on the board, adjustable piece animation, and synthesized sound effects (move, capture, check, castle, promote, right/wrong, win/lose), all generated with Web Audio so nothing is downloaded.
-- **Offline.** It's an installable PWA. `src/sw.js` is emitted at build time with a per-build cache name, so each deploy drops the old cache. It caches the shell, assets, engine and puzzle packs.
+- **Feel.** Ten piece sets (Staunty default; see `public/pieces/LICENSES.md`), five board colour schemes, a resizable board, light/dark app theme, a promotion picker, premoves, result cards on the board, adjustable piece animation, and synthesized sound effects (move, capture, check, castle, promote, right/wrong, win/lose), all generated with Web Audio so nothing is downloaded.
+- **Offline.** It's an installable PWA. `src/sw.js` is emitted at build time with a per-build cache name, so each deploy drops the old cache. It caches the shell, assets, engine, puzzle packs, piece sets and the openings table, keeps the previous build's cache so an open tab keeps working through a deploy, and reloads if a chunk from an old build is gone.
 - **Your data.** The app asks the browser for persistent storage so it isn't evicted, and Home reminds you to save a backup file every couple of weeks once you have real progress.
 
 All jokes live in `src/copy.ts`.
@@ -66,7 +66,7 @@ Editing a line changes its id, so its drill progress starts over.
 - [ts-fsrs](https://github.com/open-spaced-repetition/ts-fsrs)
 - Dexie (IndexedDB)
 
-All data stays in the browser. Settings can export and import a JSON backup of drill progress, puzzles and attempts; games re-import from Chess.com.
+All data stays in the browser. Settings can export and import a JSON backup of drill progress, puzzles, attempts and games (with their analyses); Chess.com games can also be re-imported.
 
 ## Develop
 

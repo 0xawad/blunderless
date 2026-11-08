@@ -54,15 +54,15 @@ export function Stats() {
       <p className="lead">{copy.stats.lead}</p>
 
       <section className="tiles">
-        <Tile label={copy.stats.linesKnown} value={`${known}/${total}`} />
-        <Tile label={copy.stats.streak} value={copy.stats.days(streakOf([...reviews.map((r) => r.at), ...attempts.map((a) => a.at)]))} />
+        <Tile label={copy.stats.linesKnown} value={String(known)} sub={copy.stats.ofLines(total)} />
+        <Tile label={copy.stats.streak} value={copy.stats.days(streakOf([...reviews.map((r) => r.at), ...attempts.map((a) => a.at)]))} sub={copy.stats.streakSub} />
         <Tile
           label={copy.stats.puzzleRate}
-          value={attempts.length ? `${Math.round((solved / attempts.length) * 100)}%` : '–'}
-          sub={attempts.length ? `${solved}/${attempts.length}` : undefined}
+          value={attempts.length ? `${Math.round((solved / attempts.length) * 100)}%` : '—'}
+          sub={attempts.length ? `${solved}/${attempts.length}` : copy.stats.noPuzzles}
         />
-        <Tile label={copy.stats.blundersPerGame} value={avgBlunders} sub={analyzed.length ? `last ${analyzed.length}` : undefined} />
-        <Tile label={copy.stats.accuracy} value={avgAcc} />
+        <Tile label={copy.stats.blundersPerGame} value={avgBlunders === '–' ? '—' : avgBlunders} sub={analyzed.length ? `last ${analyzed.length}` : copy.stats.noGames} />
+        <Tile label={copy.stats.accuracy} value={avgAcc === '–' ? '—' : avgAcc} sub={analyzed.length ? undefined : copy.stats.noGames} />
       </section>
 
       {analyzed.length === 0 ? (

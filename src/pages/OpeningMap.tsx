@@ -64,9 +64,9 @@ export function OpeningMap() {
     <>
       <div className="map-head">
         <Link to={`/openings/${rep.id}`} className="back">← {rep.title}</Link>
-        <div className="tabs compact mode-tabs" role="tablist" aria-label={copy.map.modeLabel}>
+        <div className="tabs compact mode-tabs" role="group" aria-label={copy.map.modeLabel}>
           {(['explore', 'spar'] as Mode[]).map((m) => (
-            <button key={m} role="tab" aria-selected={mode === m} className={mode === m ? 'on' : ''} onClick={() => setMode(m)}>
+            <button key={m} aria-pressed={mode === m} className={mode === m ? 'on' : ''} onClick={() => setMode(m)}>
               {copy.map.modes[m]}
             </button>
           ))}

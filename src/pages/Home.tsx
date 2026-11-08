@@ -11,6 +11,7 @@ import { backupDue, download, markBackedUp, snoozeBackup } from '../storage';
 import { exportBackup } from '../srs/backup';
 import { QueueStatus } from '../components/QueueStatus';
 import { FocusCard, useGamesNewestFirst, useRepReports } from './Openings';
+import { useSavedGame } from '../play/saved';
 
 function BackupNudge() {
   const [due, setDue] = useState(false);
@@ -40,6 +41,7 @@ export function Home() {
   const games = useGamesNewestFirst();
   const reports = useRepReports(games);
   const username = useLiveQuery(() => getSetting<string>('username'), []);
+  const savedGame = useSavedGame();
   const greeting = useMemo(() => pick(copy.home.greetings), []);
   const today = useLiveQuery(async () => {
     const start = new Date();
@@ -109,22 +111,24 @@ export function Home() {
 
   return (
     <>
-      <section className="hero card">
+      <div className="home-head">
         <p className="eyebrow">{username ? `hey ${username}` : 'hey you'}{t ? ` · ${copy.today.streak(t.streak)}` : ''}</p>
-        <h1>{greeting}</h1>
-        {due > 0 && <p className="lead">{copy.home.dueSome(due)}</p>}
-        <span className="hero-art" aria-hidden>♛</span>
-      </section>
+        <h1>{copy.today.title}</h1>
+        <p className="lead">{allDone ? copy.today.allDone : due > 0 ? copy.home.dueSome(due) : greeting}</p>
+      </div>
 
       <BackupNudge />
       <QueueStatus />
+      {savedGame && (
+        <Link to="/play" className="feedback info nudge resume-nudge">
+          <span>{copy.play.resumeHome} · {copy.play.resumeSub(savedGame.moves.length, copy.play.levels[savedGame.setup.level] ?? '', savedGame.color)}</span>
+          <span className="btn small primary">{copy.play.resume}</span>
+        </Link>
+      )}
 
       <section className="card today">
         <div className="page-head" style={{ marginBottom: '0.6rem' }}>
-          <div>
-            <h2>{copy.today.title}</h2>
-            <p className="muted small" style={{ margin: 0 }}>{allDone ? copy.today.allDone : copy.today.lead}</p>
-          </div>
+          <p className="muted small" style={{ margin: 0 }}>{copy.today.lead}</p>
           {tasks.length > 0 && (
             <span className="today-count" aria-label={`${doneCount} of ${tasks.length} done`}>
               {doneCount}/{tasks.length}

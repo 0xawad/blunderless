@@ -26,7 +26,11 @@ type Tab = 'summary' | 'moves' | 'engine';
 type Retry = { result?: 'best' | 'good' | 'bad'; text?: string; pv?: string[] } | null;
 
 const moveNo = (ply: number) => Math.floor(ply / 2) + 1;
-const fmtCp = (cp: number) => (Math.abs(cp) >= 9000 ? (cp > 0 ? '+M' : '-M') : `${cp > 0 ? '+' : ''}${(cp / 100).toFixed(1)}`);
+const fmtCp = (cp: number) => {
+  if (Math.abs(cp) >= 9000) return cp > 0 ? '+M' : '-M';
+  const v = Math.round(cp / 10) / 10; // one decimal, and -0.04 becomes 0 rather than -0.0
+  return `${v > 0 ? '+' : ''}${(v || 0).toFixed(1)}`;
+};
 
 export function GameReview() {
   const { id = '' } = useParams();
@@ -63,9 +67,9 @@ export function GameReview() {
   useEffect(() => {
     const n = plies?.length ?? 0;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight') go(Math.min(n, ply + 1));
       if (e.target instanceof Element && e.target.closest('input, select, textarea')) return;
       if (e.key === 'f') setFlipped((x) => !x);
+      if (e.key === 'ArrowRight' && !variation.length) go(Math.min(n, ply + 1));
       if (e.key === 'ArrowLeft') variation.length ? setVariation((v) => v.slice(0, -1)) : go(Math.max(0, ply - 1));
     };
     window.addEventListener('keydown', onKey);
@@ -220,7 +224,7 @@ export function GameReview() {
             </div>
             {bar(orientation)}
           </div>
-          {a && <EvalGraph evals={a.evals} moves={a.moves} userColor={game.userColor} ply={ply} onSelect={go} />}
+          {a && <EvalGraph evals={a.evals} moves={a.moves} userColor={game.userColor} ply={ply} onSelect={retry ? () => undefined : go} />}
           <div className="row stepper under-board">
             <button className="btn ghost" onClick={() => go(0)} aria-label="Start">⏮</button>
             <button className="btn ghost" onClick={() => (exploring ? setVariation((v) => v.slice(0, -1)) : go(Math.max(0, ply - 1)))} aria-label="Back">◀</button>
@@ -297,9 +301,12 @@ export function GameReview() {
 
           {a && !retry && !exploring && myMistakes.length > 0 && (
             <div className="row mistake-nav">
-              <button className="btn ghost small" disabled={prevMistake === undefined} onClick={() => prevMistake !== undefined && go(prevMistake)}>
-                ← {copy.review.prevMistake}
+              <button className="btn ghost small" disabled={prevMistake === undefined} onClick={() => prevMistake !== undefined && go(prevMistake)} aria-label={copy.review.prevMistake}>
+                ←
               </button>
+              <span className="muted small mistake-count">
+                {copy.review.mistakeCount(myMistakes.filter((i) => i < ply).length, myMistakes.length)}
+              </span>
               <button className="btn small" disabled={nextMistake === undefined} onClick={() => nextMistake !== undefined && go(nextMistake)}>
                 {copy.review.nextMistake} →
               </button>
@@ -307,9 +314,9 @@ export function GameReview() {
           )}
 
           {a && !retry && !exploring && (
-            <div className="tabs compact" role="tablist">
+            <div className="tabs compact" role="group">
               {(['summary', 'moves', 'engine'] as Tab[]).map((t) => (
-                <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
+                <button key={t} aria-pressed={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
                   {copy.review.tabs[t]}
                 </button>
               ))}

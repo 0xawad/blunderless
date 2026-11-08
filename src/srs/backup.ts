@@ -1,10 +1,10 @@
 import { State, type Card } from 'ts-fsrs';
-import { db, type AttemptRow, type CardRow, type PuzzleRow, type ReviewRow, type SettingRow } from './db';
+import { db, type AttemptRow, type CardRow, type GameRow, type PuzzleRow, type ReviewRow, type SettingRow } from './db';
 
-// v2 adds puzzles and attempts. Games aren't included: they re-import from
-// Chess.com and re-analyse.
-const VERSION = 2;
-const SETTING_KEYS = new Set(['username', 'onboarded', 'puzzleRating', 'importMonths', 'focus', 'endgameWins']);
+// v2 adds puzzles and attempts. v3 adds games: the ones you played here can't
+// be re-imported, and every analysis is minutes of engine time.
+const VERSION = 3;
+const SETTING_KEYS = new Set(['username', 'onboarded', 'puzzleRating', 'importMonths', 'focus', 'endgameWins', 'lastSpar', 'imported']);
 const UCI_RE = /^[a-h][1-8][a-h][1-8][qrbn]?$/;
 const FEN_RE = /^[1-8pnbrqkPNBRQK/]{15,71} [wb] [KQkq-]{1,4} [a-h1-8-]{1,2} \d+ \d+$/;
 
@@ -18,6 +18,7 @@ export async function exportBackup(): Promise<Blob> {
     settings: await db.settings.toArray(),
     puzzles: await db.puzzles.toArray(),
     attempts: await db.attempts.toArray(),
+    games: await db.games.toArray(),
   };
   return new Blob([JSON.stringify(data)], { type: 'application/json' });
 }
@@ -51,11 +52,44 @@ function parseCard(v: unknown): Card {
   };
 }
 
+/** A stored game, checked field by field; the analysis is checked for shape and size only. */
+function parseGame(v: unknown): GameRow {
+  if (!isObj(v) || !isStr(v.id, 300) || (v.source !== 'chesscom' && v.source !== 'local') || !isStr(v.pgn, 100_000)) {
+    throw new Error('bad game row');
+  }
+  if (!isStr(v.white, 60) || !isStr(v.black, 60) || (v.userColor !== 'white' && v.userColor !== 'black')) throw new Error('bad game players');
+  if (v.result !== 'win' && v.result !== 'loss' && v.result !== 'draw') throw new Error('bad game result');
+  const g: GameRow = {
+    id: v.id,
+    source: v.source,
+    pgn: v.pgn,
+    white: v.white,
+    black: v.black,
+    userColor: v.userColor,
+    result: v.result,
+    timeClass: isStr(v.timeClass, 20) ? v.timeClass : 'unknown',
+    endTime: toDate(v.endTime),
+  };
+  if (isStr(v.url, 300) && v.url.startsWith('https://www.chess.com/')) g.url = v.url;
+  if (isNum(v.whiteElo)) g.whiteElo = v.whiteElo;
+  if (isNum(v.blackElo)) g.blackElo = v.blackElo;
+  if (v.unreadable === true) g.unreadable = true;
+  if (isObj(v.opening) && isStr(v.opening.eco, 8) && isStr(v.opening.name, 200)) g.opening = { eco: v.opening.eco, name: v.opening.name };
+  if (isObj(v.book) && isStr(v.book.status, 20) && isNum(v.book.ply)) g.book = v.book as unknown as GameRow["book"];
+  const a = v.analysis;
+  if (isObj(a) && isNum(a.depth) && Array.isArray(a.evals) && a.evals.length <= 1000 && a.evals.every(isNum) &&
+    Array.isArray(a.moves) && a.moves.length <= 1000 && a.moves.every((m) => isObj(m) && isStr(m.cls, 20) && isNum(m.drop) && isStr(m.best, 6)) &&
+    isNum(a.accuracy) && isNum(a.blunders) && isNum(a.mistakes)) {
+    g.analysis = { ...(a as unknown as NonNullable<GameRow['analysis']>), analyzedAt: toDate(a.analyzedAt) };
+  }
+  return g;
+}
+
 /** Validates the whole file before touching the database; all or nothing. */
 export async function importBackup(text: string): Promise<number> {
-  if (text.length > 20_000_000) throw new Error('file too large');
+  if (text.length > 60_000_000) throw new Error('file too large');
   const data: unknown = JSON.parse(text);
-  if (!isObj(data) || data.app !== 'blunderless' || (data.version !== 1 && data.version !== VERSION)) throw new Error('not a backup');
+  if (!isObj(data) || data.app !== 'blunderless' || !isNum(data.version) || data.version < 1 || data.version > VERSION) throw new Error('not a backup');
   if (!Array.isArray(data.cards) || !Array.isArray(data.reviews) || !Array.isArray(data.settings)) {
     throw new Error('missing tables');
   }
@@ -112,6 +146,8 @@ export async function importBackup(text: string): Promise<number> {
       if (s.key === 'onboarded' && typeof s.value !== 'boolean') throw new Error('bad onboarded');
       if (s.key === 'puzzleRating' && !isNum(s.value)) throw new Error('bad puzzleRating');
       if (s.key === 'importMonths' && !isNum(s.value)) throw new Error('bad importMonths');
+      if (s.key === 'lastSpar' && !isStr(s.value, 16)) throw new Error('bad lastSpar');
+      if (s.key === 'imported' && !(isObj(s.value) && isStr(s.value.user, 25) && isNum(s.value.months))) throw new Error('bad imported');
       if (s.key === 'endgameWins' && !(isObj(s.value) && Object.keys(s.value).length <= 100 &&
         Object.entries(s.value).every(([k, v]) => isStr(k, 64) && isStr(v, 16)))) {
         throw new Error('bad endgameWins');
@@ -122,8 +158,10 @@ export async function importBackup(text: string): Promise<number> {
       return { key: s.key as string, value: s.value };
     });
 
+  const games: GameRow[] = (Array.isArray(data.games) ? data.games : []).map(parseGame);
+
   const hasPuzzles = data.version >= 2; // v1 backups never had puzzles; keep the current ones
-  await db.transaction('rw', [db.cards, db.reviews, db.settings, db.puzzles, db.attempts], async () => {
+  await db.transaction('rw', [db.cards, db.reviews, db.settings, db.puzzles, db.attempts, db.games], async () => {
     await Promise.all([db.cards.clear(), db.reviews.clear()]);
     await db.cards.bulkPut(cards);
     await db.reviews.bulkAdd(reviews);
@@ -133,6 +171,8 @@ export async function importBackup(text: string): Promise<number> {
       await db.attempts.bulkAdd(attempts);
     }
     await db.settings.bulkPut(settings);
+    // Games merge by id: a restore adds what's missing and never deletes what you have.
+    if (games.length) await db.games.bulkPut(games);
   });
   return cards.length;
 }

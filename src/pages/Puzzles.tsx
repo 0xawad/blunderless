@@ -59,11 +59,11 @@ export function Puzzles() {
       <h1>{copy.puzzles.title}</h1>
       <p className="lead">{copy.puzzles.lead}</p>
       <div className="puzzle-modes">
-        <div className="tabs" role="tablist">
-          <button role="tab" aria-selected={tab === 'mine'} className={tab === 'mine' ? 'on' : ''} onClick={() => setTab('mine')}>
+        <div className="tabs" role="group">
+          <button aria-pressed={tab === 'mine'} className={tab === 'mine' ? 'on' : ''} onClick={() => setTab('mine')}>
             {copy.puzzles.mine} {due?.length ? <span className="badge due">{due.length}</span> : null}
           </button>
-          <button role="tab" aria-selected={tab !== 'mine'} className={tab !== 'mine' ? 'on' : ''} onClick={() => setTab(tab === 'mine' ? 'mixed' : tab)}>
+          <button aria-pressed={tab !== 'mine'} className={tab !== 'mine' ? 'on' : ''} onClick={() => setTab(tab === 'mine' ? 'mixed' : tab)}>
             {copy.puzzles.themed}
           </button>
         </div>
@@ -110,6 +110,7 @@ function ReviewQueue({ due }: { due?: PuzzleRow[] }) {
       label={`${pos + 1} / ${queue.length} · ${copy.kinds[p.theme]?.label ?? copy.puzzles.themeNames[p.theme] ?? p.theme}`}
       onDone={(solved) => recordPuzzle(p, solved, true)}
       onNext={() => setPos((x) => x + 1)}
+      onSkip={() => setPos((x) => x + 1)}
     />
   );
 }
@@ -153,6 +154,7 @@ function ThemeTrainer({ theme, rating }: { theme: string; rating: number }) {
         await recordPuzzle(current, solved, false);
       }}
       onNext={() => next(list, rating)}
+      onSkip={() => next(list, rating)}
     />
   );
 }
@@ -162,11 +164,14 @@ function PuzzleRun({
   label,
   onDone,
   onNext,
+  onSkip,
 }: {
   puzzle: Puzzle;
   label: string;
   onDone: (solved: boolean) => void;
   onNext: () => void;
+  /** Move on without recording an attempt. */
+  onSkip: () => void;
 }) {
   // Lichess puzzles start with the opponent's move; your own start on your move.
   const offset = puzzle.source === 'lichess' ? 1 : 0;
@@ -181,6 +186,7 @@ function PuzzleRun({
   const [state, setState] = useState<'playing' | 'solved' | 'failed'>('playing');
   const [shapes, setShapes] = useState<DrawShape[]>([]);
   const [checking, setChecking] = useState(false);
+  const [hint, setHint] = useState(0); // 0 none, 1 piece, 2 move
   const [msg, setMsg] = useState<string>(
     puzzle.source === 'mine' ? copy.puzzles.yourBlunder : copy.puzzles.findMove(userColor === 'white' ? 'White' : 'Black'),
   );
@@ -215,8 +221,21 @@ function PuzzleRun({
   const finish = (solved: boolean, text?: string) => {
     setState(solved ? 'solved' : 'failed');
     sfx(solved ? 'correct' : 'wrong');
-    setMsg(text ?? pick(solved ? copy.puzzles.solved : copy.puzzles.failed));
-    onDone(solved);
+    setMsg(text ?? (solved && hint ? copy.puzzles.solvedWithHint : pick(solved ? copy.puzzles.solved : copy.puzzles.failed)));
+    // Solving with a hint counts as not quite known yet.
+    onDone(solved && !hint);
+  };
+
+  const askHint = () => {
+    const want = puzzle.moves[idx];
+    if (!want || state !== 'playing') return;
+    const level = Math.min(2, hint + 1);
+    setHint(level);
+    setShapes(
+      level === 1
+        ? [{ orig: want.slice(0, 2) as Key, brush: 'yellow' }]
+        : [{ orig: want.slice(0, 2) as Key, dest: want.slice(2, 4) as Key, brush: 'green' }],
+    );
   };
 
   const fail = (want: string) => {
@@ -245,7 +264,7 @@ function PuzzleRun({
     const probe = new Chess(chess.fen());
     playUci(probe, from + to + promo);
     // Any other mate counts too; Lichess does the same.
-    let right = from + to === want.slice(0, 4) || probe.isCheckmate();
+    let right = from + to + promo === want || probe.isCheckmate();
     if (!right && puzzle.source === 'mine' && puzzle.moves.length === 1) {
       // Leave the piece where you put it while the engine judges it.
       setFen(probe.fen());
@@ -271,6 +290,7 @@ function PuzzleRun({
       return;
     }
     apply(from + to + promo);
+    setShapes([]);
     if (chess.isCheckmate() || idx + 1 >= puzzle.moves.length) {
       finish(true);
       return;
@@ -278,6 +298,9 @@ function PuzzleRun({
     setIdx(idx + 2);
     opponent(idx + 1);
   };
+
+  const toMove = chess.turn() === 'w' ? 'White' : 'Black';
+  const yourTurn = state === 'playing' && !checking && idx >= offset && chess.turn() === userColor[0];
 
   return (
     <div className="play">
@@ -291,22 +314,34 @@ function PuzzleRun({
       />
       <aside className="card side">
         <p className="eyebrow">{label}</p>
+        <div className="turn-row">
+          <span className={`player-dot ${chess.turn() === 'w' ? 'white' : 'black'}`} aria-hidden />
+          <strong>{state === 'playing' ? copy.puzzles.toMove(toMove, yourTurn) : copy.puzzles.over}</strong>
+          {puzzle.rating && <span className="muted small">· {copy.puzzles.puzzleRating(puzzle.rating)}</span>}
+        </div>
         <div className={`feedback ${state === 'solved' ? 'good' : state === 'failed' ? 'bad' : 'info'}`} role="status">
           {msg}
         </div>
         {puzzle.source === 'mine' && copy.kinds[puzzle.theme] && (
-          <p className="muted">{copy.kinds[puzzle.theme].roast}</p>
+          <p className="muted small">{copy.kinds[puzzle.theme].roast}</p>
         )}
-        {puzzle.source === 'mine' && state !== 'playing' && puzzle.gameId && (
-          <p className="small">
-            <Link to={`/games/${encodeURIComponent(puzzle.gameId)}`}>{copy.puzzles.seeGame}</Link>
-          </p>
-        )}
-        {state !== 'playing' && (
-          <button className="btn primary" onClick={onNext} autoFocus>
-            {copy.puzzles.next}
-          </button>
-        )}
+        <div className="row puzzle-actions">
+          {state === 'playing' ? (
+            <>
+              <button className="btn ghost" onClick={askHint} disabled={!yourTurn || hint >= 2}>
+                {hint === 0 ? copy.puzzles.hint : hint === 1 ? copy.puzzles.hintMore : copy.puzzles.hint}
+              </button>
+              <button className="btn ghost" onClick={onSkip} disabled={checking}>{copy.puzzles.skip}</button>
+            </>
+          ) : (
+            <button className="btn primary" onClick={onNext} autoFocus>
+              {copy.puzzles.next}
+            </button>
+          )}
+          {puzzle.source === 'mine' && puzzle.gameId && (
+            <Link className="btn ghost" to={`/games/${encodeURIComponent(puzzle.gameId)}`}>{copy.puzzles.seeGame}</Link>
+          )}
+        </div>
       </aside>
     </div>
   );

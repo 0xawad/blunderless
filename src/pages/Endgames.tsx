@@ -196,21 +196,9 @@ function EndgameGame({
           </div>
 
           {result === 'win' ? (
-            <div className="feedback good" role="status">
-              {lines.win}
-              <div className="row">
-                <button className="btn primary" onClick={onNext} autoFocus>{copy.next}</button>
-                <button className="btn ghost" onClick={onBack}>{copy.another}</button>
-              </div>
-            </div>
+            <div className="feedback good" role="status">{lines.win}</div>
           ) : result === 'fail' ? (
-            <div className="feedback bad" role="alert">
-              {lines.fail} {eg.tip}
-              <div className="row">
-                <button className="btn primary" onClick={onRetry} autoFocus>{copy.retry}</button>
-                <button className="btn ghost" onClick={onBack}>{copy.another}</button>
-              </div>
-            </div>
+            <div className="feedback bad" role="alert">{lines.fail} {eg.tip}</div>
           ) : (
             <>
               <div className="feedback info" role="status">

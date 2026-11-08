@@ -31,7 +31,7 @@ export const endgameCopy = {
   ],
   win: {
     mate: [
-      'Checkmate. Textbook. Literally, this is in textbooks.',
+      'Checkmate. Textbook technique.',
       'Mate delivered. Their king has filed a complaint.',
       'Clean kill. Do that in a real game and nobody will know you practised.',
     ],
