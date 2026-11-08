@@ -96,7 +96,7 @@ export function Stats() {
           <section className="tiles">
             <Tile label={copy.review.phases.opening} value={phase('opening')} sub={copy.stats.phaseAcc} />
             <Tile label={copy.review.phases.middlegame} value={phase('middlegame')} sub={copy.stats.phaseAcc} />
-            <Tile label={copy.review.phases.endgame} value={phase('endgame')} sub={copy.stats.phaseAcc} />
+            <Tile label={copy.review.phases.endgame} value={phase('endgame') === '–' ? '—' : phase('endgame')} sub={phase('endgame') === '–' ? copy.stats.noEndgames : copy.stats.phaseAcc} />
           </section>
 
           {timed.length > 0 && (

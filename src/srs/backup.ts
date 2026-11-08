@@ -1,5 +1,6 @@
 import { State, type Card } from 'ts-fsrs';
 import { db, type AttemptRow, type CardRow, type GameRow, type PuzzleRow, type ReviewRow, type SettingRow } from './db';
+import type { MoveReview } from './types';
 
 // v2 adds puzzles and attempts. v3 adds games: the ones you played here can't
 // be re-imported, and every analysis is minutes of engine time.
@@ -75,12 +76,51 @@ function parseGame(v: unknown): GameRow {
   if (isNum(v.blackElo)) g.blackElo = v.blackElo;
   if (v.unreadable === true) g.unreadable = true;
   if (isObj(v.opening) && isStr(v.opening.eco, 8) && isStr(v.opening.name, 200)) g.opening = { eco: v.opening.eco, name: v.opening.name };
-  if (isObj(v.book) && isStr(v.book.status, 20) && isNum(v.book.ply)) g.book = v.book as unknown as GameRow["book"];
+  if (isObj(v.book) && (v.book.status === 'you-deviated' || v.book.status === 'they-deviated' || v.book.status === 'end-of-prep') && isNum(v.book.ply)) {
+    g.book = {
+      status: v.book.status,
+      ply: v.book.ply,
+      played: isStr(v.book.played, 10) ? v.book.played : undefined,
+      expected: isStr(v.book.expected, 10) ? v.book.expected : undefined,
+      lineId: isStr(v.book.lineId, 500) ? v.book.lineId : undefined,
+    };
+  }
   const a = v.analysis;
   if (isObj(a) && isNum(a.depth) && Array.isArray(a.evals) && a.evals.length <= 1000 && a.evals.every(isNum) &&
     Array.isArray(a.moves) && a.moves.length <= 1000 && a.moves.every((m) => isObj(m) && isStr(m.cls, 20) && isNum(m.drop) && isStr(m.best, 6)) &&
     isNum(a.accuracy) && isNum(a.blunders) && isNum(a.mistakes)) {
-    g.analysis = { ...(a as unknown as NonNullable<GameRow['analysis']>), analyzedAt: toDate(a.analyzedAt) };
+    const phase = (x: unknown) => (isObj(x) && isNum(x.accuracy) && isNum(x.moves) ? { accuracy: x.accuracy, moves: x.moves } : null);
+    const ph = isObj(a.phases) ? { opening: phase(a.phases.opening), middlegame: phase(a.phases.middlegame), endgame: phase(a.phases.endgame) } : null;
+    const t = a.time;
+    g.analysis = {
+      version: isNum(a.version) ? a.version : undefined,
+      depth: a.depth,
+      evals: a.evals as number[],
+      moves: (a.moves as Record<string, unknown>[]).map((m) => ({
+        cls: m.cls as MoveReview['cls'],
+        drop: m.drop as number,
+        best: m.best as string,
+        pv: Array.isArray(m.pv) && m.pv.every((x) => isStr(x, 6)) ? (m.pv as string[]) : undefined,
+        kind: isStr(m.kind, 24) ? (m.kind as MoveReview['kind']) : undefined,
+        left: isNum(m.left) ? m.left : undefined,
+        spent: isNum(m.spent) ? m.spent : undefined,
+      })),
+      accuracy: a.accuracy,
+      oppAccuracy: isNum(a.oppAccuracy) ? a.oppAccuracy : undefined,
+      blunders: a.blunders,
+      mistakes: a.mistakes,
+      phases: ph && ph.opening && ph.middlegame && ph.endgame ? { opening: ph.opening, middlegame: ph.middlegame, endgame: ph.endgame } : undefined,
+      keyMoments: Array.isArray(a.keyMoments)
+        ? a.keyMoments.filter((k): k is { ply: number; swing: number; mine: boolean } => isObj(k) && isNum(k.ply) && isNum(k.swing) && typeof k.mine === 'boolean').slice(0, 10)
+        : undefined,
+      decidedAt: isNum(a.decidedAt) ? a.decidedAt : undefined,
+      opening: isObj(a.opening) && isStr(a.opening.eco, 8) && isStr(a.opening.name, 200) && isNum(a.opening.ply) ? { eco: a.opening.eco, name: a.opening.name, ply: a.opening.ply } : undefined,
+      time:
+        isObj(t) && isNum(t.base) && isNum(t.inc) && isNum(t.lowTimeErrors) && isNum(t.hastyErrors) && isNum(t.openingSecs) && isNum(t.totalSecs)
+          ? { base: t.base, inc: t.inc, lowTimeErrors: t.lowTimeErrors, hastyErrors: t.hastyErrors, openingSecs: t.openingSecs, totalSecs: t.totalSecs, endedLow: t.endedLow === true }
+          : undefined,
+      analyzedAt: toDate(a.analyzedAt),
+    };
   }
   return g;
 }

@@ -161,12 +161,10 @@ export function Learn() {
           )}
           {!yourTurn && quizMsg?.tone === 'good' && <div className="feedback good" role="status">{quizMsg.text}</div>}
 
-          {(comment || ply === 0) && (
-            <div className="comment">
-              {ply > 0 && <strong>{formatPly(ply - 1, last!.san)} </strong>}
-              {comment}
-            </div>
-          )}
+          <div className={`comment ${comment || ply === 0 ? '' : 'empty'}`}>
+            {ply > 0 && <strong>{formatPly(ply - 1, last!.san)} </strong>}
+            {comment}
+          </div>
 
           <ol className="movelist">
             {line.plies.map((p, i) => {

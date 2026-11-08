@@ -208,7 +208,8 @@ export function GameReview() {
     <>
       <Link to="/games" className="back">← Games</Link>
       <div className="play review">
-        <div>
+        <div className="board-col-wrap">
+          <div className="pinned">
           <div className="board-stack">
             {bar(orientation === 'white' ? 'black' : 'white')}
             <div className="board-col">
@@ -224,18 +225,19 @@ export function GameReview() {
             </div>
             {bar(orientation)}
           </div>
-          {a && <EvalGraph evals={a.evals} moves={a.moves} userColor={game.userColor} ply={ply} onSelect={retry ? () => undefined : go} />}
           <div className="row stepper under-board">
-            <button className="btn ghost" onClick={() => go(0)} aria-label="Start">⏮</button>
-            <button className="btn ghost" onClick={() => (exploring ? setVariation((v) => v.slice(0, -1)) : go(Math.max(0, ply - 1)))} aria-label="Back">◀</button>
-            <button className="btn ghost" onClick={() => go(Math.min(plies.length, ply + 1))} aria-label="Forward" disabled={exploring}>▶</button>
-            <button className="btn ghost" onClick={() => go(plies.length)} aria-label="End">⏭</button>
+            <button className="btn ghost" onClick={() => go(0)} aria-label="Start" disabled={!!retry}>⏮</button>
+            <button className="btn ghost" onClick={() => (exploring ? setVariation((v) => v.slice(0, -1)) : go(Math.max(0, ply - 1)))} aria-label="Back" disabled={!!retry}>◀</button>
+            <button className="btn ghost" onClick={() => go(Math.min(plies.length, ply + 1))} aria-label="Forward" disabled={exploring || !!retry}>▶</button>
+            <button className="btn ghost" onClick={() => go(plies.length)} aria-label="End" disabled={!!retry}>⏭</button>
             <button className="btn ghost" onClick={() => setFlipped((x) => !x)} aria-label={copy.play.flip} title={`${copy.play.flip} (F)`}>⇅</button>
             {exploring && (
               <button className="btn small" onClick={() => setVariation([])}>{copy.review.backToGame}</button>
             )}
             <span className="hint" style={{ margin: 0 }}>{exploring ? '' : copy.review.exploreHint}</span>
           </div>
+          </div>
+          {a && <EvalGraph evals={a.evals} moves={a.moves} userColor={game.userColor} ply={ply} onSelect={retry ? () => undefined : go} />}
         </div>
 
         <aside className="card side">
@@ -375,7 +377,7 @@ export function GameReview() {
                     const cls = a?.moves[i]?.cls;
                     return (
                       <li key={i}>
-                        <button className={`mv ${i === ply - 1 ? 'on' : ''} ${cls ?? ''}`} onClick={() => go(i + 1)}>
+                        <button className={`mv ${i === ply - 1 ? 'on' : ''} ${cls ?? ''}`} onClick={() => go(i + 1)} disabled={!!retry}>
                           {i % 2 === 0 && <span className="mvnum">{Math.floor(i / 2) + 1}.</span>}<San san={p.san} color={p.color} />
                           {cls && MARK[cls]}
                         </button>

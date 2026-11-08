@@ -782,3 +782,23 @@ button.mvcell.on { background: var(--brand-soft); color: var(--text); box-shadow
   }
 }
 p.label { display: block; font-weight: 600; font-size: 0.88rem; margin: 0 0 0.4rem; }
+
+
+/* round 2 */
+.board-col-wrap { display: flex; flex-direction: column; }
+.board-col-wrap > .pinned { display: contents; }
+.board-col-wrap .evalgraph { order: 1; }
+.board-col-wrap .under-board { order: 2; }
+.comment.empty { min-height: 2.4rem; }
+.page { animation-duration: 0.22s; }
+@media (prefers-reduced-motion: no-preference) {
+  .tasks li, .focus-grid > *, .games > li { animation-delay: calc(min(var(--i, 0), 5) * 25ms); }
+}
+@media (max-width: 900px) {
+  /* Board, player bars and the stepper stay pinned; the graph and the panel scroll under them. */
+  .board-col-wrap { display: contents; }
+  .board-col-wrap > .pinned { display: block; position: sticky; top: var(--header); z-index: 6; background: var(--bg); padding-bottom: 4px; }
+  .board-col-wrap .under-board { margin-top: 0.3rem; }
+  .board-col-wrap .evalgraph { order: 0; }
+  .play > div:first-child > .board-stack { position: static; }
+}

@@ -320,7 +320,7 @@ export const copy = {
     reanalyze: 'Re-analyze',
     oldAnalysis: 'This review is from an older version. Re-analyze for clock stats and the fairer accuracy score.',
     nextMistake: 'Next mistake',
-    mistakeCount: (seen: number, total: number) => `${Math.min(seen + 1, total)} of ${total} of your mistakes`,
+    mistakeCount: (seen: number, total: number) => `Mistake ${Math.min(seen + 1, total)} of ${total}`,
     prevMistake: 'Previous mistake',
     noMoreMistakes: 'No more mistakes after this point.',
     showBest: 'Show the best move',
@@ -392,7 +392,7 @@ export const copy = {
       trappedPiece: 'Trapped pieces',
       defensiveMove: 'Defensive moves',
     } as Record<string, string>,
-    rating: (r: number) => `Puzzle rating ${r}`,
+    rating: (r: number) => `Your rating ${r}`,
   },
 
   play: {
@@ -418,6 +418,11 @@ export const copy = {
     hintsUsed: (n: number) => `${n} hint${n === 1 ? '' : 's'}`,
     undo: 'Undo',
     verdicts: { best: 'Best move', good: 'Good', inaccuracy: 'Inaccuracy', mistake: 'Mistake', blunder: 'Blunder' } as Record<string, string>,
+    verdictCount: (n: number, v: string) => {
+      const one: Record<string, string> = { best: 'best move', good: 'good move', inaccuracy: 'inaccuracy', mistake: 'mistake', blunder: 'blunder' };
+      const many: Record<string, string> = { best: 'best moves', good: 'good moves', inaccuracy: 'inaccuracies', mistake: 'mistakes', blunder: 'blunders' };
+      return `${n} ${n === 1 ? one[v] : many[v]}`;
+    },
     betterWas: (san: string) => `better was ${san}`,
     start: 'Start game',
     thinking: ['Hmm...', 'Calculating your doom...', 'Thinking (barely)...'],
@@ -438,7 +443,7 @@ export const copy = {
     resumeSub: (n: number, level: string, color: string) => `${n} move${n === 1 ? '' : 's'} in, vs Stockfish (${level}), you are ${color}.`,
     resume: 'Resume',
     discard: 'Discard',
-    resumeHome: 'Resume your game against Stockfish',
+    resumeHome: 'Game in progress',
     resigned: 'You resigned. Live to fight another game.',
     onTime: { win: 'Stockfish ran out of time. A rare sight.', loss: 'You ran out of time. The clock is part of the game.', draw: 'Out of time, but nobody could mate.' } as Record<string, string>,
     time: 'Time control',
@@ -466,6 +471,7 @@ export const copy = {
     streakSub: 'drill or solve daily',
     noPuzzles: 'no puzzles solved yet',
     noGames: 'no games analysed yet',
+    noEndgames: 'no endgames reached yet',
     streak: 'Training streak',
     days: (n: number) => `${n} day${n === 1 ? '' : 's'}`,
     phaseAcc: 'accuracy, last 20 games',

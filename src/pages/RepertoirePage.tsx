@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { copy } from '../copy';
@@ -40,6 +40,13 @@ export function RepertoirePage() {
   if (!rep) return <p className="empty">{copy.notFound}</p>;
 
   const dueHere = rep.lines.filter((l) => statusOf(cards?.get(l.id)) === 'due').length;
+  // Which chapters start open is decided once the cards are known; after that it's the user's.
+  const openInit = useRef<Record<string, boolean> | null>(null);
+  if (!openInit.current && cards) {
+    openInit.current = Object.fromEntries(
+      rep.chapters.map((ch, ci) => [ch.id, ci === 0 || ch.lines.some((l) => statusOf(cards.get(l.id)) === 'due')]),
+    );
+  }
   const started = rep.lines.filter((l) => cards?.get(l.id)).length;
   const nextNew = rep.lines.find((l) => !cards?.get(l.id));
   const inFocus = focus?.includes(rep.id);
@@ -150,12 +157,12 @@ export function RepertoirePage() {
         const dueIn = ch.lines.filter((l) => statusOf(cards?.get(l.id)) === 'due').length;
         const known = ch.lines.filter((l) => statusOf(cards?.get(l.id)) === 'known').length;
         return (
-        <details key={ch.id} className="card chapter" open={ci === 0 || dueIn > 0}>
+        <details key={ch.id} className="card chapter" open={openInit.current ? openInit.current[ch.id] : ci === 0}>
           <summary>
-            <span>
+            <div>
               <h2>{ch.title}</h2>
               {ch.intro && <p className="muted small">{ch.intro}</p>}
-            </span>
+            </div>
             <span className="chapter-meta muted small">
               {copy.rep.chapterMeta(ch.lines.length, known)}
               {dueIn > 0 && <StatusBadge status="due" />}

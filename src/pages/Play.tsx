@@ -169,6 +169,7 @@ export function Play() {
           className="btn primary lg"
           disabled={!valid}
           onClick={() => {
+            clearSavedGame();
             window.scrollTo({ top: 0 });
             setGame({
               color: setup.color === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : setup.color,
@@ -292,6 +293,11 @@ function PlayGame({
 
   const finish = useCallback((r: 'win' | 'loss' | 'draw', why: 'time' | 'resign' | null = null) => {
     if (resultRef.current) return;
+    // Book the turn that was running, so the clocks show what was really left.
+    const c = clock.current;
+    const side = chess.turn() as Side;
+    if (timed && c.moved[side] > 0) c[side] = Math.max(0, c[side] - (performance.now() - c.since));
+    c.since = performance.now();
     resultRef.current = r;
     setResult(r);
     setReason(why);
@@ -343,6 +349,35 @@ function PlayGame({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fen, log, result, saves, hints]);
+
+  // Time spent thinking before you leave counts too: snapshot the clocks on the way out.
+  const latest = useRef({ log, saves, hints });
+  latest.current = { log, saves, hints };
+  useEffect(() => {
+    const snapshot = () => {
+      if (resultRef.current || !timed) return;
+      const moves = chess.history({ verbose: true }).map((m) => m.from + m.to + (m.promotion ?? ''));
+      if (!moves.length) return;
+      saveGame({
+        v: 1,
+        setup: { level: setup.level, time: setup.time, guard: setup.guard, cct: setup.cct },
+        color,
+        startFen,
+        moves,
+        clocks: { w: left('w'), b: left('b') },
+        log: latest.current.log,
+        saves: latest.current.saves,
+        hints: latest.current.hints,
+        savedAt: Date.now(),
+      });
+    };
+    window.addEventListener('pagehide', snapshot);
+    return () => {
+      window.removeEventListener('pagehide', snapshot);
+      snapshot();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Name the opening as it develops (Chess.com shows this under the moves).
   const [openingName, setOpeningName] = useState<string>();
@@ -627,7 +662,7 @@ function PlayGame({
                 <h2>{copy.play.overTitle[result]}</h2>
                 <p className="muted">{overText}</p>
                 {summary.length > 0 && (
-                  <p className="muted">{summary.map((s) => `${s.n} ${copy.play.verdicts[s.v].toLowerCase()}`).join(' · ')}</p>
+                  <p className="muted">{summary.map((s) => copy.play.verdictCount(s.n, s.v)).join(' · ')}</p>
                 )}
                 <div className="row">
                   {plyCount > 0 && <button className="btn primary" onClick={review} autoFocus>{copy.play.review}</button>}
@@ -647,7 +682,7 @@ function PlayGame({
               {overText}
               {summary.length > 0 && (
                 <div className="muted small" style={{ marginTop: '0.3rem' }}>
-                  {summary.map((s) => `${s.n} ${copy.play.verdicts[s.v].toLowerCase()}`).join(' · ')}
+                  {summary.map((s) => copy.play.verdictCount(s.n, s.v)).join(' · ')}
                   {hints ? ` · ${copy.play.hintsUsed(hints)}` : ''}
                 </div>
               )}

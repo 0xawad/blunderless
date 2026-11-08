@@ -70,15 +70,25 @@ export function FocusCard({ rep, cards, report, onUnfocus }: { rep: Repertoire; 
   );
 }
 
-/** Replaying every PGN is heavy with a year of blitz; do it after the page has painted. */
+/**
+ * Replaying every PGN is heavy with a year of blitz: do it after the page has
+ * painted, keep the last result while the next one is computed, and share the
+ * work between Home and Openings (one cache per games array).
+ */
+let reportCache: { games: GameRow[]; map: Map<string, RepReport> } | null = null;
 export function useRepReports(games: GameRow[] | undefined) {
-  const [reports, setReports] = useState<Map<string, RepReport>>(() => new Map());
+  const [reports, setReports] = useState<Map<string, RepReport>>(() => (games && reportCache?.games === games ? reportCache.map : new Map()));
   useEffect(() => {
     if (!games) return;
+    if (reportCache?.games === games) {
+      setReports(reportCache.map);
+      return;
+    }
     let alive = true;
     const id = window.setTimeout(() => {
-      const next = new Map(repertoires.map((r) => [r.id, repReport(r, games)]));
-      if (alive) setReports(next);
+      const map = new Map(repertoires.map((r) => [r.id, repReport(r, games)]));
+      reportCache = { games, map };
+      if (alive) setReports(map);
     }, 0);
     return () => {
       alive = false;

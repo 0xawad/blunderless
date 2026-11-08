@@ -183,10 +183,12 @@ export class Engine {
         const lines: PvLine[] = [];
         let stopped = false;
         // A deep search that never answers (or a `stop` that is never acknowledged)
-        // would otherwise block every later search behind it.
-        const timer = setTimeout(() => this.kill(new Error('engine analysis timed out')), SEARCH_TIMEOUT * 2);
+        // would otherwise block every later search behind it. Both timers belong
+        // to this job only and are cleared the moment it ends.
+        let timer = setTimeout(() => this.kill(new Error('engine analysis timed out')), SEARCH_TIMEOUT * 2);
+        const done = () => clearTimeout(timer);
         this.failPending = (err) => {
-          clearTimeout(timer);
+          done();
           reject(err);
         };
         this.listener = (line) => {
@@ -195,17 +197,18 @@ export class Engine {
             lines[l.multipv - 1] = l;
             if (!stopped) onLines(lines.filter(Boolean));
           } else if (line.startsWith('bestmove')) {
-            clearTimeout(timer);
+            done();
             this.failPending = null;
             resolve();
           }
         };
         sendStop = () => {
+          if (stopped) return;
           stopped = true;
           this.send('stop');
           // After `stop` the engine must answer within a moment.
-          clearTimeout(timer);
-          setTimeout(() => this.failPending && this.kill(new Error('engine ignored stop')), 5_000);
+          done();
+          timer = setTimeout(() => this.kill(new Error('engine ignored stop')), 5_000);
         };
         this.send(`position fen ${fen}`);
         this.send(`go depth ${opts.depth ?? 20}`);
