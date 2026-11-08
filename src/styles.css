@@ -453,7 +453,9 @@ cg-board square.current-premove { background-color: rgb(31 108 159 / 0.35); }
 cg-board piece { will-change: transform; }
 .cg-wrap piece { cursor: grab; }
 /* Lift the piece you're dragging, like picking it up off the board. */
-cg-board piece.dragging { cursor: grabbing; scale: 1.14; filter: drop-shadow(0 10px 8px rgb(0 0 0 / 0.28)); z-index: 11; transition: scale 90ms var(--ease-out); }
+/* A held piece follows the pointer exactly: no scaling, no filters (a filter is
+   re-rasterised on every move and makes the drag stutter). */
+cg-board piece.dragging { cursor: grabbing; z-index: 11; }
 cg-board piece.anim { z-index: 8; }
 cg-board square.move-dest, cg-board square.oc.move-dest { cursor: pointer; }
 /* The ghost left on the start square while dragging. */
@@ -481,7 +483,7 @@ cg-board piece.ghost { opacity: 0.28; }
 .promo button { width: 100%; aspect-ratio: 1; border: 0; background: transparent; cursor: pointer; padding: 6%; }
 .promo button:hover { background: var(--surface-2); }
 .promo-dim { background: rgb(10 12 20 / 0.28) !important; backdrop-filter: none !important; }
-.drag-over { position: absolute; z-index: 2; width: 12.5%; height: 12.5%; left: 0; top: 0; pointer-events: none; opacity: 0; box-shadow: inset 0 0 0 4px rgb(255 255 255 / 0.75); transition: opacity 60ms; }
+.drag-over { position: absolute; z-index: 2; width: 12.5%; height: 12.5%; left: 0; top: 0; pointer-events: none; opacity: 0; box-shadow: inset 0 0 0 4px rgb(255 255 255 / 0.7); will-change: transform; }
 .board-grip { position: absolute; right: -6px; bottom: -6px; width: 18px; height: 18px; z-index: 14; cursor: nwse-resize; border-radius: 4px; opacity: 0; transition: opacity var(--t-fast); background:
   linear-gradient(135deg, transparent 45%, var(--muted) 46% 52%, transparent 53% 62%, var(--muted) 63% 69%, transparent 70%); }
 .board-wrap:hover .board-grip, .board-grip:active { opacity: 0.9; }
@@ -726,6 +728,5 @@ input[type='range'] { accent-color: var(--text); width: 160px; }
 
 /* On touch screens the finger hides the piece: lift it above the finger and enlarge it. */
 @media (pointer: coarse) {
-  cg-board piece.dragging { scale: 1.75; translate: 0 -38%; filter: drop-shadow(0 14px 10px rgb(0 0 0 / 0.3)); }
   .drag-over { box-shadow: inset 0 0 0 5px rgb(255 255 255 / 0.85); }
 }

@@ -198,7 +198,11 @@ export function Board({ fen, orientation, interactive, premovable, lastMove, sha
   }, [fen, lastMove, silent]);
 
   // While dragging, outline the square under the piece, like the big sites do.
+  // Only touch the DOM when the square changes, and move it with a transform
+  // (no layout), so it never competes with the dragged piece for frames.
+  const overKey = useRef<string | null>(null);
   function hideOver() {
+    overKey.current = null;
     if (over.current) over.current.style.opacity = '0';
   }
   useEffect(() => {
@@ -208,21 +212,27 @@ export function Board({ fen, orientation, interactive, premovable, lastMove, sha
       const cg = api.current;
       const box = over.current;
       if (!cg || !box) return;
-      if (!cg.state.draggable.current) return hideOver();
-      const k = cg.getKeyAtDomPos([e.clientX, e.clientY]);
-      if (!k) return hideOver();
+      if (!cg.state.draggable.current?.started) {
+        if (overKey.current) hideOver();
+        return;
+      }
+      const k = cg.getKeyAtDomPos([e.clientX, e.clientY]) ?? null;
+      if (k === overKey.current) return;
+      overKey.current = k;
+      if (!k) return void (box.style.opacity = '0');
       const file = k.charCodeAt(0) - 97;
       const rank = Number(k[1]) - 1;
       const white = cg.state.orientation === 'white';
-      box.style.left = `${(white ? file : 7 - file) * 12.5}%`;
-      box.style.top = `${(white ? 7 - rank : rank) * 12.5}%`;
+      box.style.transform = `translate(${(white ? file : 7 - file) * 100}%, ${(white ? 7 - rank : rank) * 100}%)`;
       box.style.opacity = '1';
     };
-    document.addEventListener('pointermove', move);
+    document.addEventListener('pointermove', move, { passive: true });
     document.addEventListener('pointerup', hideOver);
+    document.addEventListener('pointercancel', hideOver);
     return () => {
       document.removeEventListener('pointermove', move);
       document.removeEventListener('pointerup', hideOver);
+      document.removeEventListener('pointercancel', hideOver);
     };
   }, []);
 
