@@ -8,12 +8,23 @@ export interface Prefs {
   sound: boolean;
   animation: 'off' | 'normal' | 'slow';
   coach: boolean;
+  /** a-h / 1-8 on the edge squares */
+  coordinates: boolean;
+  /** dots on the squares the picked-up piece can go to */
+  showDests: boolean;
+  highlightLast: boolean;
+  /** promote straight to a queen, no picker */
+  autoQueen: boolean;
+  /** move list with piece icons instead of letters */
+  figurines: boolean;
+  /** 0.6 - 1, set by the board's corner grip */
+  boardScale: number;
 }
 
 export const BOARD_THEMES: { id: BoardTheme; label: string; light: string; dark: string }[] = [
+  { id: 'forest', label: 'Green', light: '#ebecd0', dark: '#739552' },
+  { id: 'walnut', label: 'Brown', light: '#f0d9b5', dark: '#b58863' },
   { id: 'slate', label: 'Stone', light: '#ebe6db', dark: '#a0978a' },
-  { id: 'walnut', label: 'Walnut', light: '#f0d9b5', dark: '#b58863' },
-  { id: 'forest', label: 'Forest', light: '#eeeed2', dark: '#769656' },
   { id: 'ocean', label: 'Ocean', light: '#dee3e6', dark: '#8ca2ad' },
   { id: 'rose', label: 'Rosewood', light: '#f3e5e0', dark: '#b07a74' },
 ];
@@ -28,7 +39,19 @@ export const PIECE_SETS: { id: PieceSet; label: string }[] = [
 ];
 
 const KEY = 'prefs';
-const DEFAULTS: Prefs = { boardTheme: 'slate', pieces: 'chessnut', sound: true, animation: 'normal', coach: true };
+const DEFAULTS: Prefs = {
+  boardTheme: 'forest',
+  pieces: 'chessnut',
+  sound: true,
+  animation: 'normal',
+  coach: true,
+  coordinates: true,
+  showDests: true,
+  highlightLast: true,
+  autoQueen: false,
+  figurines: true,
+  boardScale: 1,
+};
 
 let current: Prefs = (() => {
   try {
@@ -48,8 +71,7 @@ export function setPrefs(patch: Partial<Prefs>) {
   } catch {
     /* private mode */
   }
-  document.documentElement.dataset.board = current.boardTheme;
-  document.documentElement.dataset.pieces = current.pieces;
+  applyPrefsToDocument();
   listeners.forEach((l) => l());
 }
 
@@ -64,6 +86,8 @@ export function usePrefs(): Prefs {
 }
 
 export const applyPrefsToDocument = () => {
-  document.documentElement.dataset.board = current.boardTheme;
-  document.documentElement.dataset.pieces = current.pieces;
+  const root = document.documentElement;
+  root.dataset.board = current.boardTheme;
+  root.dataset.pieces = current.pieces;
+  root.style.setProperty('--board-scale', String(current.boardScale));
 };

@@ -5,10 +5,45 @@ import { getSetting, setSetting } from '../srs/db';
 import { exportBackup, importBackup, resetAll } from '../srs/backup';
 import { applyTheme, readTheme, type Theme } from '../theme';
 import { useToast } from '../components/Toast';
-import { BOARD_THEMES, PIECE_SETS, setPrefs, usePrefs } from '../prefs';
+import { BOARD_THEMES, PIECE_SETS, setPrefs, usePrefs, type Prefs } from '../prefs';
+import { Chess } from 'chess.js';
+import { Board } from '../chess/Board';
+import { playUci } from '../chess/game';
 import { play, unlockAudio } from '../sound';
 import { download, isPersisted, markBackedUp, protectStorage } from '../storage';
 import { useLiveQuery } from 'dexie-react-hooks';
+
+// A position with a capture, a check and a last move, so every board setting shows.
+const PREVIEW_FEN = 'r1bqk2r/pppp1Bpp/2n2n2/2b1p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 0 4';
+
+/** A board you can play on (both sides), resetting after a few moves. */
+function PreviewBoard() {
+  const [game, setGame] = useState(() => ({ chess: new Chess(PREVIEW_FEN), last: ['c4', 'f7'] as [string, string], n: 0 }));
+  const onMove = (from: string, to: string, promotion?: string) => {
+    const c = new Chess(game.chess.fen());
+    const m = playUci(c, from + to + (promotion ?? ''));
+    if (!m) return;
+    const reset = game.n >= 7 || c.isGameOver();
+    setGame({ chess: reset ? new Chess(PREVIEW_FEN) : c, last: reset ? ['c4', 'f7'] : [m.from, m.to], n: reset ? 0 : game.n + 1 });
+  };
+  return <Board fen={game.chess.fen()} orientation="white" lastMove={game.last} interactive onMove={onMove} />;
+}
+
+type BoolPref = 'coordinates' | 'showDests' | 'highlightLast' | 'autoQueen' | 'figurines';
+function Toggle({ k, prefs }: { k: BoolPref; prefs: Prefs }) {
+  return (
+    <div className="setting-row">
+      <div>
+        <strong>{copy.settings.toggles[k][0]}</strong>
+        <div className="muted">{copy.settings.toggles[k][1]}</div>
+      </div>
+      <div className="segmented" style={{ margin: 0 }} role="radiogroup" aria-label={copy.settings.toggles[k][0]}>
+        <button role="radio" aria-checked={prefs[k]} className={prefs[k] ? 'on' : ''} onClick={() => setPrefs({ [k]: true })}>On</button>
+        <button role="radio" aria-checked={!prefs[k]} className={!prefs[k] ? 'on' : ''} onClick={() => setPrefs({ [k]: false })}>Off</button>
+      </div>
+    </div>
+  );
+}
 
 const THEMES: { value: Theme; label: string }[] = [
   { value: 'system', label: 'System' },
@@ -81,6 +116,36 @@ export function Settings() {
           </div>
           <p className="hint">{copy.welcome.usernameHint}</p>
         </form>
+      </section>
+
+      <section className="card board-settings">
+        <h2>{copy.settings.boardTitle}</h2>
+        <div className="board-settings-grid">
+          <div className="board-preview">
+            <PreviewBoard />
+            <p className="hint">{copy.settings.previewHint}</p>
+          </div>
+          <div>
+            {(['coordinates', 'showDests', 'highlightLast', 'figurines', 'autoQueen'] as BoolPref[]).map((k) => (
+              <Toggle key={k} k={k} prefs={prefs} />
+            ))}
+            <div className="setting-row">
+              <div>
+                <strong>{copy.settings.boardSize}</strong>
+                <div className="muted">{copy.settings.boardSizeHint}</div>
+              </div>
+              <input
+                type="range"
+                min={60}
+                max={100}
+                step={5}
+                value={Math.round(prefs.boardScale * 100)}
+                onChange={(e) => setPrefs({ boardScale: Number(e.target.value) / 100 })}
+                aria-label={copy.settings.boardSize}
+              />
+            </div>
+          </div>
+        </div>
       </section>
 
       <section className="card">

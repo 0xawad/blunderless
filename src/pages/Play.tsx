@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { San } from '../components/San';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Chess } from 'chess.js';
 import type { DrawShape } from 'chessground/draw';
@@ -224,7 +225,6 @@ function PlayGame({
   const tc = TIMES[setup.time] ?? TIMES[0];
   const timed = tc.base > 0;
   const clock = useRef({ w: tc.base * 1000, b: tc.base * 1000, since: performance.now(), moved: { w: 0, b: 0 }, warned: false });
-  const [, tick] = useState(0);
   /** Milliseconds left for a side, counting the running turn. */
   const left = (side: Side) => {
     const c = clock.current;
@@ -264,7 +264,6 @@ function PlayGame({
         clock.current.warned = true;
         sfx('tick');
       }
-      tick((n) => n + 1);
     }, 100);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -326,6 +325,7 @@ function PlayGame({
   useEffect(() => {
     if (opened.current) return;
     opened.current = true;
+    sfx('start');
     if (chess.turn() !== mine && !chess.isGameOver()) engineMove();
     else prepare();
   }, [chess, mine, engineMove, prepare]);
@@ -502,7 +502,8 @@ function PlayGame({
         sub={me ? undefined : `${copy.play.levels[setup.level]} · ${copy.play.levelElo[setup.level]}`}
         side={side === 'w' ? 'white' : 'black'}
         fen={shownFen}
-        clock={timed ? left(side) / 1000 : undefined}
+        clock={timed ? clock.current[side] / 1000 : undefined}
+        runningSince={timed && !result && chess.turn() === side && clock.current.moved[side] > 0 ? clock.current.since : undefined}
         active={!result && chess.turn() === side}
       />
     );
@@ -521,6 +522,7 @@ function PlayGame({
           lastMove={shownLast}
           shapes={shapes}
           onMove={onMove}
+          resizable
           overlay={
             result && !dismissed ? (
               <BoardOverlay>
@@ -613,7 +615,7 @@ function PlayGame({
                     title={m.better ? copy.play.betterWas(m.better) : undefined}
                     onClick={() => setView(i + 1 >= plyCount ? null : i + 1)}
                   >
-                    {m.san}
+                    <San san={m.san} color={m.color} />
                     {m.verdict && VERDICT_MARK[m.verdict]}
                   </button>
                 );

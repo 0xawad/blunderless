@@ -5,6 +5,7 @@
 //    toward lines you haven't nailed yet), you answer from memory. Finishing a
 //    line updates its drill schedule.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { San } from '../components/San';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { DrawShape } from 'chessground/draw';
 import type { Key } from 'chessground/types';
@@ -87,7 +88,7 @@ function MovePath({ path, onJump, empty }: { path: TreeMove[]; onJump?: (n: numb
       {path.map((m, i) => (
         <li key={i}>
           <button className={`mv ${i === path.length - 1 ? 'on' : ''}`} onClick={() => onJump?.(i + 1)} disabled={!onJump}>
-            {i % 2 === 0 ? formatPly(i, m.san) : m.san}
+            {i % 2 === 0 && <span className="mvnum">{Math.floor(i / 2) + 1}.</span>}<San san={m.san} color={m.color} />
           </button>
         </li>
       ))}

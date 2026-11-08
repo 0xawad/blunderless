@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { San } from '../components/San';
 import { Link, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Chess } from 'chess.js';
@@ -210,7 +211,7 @@ export function GameReview() {
                   </b>
                 </div>
               )}
-              <Board fen={fen} orientation={orientation} lastMove={lastMove} shapes={shapes} interactive={!retry?.result} onMove={onMove} />
+              <Board fen={fen} orientation={orientation} lastMove={lastMove} shapes={shapes} interactive={!retry?.result} onMove={onMove} resizable />
             </div>
             {bar(orientation)}
           </div>
@@ -363,7 +364,7 @@ export function GameReview() {
                     return (
                       <li key={i}>
                         <button className={`mv ${i === ply - 1 ? 'on' : ''} ${cls ?? ''}`} onClick={() => go(i + 1)}>
-                          {i % 2 === 0 ? formatPly(i, p.san) : p.san}
+                          {i % 2 === 0 && <span className="mvnum">{Math.floor(i / 2) + 1}.</span>}<San san={p.san} color={p.color} />
                           {cls && MARK[cls]}
                         </button>
                       </li>

@@ -10,7 +10,7 @@
 // raw square waves.
 import { getPrefs } from './prefs';
 
-export type SoundName = 'move' | 'capture' | 'check' | 'castle' | 'promote' | 'correct' | 'wrong' | 'win' | 'lose' | 'draw' | 'tick';
+export type SoundName = 'move' | 'capture' | 'check' | 'castle' | 'promote' | 'correct' | 'wrong' | 'win' | 'lose' | 'draw' | 'tick' | 'start';
 
 interface Bus {
   c: AudioContext;
@@ -202,6 +202,10 @@ const PLAYERS: Record<SoundName, (b: Bus, t: number) => void> = {
     bell(b, t + 0.16, N.G4, { gain: 0.05, decay: 0.8 });
   },
   tick: (b, t) => bell(b, t, 1568, { gain: 0.06, decay: 0.12, room: 0.1 }),
+  start: (b, t) => {
+    bell(b, t, N.G4, { gain: 0.05, decay: 0.5 });
+    bell(b, t + 0.09, N.C5, { gain: 0.06, decay: 0.7 });
+  },
 };
 
 // Two sounds of the same kind fired within a few ms (e.g. a move echoed by

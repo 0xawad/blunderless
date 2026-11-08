@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { materialOf } from '../chess/game';
 import { fmtClock } from '../games/clock';
 
@@ -13,14 +14,17 @@ export function PlayerBar({
   side,
   fen,
   clock,
+  runningSince,
   active,
 }: {
   name: string;
   sub?: string;
   side: 'white' | 'black';
   fen: string;
-  /** Seconds left; omit for untimed. */
+  /** Seconds left (at `runningSince`, if running); omit for untimed. */
   clock?: number;
+  /** performance.now() when this clock started running; it then counts down by itself. */
+  runningSince?: number;
   /** This side is to move (its clock is running). */
   active?: boolean;
 }) {
@@ -29,7 +33,6 @@ export function PlayerBar({
   const lead = s === 'w' ? diff : -diff;
   const taken = captured[s];
   const theirColor = s === 'w' ? 'black' : 'white';
-  const low = clock !== undefined && clock < 20;
   return (
     <div className={`player-bar ${active ? 'active' : ''}`}>
       <span className={`player-dot ${side}`} aria-hidden />
@@ -43,11 +46,23 @@ export function PlayerBar({
         ))}
         {lead > 0 && <span className="lead">+{lead}</span>}
       </div>
-      {clock !== undefined && (
-        <span className={`clock ${active ? 'running' : ''} ${low ? 'low' : ''}`} role="timer" aria-label={`${name} clock`}>
-          {fmtClock(Math.max(0, clock))}
-        </span>
-      )}
+      {clock !== undefined && <Clock seconds={clock} since={runningSince} active={!!active} label={`${name} clock`} />}
     </div>
+  );
+}
+
+/** Counts itself down while running, so the page around it doesn't re-render ten times a second. */
+function Clock({ seconds, since, active, label }: { seconds: number; since?: number; active: boolean; label: string }) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (since === undefined) return;
+    const id = window.setInterval(() => tick((n) => n + 1), 100);
+    return () => clearInterval(id);
+  }, [since]);
+  const left = Math.max(0, seconds - (since !== undefined ? (performance.now() - since) / 1000 : 0));
+  return (
+    <span className={`clock ${active ? 'running' : ''} ${left < 20 ? 'low' : ''}`} role="timer" aria-label={label}>
+      {fmtClock(left)}
+    </span>
   );
 }
