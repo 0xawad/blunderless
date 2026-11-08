@@ -12,7 +12,7 @@ import { Rating } from 'ts-fsrs';
 import { copy, pick } from '../copy';
 import { Board } from '../chess/Board';
 import { START_FEN, formatPly, getLine, getRepertoire, type Repertoire } from '../repertoire';
-import { lineForPath, nodeAt, pickReply, repertoireTree, type RepTree, type TreeMove } from '../repertoire/tree';
+import { lineForWalk, nodeAt, pickReply, repertoireTree, type RepTree, type TreeMove } from '../repertoire/tree';
 import { addLine, recordReview, setSetting, statusOf, type CardRow } from '../srs/db';
 import { dayKey } from '../streak';
 import { useCards } from '../components/ui';
@@ -113,7 +113,7 @@ function Explore({ tree, cards, start }: { tree: RepTree; cards?: Map<string, Ca
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.closest('input, select, textarea')) return;
+      if (e.target instanceof Element && e.target.closest('input, select, textarea')) return;
       if (e.key === 'ArrowLeft') go(path.slice(0, -1));
       if (e.key === 'ArrowRight' && moves[0]) go([...path, moves[0]]);
       if (e.key === 'Home') go([]);
@@ -259,9 +259,9 @@ function Spar({ tree, cards }: { tree: RepTree; cards?: Map<string, CardRow> }) 
   }, []);
 
   const finish = useCallback(
-    async (p: TreeMove[], missed: number[]) => {
-      const line = lineForPath(rep, p.map((m) => m.san));
-      const mistakes = missed.length;
+    async (p: TreeMove[], missedOnPath: number[]) => {
+      const { line, missed } = lineForWalk(tree, p, missedOnPath);
+      const mistakes = missedOnPath.length;
       setResult({ lineId: line?.id, mistakes, perfect: mistakes === 0 });
       setSession((s) => ({ lines: s.lines + 1, perfect: s.perfect + (mistakes === 0 ? 1 : 0) }));
       setMsg({ tone: mistakes ? 'info' : 'good', text: pick(mistakes ? copy.drill.shaky : copy.drill.perfect) });
@@ -272,7 +272,7 @@ function Spar({ tree, cards }: { tree: RepTree; cards?: Map<string, CardRow> }) 
         await recordReview(line.id, mistakes === 0 ? Rating.Good : mistakes === 1 ? Rating.Hard : Rating.Again, mistakes, missed);
       }
     },
-    [rep],
+    [tree],
   );
 
   // The opponent plays itself; the end of the tree ends the run.

@@ -201,7 +201,7 @@ const PLAYERS: Record<SoundName, (b: Bus, t: number) => void> = {
     bell(b, t, N.G4, { gain: 0.06, decay: 0.6 });
     bell(b, t + 0.16, N.G4, { gain: 0.05, decay: 0.8 });
   },
-  tick: (b, t) => bell(b, t, 2093, { gain: 0.02, decay: 0.05, room: 0 }),
+  tick: (b, t) => bell(b, t, 1568, { gain: 0.06, decay: 0.12, room: 0.1 }),
 };
 
 // Two sounds of the same kind fired within a few ms (e.g. a move echoed by

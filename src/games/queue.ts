@@ -44,6 +44,7 @@ export function onQueueFinish(fn: ((s: QueueState) => void) | null) {
 }
 
 export function enqueue(ids: string[]) {
+  stopRequested = false; // a new request after Stop means "go on"
   const fresh = ids.filter((id) => id !== state.current && !state.pending.includes(id));
   if (!fresh.length) return;
   if (!state.running) {
@@ -68,11 +69,16 @@ async function run() {
     try {
       const made = await analyzeStoredGame(id, (p) => set({ progress: p }));
       set({ done: state.done + 1, puzzles: state.puzzles + made });
-    } catch {
-      set({ failed: true, pending: [] });
-      break;
+    } catch (e) {
+      // A dead or hung engine fails every game after it too; anything else is about this one game.
+      if (/engine/i.test((e as Error)?.message ?? '')) {
+        set({ failed: true, pending: [] });
+        break;
+      }
+      set({ done: state.done + 1 });
     }
   }
-  set({ running: false, current: undefined, progress: 0 });
+  // Whatever is still waiting after a stop would otherwise look queued forever.
+  set({ running: false, current: undefined, progress: 0, pending: [] });
   onFinish?.(state);
 }

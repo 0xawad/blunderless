@@ -12,6 +12,7 @@ import { db } from '../srs/db';
 import { withBook } from '../games/store';
 import { useToast } from '../components/Toast';
 import { setPrefs, usePrefs } from '../prefs';
+import { PlayerBar } from '../components/PlayerBar';
 import { play as sfx } from '../sound';
 
 // The bottom three use Skill Level (Stockfish can't limit itself below 1320
@@ -33,9 +34,17 @@ const readSetup = (): Partial<Setup> => {
   }
 };
 const COACH_DEPTH = 10;
+const TIMES = [
+  { label: 'Untimed', base: 0, inc: 0 },
+  { label: '3 + 2', base: 180, inc: 2 },
+  { label: '5 + 3', base: 300, inc: 3 },
+  { label: '10 + 0', base: 600, inc: 0 },
+  { label: '15 + 10', base: 900, inc: 10 },
+];
 
 interface Setup {
   level: number;
+  time: number;
   color: 'white' | 'black' | 'random';
   guard: boolean;
   cct: boolean;
@@ -51,6 +60,7 @@ export function Play() {
     const saved = readSetup();
     return {
       level: typeof saved.level === 'number' && saved.level >= 0 && saved.level < LEVELS.length ? saved.level : 1,
+      time: typeof saved.time === 'number' && saved.time >= 0 && saved.time < TIMES.length ? saved.time : 0,
       color: params.get('color') === 'black' ? 'black' : params.get('color') === 'white' ? 'white' : (saved.color ?? 'white'),
       guard: saved.guard ?? true,
       cct: saved.cct ?? false,
@@ -91,6 +101,15 @@ export function Play() {
             <button key={name} className={`level ${setup.level === i ? 'on' : ''}`} aria-pressed={setup.level === i} onClick={() => setSetup({ ...setup, level: i })}>
               <span>{name}</span>
               <small>{copy.play.levelElo[i]}</small>
+            </button>
+          ))}
+        </div>
+
+        <label>{copy.play.time}</label>
+        <div className="segmented">
+          {TIMES.map((t, i) => (
+            <button key={t.label} className={setup.time === i ? 'on' : ''} aria-pressed={setup.time === i} onClick={() => setSetup({ ...setup, time: i })}>
+              {t.label}
             </button>
           ))}
         </div>
@@ -149,6 +168,10 @@ function CoachToggle() {
 
 type Pending = { uci: string; fen: string; warning: GuardWarning };
 interface Logged { san: string; color: 'w' | 'b'; verdict?: Verdict; better?: string }
+type Side = 'w' | 'b';
+
+const rand = (a: number, b: number) => a + Math.random() * (b - a);
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function PlayGame({
   setup,
@@ -174,29 +197,78 @@ function PlayGame({
   const [hint, setHint] = useState<{ level: 1 | 2; uci: string } | null>(null);
   const [thinking, setThinking] = useState(false);
   const [result, setResult] = useState<'win' | 'loss' | 'draw' | null>(null);
+  const [reason, setReason] = useState<'time' | 'resign' | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [log, setLog] = useState<Logged[]>([]);
   const [verdict, setVerdict] = useState<{ v: Verdict; san: string; better?: string } | null>(null);
+  const [view, setView] = useState<number | null>(null); // ply being looked at; null = live
+  const [flipped, setFlipped] = useState(false);
+  const [confirmResign, setConfirmResign] = useState(false);
   const pre = useRef<{ fen: string; best: string; win: number } | null>(null); // eval before your move
   const alive = useRef(true);
+  const resultRef = useRef(result);
+  resultRef.current = result;
   useEffect(() => {
     alive.current = true;
     return () => void (alive.current = false);
   }, []);
 
-  const mine = color[0];
+  const mine: Side = color === 'white' ? 'w' : 'b';
+  const theirs: Side = mine === 'w' ? 'b' : 'w';
   const sign = mine === 'w' ? 1 : -1;
   const sync = () => setFen(chess.fen());
-  const myWin = (score: { cp?: number; mate?: number }, turn: 'w' | 'b') =>
+  const myWin = (score: { cp?: number; mate?: number }, turn: Side) =>
     winPct(sign * (turn === 'w' ? 1 : -1) * scoreToCp(score as never));
 
-  const finish = useCallback(
-    (r: 'win' | 'loss' | 'draw') => {
-      setResult(r);
-      sfx(r === 'loss' ? 'lose' : r);
-    },
-    [],
-  );
+  // ---- clocks -------------------------------------------------------------
+  const tc = TIMES[setup.time] ?? TIMES[0];
+  const timed = tc.base > 0;
+  const clock = useRef({ w: tc.base * 1000, b: tc.base * 1000, since: performance.now(), moved: { w: 0, b: 0 }, warned: false });
+  const [, tick] = useState(0);
+  /** Milliseconds left for a side, counting the running turn. */
+  const left = (side: Side) => {
+    const c = clock.current;
+    const running = timed && !resultRef.current && chess.turn() === side && c.moved[side] > 0;
+    return c[side] - (running ? performance.now() - c.since : 0);
+  };
+  /** Book the time for the move `mover` just made. A side's first move is free, like on Lichess. */
+  const punch = (mover: Side) => {
+    if (!timed) return;
+    const c = clock.current;
+    const now = performance.now();
+    if (c.moved[mover] > 0) c[mover] = c[mover] - (now - c.since) + tc.inc * 1000;
+    c.moved[mover]++;
+    c.since = now;
+  };
+
+  const finish = useCallback((r: 'win' | 'loss' | 'draw', why: 'time' | 'resign' | null = null) => {
+    if (resultRef.current) return;
+    resultRef.current = r;
+    setResult(r);
+    setReason(why);
+    setView(null);
+    sfx(r === 'loss' ? 'lose' : r);
+  }, []);
+
+  useEffect(() => {
+    if (!timed || result) return;
+    const id = window.setInterval(() => {
+      const side = chess.turn() as Side;
+      const ms = left(side);
+      if (ms <= 0 && clock.current.moved[side] > 0) {
+        clock.current[side] = 0;
+        finish(side === mine ? 'loss' : 'win', 'time');
+        return;
+      }
+      if (side === mine && !clock.current.warned && ms < 10_000 && clock.current.moved[mine] > 0) {
+        clock.current.warned = true;
+        sfx('tick');
+      }
+      tick((n) => n + 1);
+    }, 100);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timed, result]);
 
   const checkOver = useCallback(() => {
     if (!chess.isGameOver()) return false;
@@ -214,15 +286,27 @@ function PlayGame({
     } catch {
       /* hints just won't be available */
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chess]);
 
   const engineMove = useCallback(async () => {
     setThinking(true);
+    const t0 = performance.now();
     try {
-      const r = await getEngine().search(chess.fen(), LEVELS[setup.level]);
-      if (!alive.current) return;
+      // Short on time, the engine plays faster, like a person would.
+      const budget = timed ? left(theirs) : Infinity;
+      const opts = { ...LEVELS[setup.level] };
+      if (budget < 30_000) opts.movetime = Math.max(60, Math.min(opts.movetime ?? 300, budget / 25));
+      const r = await getEngine().search(chess.fen(), opts);
+      // A human-ish pause: instant replies feel robotic, long ones feel broken.
+      // Openings go quickly, like they do for people who know them.
+      const early = chess.history().length < 12 ? 0.45 : 1;
+      const want = (timed ? Math.min(2200, Math.max(220, budget / 100)) : rand(380, 850)) * early * rand(0.7, 1.3);
+      await sleep(Math.max(0, want - (performance.now() - t0)));
+      if (!alive.current || resultRef.current) return;
       const m = r.bestmove ? playUci(chess, r.bestmove) : null;
       if (m) {
+        punch(m.color as Side);
         setLast([m.from, m.to]);
         setLog((l) => [...l, { san: m.san, color: m.color }]);
       }
@@ -233,6 +317,7 @@ function PlayGame({
     } finally {
       if (alive.current) setThinking(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chess, setup.level, checkOver, toast, prepare]);
 
   // Engine opens when you're Black. The ref stops StrictMode's double mount
@@ -246,13 +331,16 @@ function PlayGame({
   }, [chess, mine, engineMove, prepare]);
 
   const commit = async (uci: string) => {
+    if (resultRef.current) return;
     const before = pre.current?.fen === chess.fen() ? pre.current : null;
     const m = playUci(chess, uci);
     if (!m) return;
+    punch(m.color as Side);
     setLast([m.from, m.to]);
     setPending(null);
     setHint(null);
     setCct([false, false, false]);
+    setView(null);
     sync();
     const entry: Logged = { san: m.san, color: m.color };
     setLog((l) => [...l, entry]);
@@ -270,7 +358,6 @@ function PlayGame({
         setVerdict({ v, san: m.san, better });
         setLog((l) => l.map((x) => (x === entry ? { ...x, verdict: v, better } : x)));
         if (v === 'blunder') sfx('wrong');
-        else if (v === 'best') sfx('correct');
       } catch {
         /* no verdict this time */
       }
@@ -302,17 +389,28 @@ function PlayGame({
     sync();
   };
 
-  /** Undo your last move (and the engine's reply if it already came). */
+  /** Undo your last move (and the engine's reply if it already came). Untimed games only. */
   const undo = () => {
-    if (thinking || result) return;
+    if (thinking || result || timed) return;
     const n = chess.turn() === mine ? 2 : 1;
     for (let i = 0; i < n; i++) chess.undo();
     setLog((l) => l.slice(0, -n));
     setVerdict(null);
     setHint(null);
-    setLast(undefined);
+    setView(null);
+    const prev = chess.history({ verbose: true }).at(-1);
+    setLast(prev ? [prev.from, prev.to] : undefined);
     sync();
     prepare();
+  };
+
+  const resign = () => {
+    if (!confirmResign) {
+      setConfirmResign(true);
+      window.setTimeout(() => alive.current && setConfirmResign(false), 3000);
+      return;
+    }
+    finish('loss', 'resign');
   };
 
   const askHint = async () => {
@@ -333,6 +431,9 @@ function PlayGame({
   const review = async () => {
     chess.setHeader('White', color === 'white' ? 'You' : 'Stockfish');
     chess.setHeader('Black', color === 'black' ? 'You' : 'Stockfish');
+    const r = result ?? 'loss';
+    chess.setHeader('Result', r === 'draw' ? '1/2-1/2' : (r === 'win') === (color === 'white') ? '1-0' : '0-1');
+    if (timed) chess.setHeader('TimeControl', `${tc.base}+${tc.inc}`);
     const row = withBook({
       id: `local:${Date.now()}`,
       source: 'local',
@@ -340,7 +441,7 @@ function PlayGame({
       white: color === 'white' ? 'You' : `Stockfish (${copy.play.levels[setup.level]})`,
       black: color === 'black' ? 'You' : `Stockfish (${copy.play.levels[setup.level]})`,
       userColor: color,
-      result: result ?? 'loss',
+      result: r,
       timeClass: 'training',
       endTime: new Date(),
     });
@@ -348,11 +449,29 @@ function PlayGame({
     navigate(`/games/${encodeURIComponent(row.id)}`);
   };
 
+  // ---- browsing the moves ---------------------------------------------------
+  const history = chess.history({ verbose: true });
+  const plyCount = history.length;
+  const viewing = view !== null && view < plyCount;
+  const shownFen = viewing ? (view === 0 ? history[0]?.before ?? fen : history[view - 1].after) : pending ? pending.fen : fen;
+  const shownLast: [string, string] | undefined = viewing ? (view > 0 ? [history[view - 1].from, history[view - 1].to] : undefined) : last;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof Element && e.target.closest('input, select, textarea')) return;
+      if (e.key === 'ArrowLeft') setView((v) => Math.max(0, (v ?? plyCount) - 1));
+      if (e.key === 'ArrowRight') setView((v) => (v === null || v + 1 >= plyCount ? null : v + 1));
+      if (e.key === 'f') setFlipped((x) => !x);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [plyCount]);
+
   const cctReady = !setup.cct || cct.every(Boolean);
   const myTurn = chess.turn() === mine && !result && !pending && !thinking;
   const shapes: DrawShape[] = [];
-  if (pending) shapes.push({ orig: pending.warning.square as Key, brush: 'red' });
-  if (hint && myTurn) {
+  if (!viewing && pending) shapes.push({ orig: pending.warning.square as Key, brush: 'red' });
+  if (!viewing && hint && myTurn) {
     shapes.push(
       hint.level === 1
         ? { orig: hint.uci.slice(0, 2) as Key, brush: 'yellow' }
@@ -360,12 +479,12 @@ function PlayGame({
     );
   }
   const w = pending?.warning;
-  const pairs: Logged[][] = [];
+  const startsBlack = log[0]?.color === 'b';
+  const pairs: { n: number; moves: { m: Logged; i: number }[] }[] = [];
   log.forEach((m, i) => {
-    if (i % 2 === 0 || !pairs.length) pairs.push([m]);
-    else pairs[pairs.length - 1].push(m);
+    if (m.color === 'w' || !pairs.length) pairs.push({ n: pairs.length + 1, moves: [{ m, i }] });
+    else pairs[pairs.length - 1].moves.push({ m, i });
   });
-  const startsBlack = chess.history().length > 0 && log[0]?.color === 'b';
   const myVerdicts = log.filter((l) => l.verdict);
   const summary = myVerdicts.length
     ? (['best', 'good', 'inaccuracy', 'mistake', 'blunder'] as Verdict[])
@@ -373,50 +492,60 @@ function PlayGame({
         .filter((x) => x.n)
     : [];
 
+  const orientation = flipped ? (color === 'white' ? 'black' : 'white') : color;
+  const bottom: Side = orientation === 'white' ? 'w' : 'b';
+  const bar = (side: Side) => {
+    const me = side === mine;
+    return (
+      <PlayerBar
+        name={me ? copy.play.you : 'Stockfish'}
+        sub={me ? undefined : `${copy.play.levels[setup.level]} · ${copy.play.levelElo[setup.level]}`}
+        side={side === 'w' ? 'white' : 'black'}
+        fen={shownFen}
+        clock={timed ? left(side) / 1000 : undefined}
+        active={!result && chess.turn() === side}
+      />
+    );
+  };
+  const overText = result ? (reason === 'time' ? copy.play.onTime[result] : reason === 'resign' ? copy.play.resigned : pick(copy.play.over[result])) : '';
+
   return (
     <div className="play">
-      <Board
-        fen={pending ? pending.fen : fen}
-        orientation={color}
-        interactive={myTurn && cctReady}
-        premovable={!result && !pending && !setup.cct}
-        lastMove={last}
-        shapes={shapes}
-        onMove={onMove}
-        overlay={
-          result && !dismissed ? (
-            <BoardOverlay>
-              <div className="big" aria-hidden>{result === 'win' ? '♔' : result === 'loss' ? '♟' : '½'}</div>
-              <h2>{copy.play.overTitle[result]}</h2>
-              <p className="muted">{pick(copy.play.over[result])}</p>
-              {summary.length > 0 && (
-                <p className="muted">{summary.map((s) => `${s.n} ${copy.play.verdicts[s.v].toLowerCase()}`).join(' · ')}</p>
-              )}
-              <div className="row">
-                {chess.history().length > 0 && <button className="btn primary" onClick={review}>{copy.play.review}</button>}
-                <button className="btn ghost" onClick={onNew}>{copy.play.newGame}</button>
-                <button className="btn small" onClick={() => setDismissed(true)}>{copy.play.lookAtBoard}</button>
-              </div>
-            </BoardOverlay>
-          ) : null
-        }
-      />
+      <div className="board-stack">
+        {bar(bottom === 'w' ? 'b' : 'w')}
+        <Board
+          fen={shownFen}
+          orientation={orientation}
+          interactive={!viewing && myTurn && cctReady}
+          premovable={!viewing && !result && !pending && !setup.cct}
+          lastMove={shownLast}
+          shapes={shapes}
+          onMove={onMove}
+          overlay={
+            result && !dismissed ? (
+              <BoardOverlay>
+                <div className="big" aria-hidden>{result === 'win' ? '♔' : result === 'loss' ? '♟' : '½'}</div>
+                <h2>{copy.play.overTitle[result]}</h2>
+                <p className="muted">{overText}</p>
+                {summary.length > 0 && (
+                  <p className="muted">{summary.map((s) => `${s.n} ${copy.play.verdicts[s.v].toLowerCase()}`).join(' · ')}</p>
+                )}
+                <div className="row">
+                  {plyCount > 0 && <button className="btn primary" onClick={review}>{copy.play.review}</button>}
+                  <button className="btn ghost" onClick={onNew}>{copy.play.newGame}</button>
+                  <button className="btn small" onClick={() => setDismissed(true)}>{copy.play.lookAtBoard}</button>
+                </div>
+              </BoardOverlay>
+            ) : null
+          }
+        />
+        {bar(bottom)}
+      </div>
       <aside className="card side playside">
-        <div className="opp-row">
-          <span className="opp-avatar" aria-hidden>🤖</span>
-          <div>
-            <strong>Stockfish · {copy.play.levels[setup.level]}</strong>
-            <div className="muted small">
-              {copy.play.youPlay(color)} · {setup.guard ? copy.play.guardOn : copy.play.guardOff}
-              {prefs.coach ? ` · ${copy.play.coachOn}` : ''}
-            </div>
-          </div>
-        </div>
-
         {result ? (
           <div className={`feedback ${result === 'win' ? 'good' : result === 'loss' ? 'bad' : 'info'}`}>
             <div>
-              {pick(copy.play.over[result])}
+              {overText}
               {summary.length > 0 && (
                 <div className="muted small" style={{ marginTop: '0.3rem' }}>
                   {summary.map((s) => `${s.n} ${copy.play.verdicts[s.v].toLowerCase()}`).join(' · ')}
@@ -446,14 +575,21 @@ function PlayGame({
           </div>
         )}
 
-        {verdict && !result && !w && (
+        {viewing && (
+          <div className="viewing" role="status">
+            <span>{copy.play.viewing(view === 0 ? 0 : Math.ceil(view / 2))}</span>
+            <button className="btn small" onClick={() => setView(null)}>{copy.play.backToLive}</button>
+          </div>
+        )}
+
+        {verdict && !result && !w && !viewing && (
           <div className={`verdict ${verdict.v}`} role="status">
             <strong>{verdict.san}{VERDICT_MARK[verdict.v]}</strong> {copy.play.verdicts[verdict.v]}
             {verdict.better ? ` · ${copy.play.betterWas(verdict.better)}` : ''}
           </div>
         )}
 
-        {setup.cct && myTurn && (
+        {setup.cct && myTurn && !viewing && (
           <div className="chips">
             {copy.play.cctChips.map((c, i) => (
               <button key={c} className={`chip ${cct[i] ? 'on' : ''}`} aria-pressed={cct[i]} onClick={() => setCct(cct.map((v, j) => (j === i ? !v : v)))}>
@@ -463,36 +599,56 @@ function PlayGame({
           </div>
         )}
 
-        <ol className="moves-grid" start={1}>
-          {pairs.map((pair, i) => (
-            <li key={i}>
-              <span className="num">{i + 1}.</span>
-              {startsBlack && i === 0 && <span className="mvcell muted">…</span>}
-              {pair.map((m, j) => (
-                <span key={j} className={`mvcell ${m.verdict ?? ''}`} title={m.better ? copy.play.betterWas(m.better) : undefined}>
-                  {m.san}
-                  {m.verdict && VERDICT_MARK[m.verdict]}
-                </span>
-              ))}
+        <ol className="moves-grid">
+          {pairs.map((pair) => (
+            <li key={pair.n}>
+              <span className="num">{pair.n}.</span>
+              {startsBlack && pair.n === 1 && <span className="mvcell muted">…</span>}
+              {pair.moves.map(({ m, i }) => {
+                const on = viewing ? view === i + 1 : i === plyCount - 1;
+                return (
+                  <button
+                    key={i}
+                    className={`mvcell ${m.verdict ?? ''} ${on ? 'on' : ''}`}
+                    title={m.better ? copy.play.betterWas(m.better) : undefined}
+                    onClick={() => setView(i + 1 >= plyCount ? null : i + 1)}
+                  >
+                    {m.san}
+                    {m.verdict && VERDICT_MARK[m.verdict]}
+                  </button>
+                );
+              })}
             </li>
           ))}
         </ol>
 
+        <div className="row stepper play-nav">
+          <button className="btn ghost" onClick={() => setView(0)} aria-label="First move" disabled={!plyCount}>⏮</button>
+          <button className="btn ghost" onClick={() => setView((v) => Math.max(0, (v ?? plyCount) - 1))} aria-label="Previous move" disabled={!plyCount || view === 0}>◀</button>
+          <button className="btn ghost" onClick={() => setView((v) => (v === null || v + 1 >= plyCount ? null : v + 1))} aria-label="Next move" disabled={!viewing}>▶</button>
+          <button className="btn ghost" onClick={() => setView(null)} aria-label="Live position" disabled={!viewing}>⏭</button>
+          <button className="btn ghost" onClick={() => setFlipped((x) => !x)} aria-label={copy.play.flip} title={`${copy.play.flip} (F)`}>⇅</button>
+        </div>
+
         <div className="row play-actions">
           {!result && (
             <>
-              <button className="btn ghost" onClick={askHint} disabled={!myTurn}>{copy.play.hint}</button>
-              <button className="btn ghost" onClick={undo} disabled={thinking || log.length === 0}>{copy.play.undo}</button>
-              <button className="btn danger" onClick={() => finish('loss')}>{copy.play.resign}</button>
+              <button className="btn ghost" onClick={askHint} disabled={!myTurn || viewing}>{copy.play.hint}</button>
+              {!timed && <button className="btn ghost" onClick={undo} disabled={thinking || log.length === 0}>{copy.play.undo}</button>}
+              <button className={`btn ${confirmResign ? 'danger-solid' : 'danger'}`} onClick={resign}>
+                {confirmResign ? copy.play.resignConfirm : copy.play.resign}
+              </button>
             </>
           )}
-          {result && chess.history().length > 0 && (
+          {result && plyCount > 0 && (
             <button className="btn primary" onClick={review}>{copy.play.review}</button>
           )}
           <button className="btn ghost" onClick={onNew}>{copy.play.newGame}</button>
         </div>
         <p className="hint">
-          {copy.play.saves(saves)}{hints ? ` · ${copy.play.hintsUsed(hints)}` : ''}
+          {copy.play.youPlay(color)} · {setup.guard ? copy.play.guardOn : copy.play.guardOff}
+          {prefs.coach ? ` · ${copy.play.coachOn}` : ''} · {copy.play.saves(saves)}
+          {hints ? ` · ${copy.play.hintsUsed(hints)}` : ''}
         </p>
       </aside>
     </div>

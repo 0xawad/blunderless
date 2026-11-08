@@ -91,6 +91,30 @@ export function lineForPath(rep: Repertoire, sans: string[]): Line | undefined {
 }
 
 /**
+ * The line a finished walk through the tree counts as. Move orders can
+ * transpose, so the exact path may match no line; then any line ending in the
+ * same position stands in. `missed` are path ply indexes; they come back as
+ * ply indexes of the chosen line (by position), dropping ones it doesn't pass.
+ */
+export function lineForWalk(
+  tree: RepTree,
+  path: { san: string; fenAfter: string }[],
+  missed: number[],
+): { line?: Line; missed: number[] } {
+  const exact = lineForPath(tree.rep, path.map((m) => m.san));
+  if (exact) return { line: exact, missed };
+  const end = path[path.length - 1];
+  const id = end ? tree.nodes.get(fenKey(end.fenAfter))?.endsHere[0] : undefined;
+  const line = id ? tree.rep.lines.find((l) => l.id === id) : undefined;
+  if (!line) return { missed: [] };
+  const beforeOf = (i: number) => fenKey(i === 0 ? START_FEN : path[i - 1].fenAfter);
+  const mapped = missed
+    .map((i) => line.plies.findIndex((p) => fenKey(p.fenBefore) === beforeOf(i)))
+    .filter((i) => i >= 0);
+  return { line, missed: [...new Set(mapped)] };
+}
+
+/**
  * Picks an opponent reply, favouring branches where you have the most to
  * practise. `weight` scores a line (e.g. higher for due or never-seen lines).
  */

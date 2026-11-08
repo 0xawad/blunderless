@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Chess } from 'chess.js';
 import { repertoires, START_FEN } from '.';
-import { lineForPath, myMove, nodeAt, pickReply, repertoireTree } from './tree';
+import { lineForPath, lineForWalk, myMove, nodeAt, pickReply, repertoireTree } from './tree';
 
 describe('repertoire tree', () => {
   it('collapses every line into one tree where your side has one move per position', () => {
@@ -47,4 +47,32 @@ describe('repertoire tree', () => {
     expect(pickReply(replies, w, () => 0.01).san).toBe(target.san);
     expect(pickReply(replies, w, () => 0.99).san).toBe(target.san);
   });
+
+  it('credits a transposed walk to the line that ends in the same position', () => {
+    const rep = repertoires.find((r) => r.id === 'white-italian')!;
+    const tree = repertoireTree(rep);
+    const sans = 'e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3 O-O O-O d6 h3 a6 a4 Ba7 Re1'.split(' ');
+    const walk = pathOf(tree, sans);
+    expect(walk.length).toBe(sans.length);
+    expect(lineForPath(rep, sans)).toBeUndefined();
+    const { line, missed } = lineForWalk(tree, walk, [8]); // you fumbled 5.d3
+    expect(line).toBeTruthy();
+    expect(fenKeyOf(line!.plies.at(-1)!.fenAfter)).toBe(fenKeyOf(walk.at(-1)!.fenAfter));
+    // The miss lands on the ply of that line where the same position (before d3) comes up.
+    expect(missed).toHaveLength(1);
+    expect(fenKeyOf(line!.plies[missed[0]].fenBefore)).toBe(fenKeyOf(walk[7].fenAfter));
+  });
 });
+
+const fenKeyOf = (f: string) => f.split(' ').slice(0, 4).join(' ');
+function pathOf(tree: ReturnType<typeof repertoireTree>, sans: string[]) {
+  const out: { san: string; fenAfter: string }[] = [];
+  let fen = START_FEN;
+  for (const san of sans) {
+    const m = nodeAt(tree, fen)?.moves.find((x) => x.san === san);
+    if (!m) break;
+    out.push(m);
+    fen = m.fenAfter;
+  }
+  return out;
+}

@@ -81,6 +81,8 @@ export interface GameRow {
   timeClass: string;
   endTime: Date;
   book?: BookReport;
+  /** Set when the PGN can't be replayed, so it stops counting as "to analyze". */
+  unreadable?: boolean;
   /** Deepest named opening (Lichess ECO table), filled at import. */
   opening?: { eco: string; name: string };
   analysis?: GameAnalysis;

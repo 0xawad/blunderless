@@ -1,5 +1,20 @@
+import { useEffect } from 'react';
 import { copy } from '../copy';
-import { stopQueue, useQueue } from '../games/queue';
+import { onQueueFinish, stopQueue, useQueue } from '../games/queue';
+import { useToast } from './Toast';
+
+/** Reports how a batch went, whichever page started it. Mount once inside ToastProvider. */
+export function QueueNotifier() {
+  const toast = useToast();
+  useEffect(() => {
+    onQueueFinish((s) => {
+      if (s.failed) toast(copy.engine.failed, 'bad');
+      else if (s.done) toast(copy.games.madePuzzles(s.puzzles), s.puzzles ? 'neutral' : 'good');
+    });
+    return () => onQueueFinish(null);
+  }, [toast]);
+  return null;
+}
 
 /** Progress card for the background analysis queue; renders nothing when idle. */
 export function QueueStatus() {

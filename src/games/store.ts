@@ -81,7 +81,13 @@ export async function importChessCom(username: string, months = 3): Promise<{ ad
 export async function analyzeStoredGame(id: string, onProgress?: (p: number) => void): Promise<number> {
   const g = await db.games.get(id);
   if (!g) return 0;
-  const plies = parseGamePgn(g.pgn);
+  let plies;
+  try {
+    plies = parseGamePgn(g.pgn);
+  } catch {
+    await db.games.update(id, { unreadable: true });
+    return 0;
+  }
   const openings = await loadOpenings().catch(() => undefined); // names are a nice-to-have
   const clocks = plyClocks(g.pgn, plies.length);
   const tc = parseTimeControl(g.pgn);
@@ -92,7 +98,7 @@ export async function analyzeStoredGame(id: string, onProgress?: (p: number) => 
   for (let i = 0; i < plies.length; i++) {
     const r = analysis.moves[i];
     if (!r.kind || !r.best) continue;
-    await savePuzzle({
+    const added = await savePuzzle({
       id: `mine:${id}:${i}`,
       source: 'mine',
       fen: plies[i].fenBefore,
@@ -101,7 +107,7 @@ export async function analyzeStoredGame(id: string, onProgress?: (p: number) => 
       gameId: id,
       ply: i,
     });
-    made++;
+    if (added) made++;
   }
   return made;
 }

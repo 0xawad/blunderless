@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { copy } from '../copy';
 import { db, getSetting, setSetting } from '../srs/db';
 import { ensureOpenings, importChessCom } from '../games/store';
-import { enqueue, onQueueFinish, useQueue } from '../games/queue';
+import { enqueue, useQueue } from '../games/queue';
 import { QueueStatus } from '../components/QueueStatus';
 import { ANALYSIS_VERSION } from '../games/analyze';
 import { useToast } from '../components/Toast';
@@ -16,7 +16,7 @@ const SPEEDS = ['all', 'bullet', 'blitz', 'rapid', 'daily'] as const;
 const MONTHS = [1, 3, 6, 12];
 type Filter = (typeof FILTERS)[number];
 
-export const needsAnalysis = (g: GameRow) => !g.analysis || (g.analysis.version ?? 1) < ANALYSIS_VERSION;
+export const needsAnalysis = (g: GameRow) => !g.unreadable && (!g.analysis || (g.analysis.version ?? 1) < ANALYSIS_VERSION);
 
 export function BookChip({ game }: { game: GameRow }) {
   const b = game.book;
@@ -37,11 +37,7 @@ export function Games() {
 
   useEffect(() => {
     void ensureOpenings();
-    onQueueFinish((s) => {
-      if (s.failed) toast(copy.engine.failed, 'bad');
-      else if (s.done) toast(copy.games.madePuzzles(s.puzzles), s.puzzles ? 'neutral' : 'good');
-    });
-  }, [toast]);
+  }, []);
 
   const doImport = async () => {
     if (!username) return;

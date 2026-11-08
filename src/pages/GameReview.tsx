@@ -18,6 +18,7 @@ import { getEngine, scoreToCp, winPct, type PvLine } from '../engine/engine';
 import { EvalGraph } from '../components/EvalGraph';
 import { BookChip } from './Games';
 import { useToast } from '../components/Toast';
+import { PlayerBar } from '../components/PlayerBar';
 
 const MARK: Record<string, string> = { blunder: '??', 'missed-win': '??', mistake: '?', inaccuracy: '?!', best: '!', book: '' };
 type Tab = 'summary' | 'moves' | 'engine';
@@ -44,6 +45,7 @@ export function GameReview() {
   const [retry, setRetry] = useState<Retry>(null);
   const [lines, setLines] = useState<PvLine[]>([]);
   const [showBest, setShowBest] = useState(false);
+  const [flipped, setFlipped] = useState(false);
   const q = useQueue();
   const progress = q.current === id ? q.progress : q.pending.includes(id) ? 0 : null;
 
@@ -58,6 +60,8 @@ export function GameReview() {
     const n = plies?.length ?? 0;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight') go(Math.min(n, ply + 1));
+      if (e.target instanceof Element && e.target.closest('input, select, textarea')) return;
+      if (e.key === 'f') setFlipped((x) => !x);
       if (e.key === 'ArrowLeft') variation.length ? setVariation((v) => v.slice(0, -1)) : go(Math.max(0, ply - 1));
     };
     window.addEventListener('keydown', onKey);
@@ -119,6 +123,33 @@ export function GameReview() {
 
   const run = () => enqueue([game.id]);
 
+  // Player bars: names, ratings, material at this position, and the clock after each side's last move.
+  const orientation: 'white' | 'black' = flipped ? (game.userColor === 'white' ? 'black' : 'white') : game.userColor;
+  const clockAt = (side: 'w' | 'b'): number | undefined => {
+    if (!a?.time) return undefined;
+    for (let i = Math.min(ply, plies.length) - 1; i >= 0; i--) {
+      if (plies[i].color !== side) continue;
+      const m = a.moves[i];
+      if (m.left === undefined || m.spent === undefined) return undefined;
+      return m.left - m.spent + a.time.inc;
+    }
+    return a.time.base;
+  };
+  const bar = (side: 'white' | 'black') => {
+    const s = side === 'white' ? 'w' : 'b';
+    const elo = side === 'white' ? game.whiteElo : game.blackElo;
+    return (
+      <PlayerBar
+        name={side === 'white' ? game.white : game.black}
+        sub={elo ? String(elo) : undefined}
+        side={side}
+        fen={fen}
+        clock={exploring ? undefined : clockAt(s)}
+        active={!exploring && new Chess(fen).turn() === s && ply < plies.length}
+      />
+    );
+  };
+
   // Your mistakes, as the ply index of the position before each one (where Retry works).
   const myMistakes = a ? a.moves.flatMap((m, i) => (m.kind && plies[i]?.color === mine ? [i] : [])) : [];
   const nextMistake = myMistakes.find((i) => i > ply);
@@ -168,16 +199,20 @@ export function GameReview() {
       <Link to="/games" className="back">← Games</Link>
       <div className="play review">
         <div>
-          <div className="board-col">
-            {a && (
-              <div className="evalbar-v" aria-label={`Evaluation ${evalText}`} style={game.userColor === 'black' ? { transform: 'scaleY(-1)' } : undefined}>
-                <span style={{ height: evalHeight }} />
-                <b className={evalCp !== undefined && evalCp >= 0 ? 'bottom' : 'top'} style={game.userColor === 'black' ? { transform: 'scaleY(-1)' } : undefined}>
-                  {evalText.replace('-', '')}
-                </b>
-              </div>
-            )}
-            <Board fen={fen} orientation={game.userColor} lastMove={lastMove} shapes={shapes} interactive={!retry?.result} onMove={onMove} />
+          <div className="board-stack">
+            {bar(orientation === 'white' ? 'black' : 'white')}
+            <div className="board-col">
+              {a && (
+                <div className="evalbar-v" aria-label={`Evaluation ${evalText}`} style={orientation === 'black' ? { transform: 'scaleY(-1)' } : undefined}>
+                  <span style={{ height: evalHeight }} />
+                  <b className={evalCp !== undefined && evalCp >= 0 ? 'bottom' : 'top'} style={orientation === 'black' ? { transform: 'scaleY(-1)' } : undefined}>
+                    {evalText.replace('-', '')}
+                  </b>
+                </div>
+              )}
+              <Board fen={fen} orientation={orientation} lastMove={lastMove} shapes={shapes} interactive={!retry?.result} onMove={onMove} />
+            </div>
+            {bar(orientation)}
           </div>
           {a && <EvalGraph evals={a.evals} moves={a.moves} userColor={game.userColor} ply={ply} onSelect={go} />}
           <div className="row stepper under-board">
@@ -185,6 +220,7 @@ export function GameReview() {
             <button className="btn ghost" onClick={() => (exploring ? setVariation((v) => v.slice(0, -1)) : go(Math.max(0, ply - 1)))} aria-label="Back">◀</button>
             <button className="btn ghost" onClick={() => go(Math.min(plies.length, ply + 1))} aria-label="Forward" disabled={exploring}>▶</button>
             <button className="btn ghost" onClick={() => go(plies.length)} aria-label="End">⏭</button>
+            <button className="btn ghost" onClick={() => setFlipped((x) => !x)} aria-label={copy.play.flip} title={`${copy.play.flip} (F)`}>⇅</button>
             {exploring && (
               <button className="btn small" onClick={() => setVariation([])}>{copy.review.backToGame}</button>
             )}

@@ -10,6 +10,7 @@ import { BookIcon, GamesIcon, GearIcon, HomeIcon, MoonIcon, PlayIcon, PuzzleIcon
 import { setPrefs, usePrefs } from './prefs';
 import { play, unlockAudio } from './sound';
 import { protectStorage } from './storage';
+import { QueueNotifier } from './components/QueueStatus';
 import { Home } from './pages/Home';
 import { Welcome } from './pages/Welcome';
 import { Openings } from './pages/Openings';
@@ -118,6 +119,7 @@ function Shell() {
 
   return (
     <ToastProvider>
+      <QueueNotifier />
       <a href="#main" className="skip">Skip to content</a>
       <header className="topbar">
         <div className="topbar-inner">

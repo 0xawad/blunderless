@@ -131,10 +131,12 @@ export async function makeLineDue(line: Line): Promise<void> {
   await db.cards.put({ ...row, card: { ...row.card, due: new Date() } });
 }
 
-export async function savePuzzle(p: Omit<PuzzleRow, 'card' | 'addedAt'>): Promise<void> {
-  await db.transaction('rw', db.puzzles, async () => {
-    if (await db.puzzles.get(p.id)) return;
+/** Adds a puzzle unless it's already there. Returns true if it was new. */
+export async function savePuzzle(p: Omit<PuzzleRow, 'card' | 'addedAt'>): Promise<boolean> {
+  return db.transaction('rw', db.puzzles, async () => {
+    if (await db.puzzles.get(p.id)) return false;
     await db.puzzles.add({ ...p, card: createEmptyCard(new Date()), addedAt: new Date() });
+    return true;
   });
 }
 
