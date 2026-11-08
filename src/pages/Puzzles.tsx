@@ -247,6 +247,9 @@ function PuzzleRun({
     // Any other mate counts too; Lichess does the same.
     let right = from + to === want.slice(0, 4) || probe.isCheckmate();
     if (!right && puzzle.source === 'mine' && puzzle.moves.length === 1) {
+      // Leave the piece where you put it while the engine judges it.
+      setFen(probe.fen());
+      setLast([from, to]);
       setChecking(true);
       setMsg(copy.puzzles.checking);
       try {
@@ -257,7 +260,7 @@ function PuzzleRun({
         setChecking(false);
       }
       if (right) {
-        apply(from + to + promo);
+        apply(from + to + promo); // updates the game; the board already shows it
         setShapes([{ orig: want.slice(0, 2) as Key, dest: want.slice(2, 4) as Key, brush: 'blue' }]);
         finish(true, copy.puzzles.altSolved(uciToSan(puzzle.fen, want)));
         return;

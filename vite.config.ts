@@ -22,8 +22,30 @@ function stampServiceWorker(): Plugin {
   };
 }
 
+/**
+ * chessground animates with a symmetric cubic ease-in-out: a move starts
+ * sluggishly, rushes through the middle and creeps into the square. Big
+ * sites move the piece off its square at once and let it settle (ease-out).
+ * The easing isn't configurable, so swap it at build time. `t` is the share
+ * of the distance still to go, so t^3 is a cubic ease-out in time.
+ */
+function chessgroundEaseOut(): Plugin {
+  const from = 'const easing = (t) => (t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1);';
+  return {
+    name: 'chessground-ease-out',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!/chessground[\\/]dist[\\/]anim\.js$/.test(id.split('?')[0])) return;
+      if (!code.includes(from)) this.error('chessground easing changed; update chessgroundEaseOut()');
+      return code.replace(from, 'const easing = (t) => t * t * t;');
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), stampServiceWorker()],
+  plugins: [react(), stampServiceWorker(), chessgroundEaseOut()],
+  // Let the plugin above see chessground in dev too (pre-bundled deps skip transforms).
+  optimizeDeps: { exclude: ['chessground'] },
   server: { headers: isolation },
   preview: { headers: isolation },
   build: { target: 'es2022' },

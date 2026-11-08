@@ -241,3 +241,20 @@ export function playMove(opts: { capture?: boolean; check?: boolean; castle?: bo
 export function unlockAudio() {
   getBus();
 }
+
+/**
+ * Building the audio graph (context + reverb impulse) takes a few dozen ms.
+ * Done lazily on the first move, it stalls that move's animation, so do it
+ * in idle time after the first interaction instead.
+ */
+export function warmAudioOnFirstInteraction() {
+  const warm = () => {
+    window.removeEventListener('pointerdown', warm, true);
+    window.removeEventListener('keydown', warm, true);
+    const run = () => getBus();
+    if ('requestIdleCallback' in window) requestIdleCallback(run, { timeout: 500 });
+    else setTimeout(run, 50);
+  };
+  window.addEventListener('pointerdown', warm, true);
+  window.addEventListener('keydown', warm, true);
+}

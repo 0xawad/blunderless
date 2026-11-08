@@ -47,12 +47,15 @@ export function GameReview() {
   const [lines, setLines] = useState<PvLine[]>([]);
   const [showBest, setShowBest] = useState(false);
   const [flipped, setFlipped] = useState(false);
+  // Your retry move stays on the board while the engine judges it (and after).
+  const [retryMove, setRetryMove] = useState<{ fen: string; from: string; to: string } | null>(null);
   const q = useQueue();
   const progress = q.current === id ? q.progress : q.pending.includes(id) ? 0 : null;
 
   const go = useCallback((p: number) => {
     setVariation([]);
     setRetry(null);
+    setRetryMove(null);
     setShowBest(false);
     setPly(p);
   }, []);
@@ -163,6 +166,7 @@ export function GameReview() {
     if (!m) return;
     const uci = from + to + (m.promotion ?? '');
     if (retry && !retry.result) {
+      setRetryMove({ fen: c.fen(), from: m.from, to: m.to });
       const r = nextReview!;
       const before = winPct((mine === 'w' ? 1 : -1) * a!.evals[ply]);
       if (uci === r.best) {
@@ -178,6 +182,7 @@ export function GameReview() {
         setRetry(drop < 8 ? { result: 'good', text: copy.review.retryGood, pv: r.pv } : { result: 'bad', text: copy.review.retryBad(bestSan), pv: r.pv });
       } catch {
         setRetry(null);
+        setRetryMove(null);
         toast(copy.engine.failed, 'bad');
       }
       return;
@@ -211,7 +216,7 @@ export function GameReview() {
                   </b>
                 </div>
               )}
-              <Board fen={fen} orientation={orientation} lastMove={lastMove} shapes={shapes} interactive={!retry?.result} onMove={onMove} resizable />
+              <Board fen={retry && retryMove ? retryMove.fen : fen} orientation={orientation} lastMove={retry && retryMove ? [retryMove.from, retryMove.to] : lastMove} shapes={shapes} interactive={retry ? !retry.result && !retryMove : true} onMove={onMove} resizable />
             </div>
             {bar(orientation)}
           </div>
@@ -269,16 +274,16 @@ export function GameReview() {
                 ) : null}
                 <div className="row">
                   {retry.result && retry.result !== 'best' && (
-                    <button className="btn small" onClick={() => setRetry({})}>Try again</button>
+                    <button className="btn small" onClick={() => { setRetry({}); setRetryMove(null); }}>Try again</button>
                   )}
-                  <button className="btn small ghost" onClick={() => setRetry(null)}>{copy.review.retryCancel}</button>
+                  <button className="btn small ghost" onClick={() => { setRetry(null); setRetryMove(null); }}>{copy.review.retryCancel}</button>
                 </div>
               </div>
             </div>
           )}
 
           {retryable && !retry && (
-            <button className="btn primary" style={{ marginBottom: '0.7rem' }} onClick={() => setRetry({})}>
+            <button className="btn primary" style={{ marginBottom: '0.7rem' }} onClick={() => { setRetry({}); setRetryMove(null); }}>
               {copy.review.retry}
             </button>
           )}

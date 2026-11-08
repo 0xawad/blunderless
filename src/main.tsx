@@ -3,11 +3,13 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { applyTheme, readTheme } from './theme';
 import { applyPrefsToDocument } from './prefs';
+import { warmAudioOnFirstInteraction } from './sound';
 import './styles.css';
 import './pieces.css';
 
 applyTheme(readTheme());
 applyPrefsToDocument();
+warmAudioOnFirstInteraction();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

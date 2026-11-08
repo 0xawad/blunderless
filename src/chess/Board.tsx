@@ -38,7 +38,8 @@ export function legalDests(chess: Chess): Map<Key, Key[]> {
 
 const pieceCount = (fen: string) => (fen.split(' ')[0].match(/[a-zA-Z]/g) ?? []).length;
 const boardPart = (fen: string) => fen.split(' ')[0];
-const DURATION = { off: 0, normal: 180, slow: 300 } as const;
+// With the ease-out curve (see vite.config.ts) short durations still read as smooth.
+const DURATION = { off: 0, normal: 150, slow: 260 } as const;
 const PROMO: { p: 'q' | 'r' | 'b' | 'n'; role: string }[] = [
   { p: 'q', role: 'queen' },
   { p: 'r', role: 'rook' },
@@ -89,6 +90,8 @@ export function Board({ fen, orientation, interactive, premovable, lastMove, sha
       highlight: { lastMove: getPrefs().highlightLast, check: true },
       premovable: { enabled: !!premovable },
       draggable: { showGhost: true, distance: 3 },
+      // Dragging a piece on a phone shouldn't scroll the page.
+      blockTouchScroll: true,
       selectable: { enabled: true },
       drawable: { brushes: BRUSHES, defaultSnapToValidMove: true },
       movable: {
@@ -159,6 +162,13 @@ export function Board({ fen, orientation, interactive, premovable, lastMove, sha
           dests: interactive ? legalDests(chess) : new Map(),
         },
       });
+      // A drag whose piece is no longer on its start square is left over
+      // from a move that already happened; clear it so no ghost piece sticks.
+      const drag = cg.state.draggable.current;
+      if (drag && !cg.state.pieces.has(drag.orig)) {
+        cg.cancelMove();
+        cg.redrawAll();
+      }
       // A queued premove fires as soon as it's your turn again.
       if (interactive && premovable) cg.playPremove();
     }
