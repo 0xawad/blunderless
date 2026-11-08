@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SETS = ['chessnut', 'merida', 'pirouetti', 'kiwen-suwi', 'firi'];
+const SETS = ['california', 'staunty', 'maestro', 'cardinal', 'chessnut', 'merida', 'pirouetti', 'kiwen-suwi', 'firi'];
 const FILES = ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP'];
 const ROLES = { K: 'king', Q: 'queen', R: 'rook', B: 'bishop', N: 'knight', P: 'pawn' };
 const COLORS = { w: 'white', b: 'black' };
@@ -14,6 +14,8 @@ const LICENSES = `# Piece set licenses
 
 All sets are from lichess-org/lila (public/piece).
 
+- california — Jerry S., CC BY-NC-SA 4.0
+- staunty, maestro, cardinal — sadsnake1, CC BY-NC-SA 4.0
 - chessnut — Alexis Luengas, Apache 2.0
 - merida — Armando Hernandez Marroquin, GPLv2+
 - pirouetti — pirouetti, AGPLv3+

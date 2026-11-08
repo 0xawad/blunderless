@@ -177,7 +177,7 @@ export const copy = {
     board: 'Board colours',
     boardHint: 'Pick the one your eyes like. The pieces stay the same.',
     pieces: 'Piece set',
-    piecesHint: 'Chessnut is the clean modern default. Classic is the Wikipedia set.',
+    piecesHint: 'Staunty is the default. Classic is the Wikipedia set Lichess uses.',
     animation: 'Piece animation',
     animationHint: 'How pieces glide between squares.',
     animations: { off: 'Off', normal: 'Normal', slow: 'Slow' } as Record<string, string>,

@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
 export type BoardTheme = 'slate' | 'walnut' | 'forest' | 'ocean' | 'rose';
-export type PieceSet = 'chessnut' | 'cburnett' | 'merida' | 'pirouetti' | 'kiwen-suwi' | 'firi';
+export type PieceSet = 'california' | 'staunty' | 'maestro' | 'cardinal' | 'chessnut' | 'cburnett' | 'merida' | 'pirouetti' | 'kiwen-suwi' | 'firi';
 export interface Prefs {
   boardTheme: BoardTheme;
   pieces: PieceSet;
@@ -30,6 +30,10 @@ export const BOARD_THEMES: { id: BoardTheme; label: string; light: string; dark:
 ];
 
 export const PIECE_SETS: { id: PieceSet; label: string }[] = [
+  { id: 'california', label: 'California' },
+  { id: 'staunty', label: 'Staunty' },
+  { id: 'maestro', label: 'Maestro' },
+  { id: 'cardinal', label: 'Cardinal' },
   { id: 'chessnut', label: 'Chessnut' },
   { id: 'cburnett', label: 'Classic' },
   { id: 'merida', label: 'Merida' },
@@ -41,7 +45,7 @@ export const PIECE_SETS: { id: PieceSet; label: string }[] = [
 const KEY = 'prefs';
 const DEFAULTS: Prefs = {
   boardTheme: 'forest',
-  pieces: 'chessnut',
+  pieces: 'staunty',
   sound: true,
   animation: 'normal',
   coach: true,
@@ -53,9 +57,19 @@ const DEFAULTS: Prefs = {
   boardScale: 1,
 };
 
+// v2 moved everyone to the new board (Green) and pieces (Staunty) once;
+// anything picked after that sticks.
+const VERSION = 2;
 let current: Prefs = (() => {
   try {
-    return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') };
+    const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}');
+    const prefs = { ...DEFAULTS, ...saved };
+    if (saved.v !== VERSION) {
+      prefs.boardTheme = DEFAULTS.boardTheme;
+      prefs.pieces = DEFAULTS.pieces;
+      localStorage.setItem(KEY, JSON.stringify({ ...prefs, v: VERSION }));
+    }
+    return prefs;
   } catch {
     return DEFAULTS;
   }
@@ -67,7 +81,7 @@ export const getPrefs = () => current;
 export function setPrefs(patch: Partial<Prefs>) {
   current = { ...current, ...patch };
   try {
-    localStorage.setItem(KEY, JSON.stringify(current));
+    localStorage.setItem(KEY, JSON.stringify({ ...current, v: VERSION }));
   } catch {
     /* private mode */
   }

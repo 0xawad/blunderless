@@ -433,14 +433,14 @@ label.check input { width: 18px; height: 18px; flex: 0 0 auto; margin-top: 2px; 
 .under-board { margin-top: 0.6rem; justify-content: center; }
 
 /* conic-gradient runs clockwise from 12 o'clock, so each 2x2 tile is
-   top-right, bottom-right, bottom-left, top-left. From White's side the
-   top-left square of the board (a8) is light and a1/h8 are dark. */
+   top-right, bottom-right, bottom-left, top-left. The top-left square is
+   light from both sides (a8 for White, h1 for Black), so the flipped
+   board uses the same pattern. a1 and h8 are always dark. */
 cg-board {
   background-color: var(--board-light);
   background-image: conic-gradient(var(--board-dark) 25%, var(--board-light) 0 50%, var(--board-dark) 0 75%, var(--board-light) 0);
   background-size: 25% 25%;
 }
-.cg-wrap.orientation-black cg-board { background-image: conic-gradient(var(--board-light) 25%, var(--board-dark) 0 50%, var(--board-light) 0 75%, var(--board-dark) 0); }
 cg-board square.last-move { background-color: var(--board-hl, rgb(255 236 120 / 0.55)); mix-blend-mode: multiply; }
 cg-board square.selected { background-color: var(--board-hl-dark, rgb(230 200 90 / 0.7)); mix-blend-mode: multiply; }
 cg-board square.move-dest { background: radial-gradient(rgb(28 24 18 / 0.22) 17%, transparent 18.5%); }
@@ -706,7 +706,20 @@ button.mvcell.on { background: var(--accent); color: var(--accent-ink); }
 .mvnum { color: var(--muted); margin-right: 0.25em; font-size: 0.92em; }
 .mv.on .mvnum { color: inherit; opacity: 0.7; }
 .board-settings-grid { display: grid; grid-template-columns: minmax(200px, 300px) 1fr; gap: 1.4rem; align-items: start; }
-.board-preview .board-wrap { width: 100%; }
+.board-preview .board-wrap { width: min(100%, 288px); }
 .board-settings .setting-row:first-of-type { border-top: 0; }
 input[type='range'] { accent-color: var(--text); width: 160px; }
 @media (max-width: 700px) { .board-settings-grid { grid-template-columns: 1fr; } .board-preview { max-width: 320px; } }
+
+/* Whole-pixel squares: a board width that's a multiple of 8 keeps the grid
+   and the pieces crisp instead of smearing across half pixels. */
+@supports (width: round(down, 100px, 8px)) {
+  .board-stack { width: round(down, min(100%, calc((100dvh - var(--header) - var(--tabbar) - 150px) * var(--board-scale, 1))), 8px); }
+  .review .board-stack { width: round(down, min(100%, calc((100dvh - var(--header) - var(--tabbar) - 240px) * var(--board-scale, 1))), 8px); }
+  .board-wrap { width: round(down, min(100%, calc((100dvh - var(--header) - var(--tabbar) - 96px) * var(--board-scale, 1))), 8px); }
+  .board-stack .board-wrap { width: 100%; }
+  @media (max-width: 900px) {
+    .board-stack { width: round(down, min(100%, calc((100dvh - var(--header) - var(--tabbar) - 120px) * var(--board-scale, 1))), 8px); }
+    .board-wrap { width: round(down, min(100%, calc((100dvh - var(--header) - var(--tabbar) - 140px) * var(--board-scale, 1))), 8px); }
+  }
+}
