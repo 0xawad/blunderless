@@ -259,10 +259,12 @@ function Spar({ tree, cards }: { tree: RepTree; cards?: Map<string, CardRow> }) 
     return st === 'due' ? 4 : st === 'new' ? 3 : st === 'learning' ? 2 : 1;
   }, []);
 
+  // Every wrong attempt and every hint, as Drill counts them: two or more means the answer was shown, so the line is not known.
+  const slips = useRef(0);
   const finish = useCallback(
     async (p: TreeMove[], missedOnPath: number[]) => {
       const { line, missed } = lineForWalk(tree, p, missedOnPath);
-      const mistakes = missedOnPath.length;
+      const mistakes = Math.max(missedOnPath.length, slips.current);
       setResult({ lineId: line?.id, mistakes, perfect: mistakes === 0 });
       setSession((s) => ({ lines: s.lines + 1, perfect: s.perfect + (mistakes === 0 ? 1 : 0) }));
       setMsg({ tone: mistakes ? 'info' : 'good', text: pick(mistakes ? copy.drill.shaky : copy.drill.perfect) });
@@ -303,6 +305,7 @@ function Spar({ tree, cards }: { tree: RepTree; cards?: Map<string, CardRow> }) 
       return;
     }
     const n = misses + 1;
+    slips.current++;
     setMisses(n);
     if (!failed.includes(path.length)) setFailed([...failed, path.length]);
     sfx('wrong');
@@ -311,11 +314,13 @@ function Spar({ tree, cards }: { tree: RepTree; cards?: Map<string, CardRow> }) 
 
   const hint = () => {
     if (!want) return;
+    if (!hinted) slips.current++;
     setHinted(true);
     if (!failed.includes(path.length)) setFailed([...failed, path.length]);
   };
 
   const again = () => {
+    slips.current = 0;
     setPath([]);
     setMisses(0);
     setFailed([]);

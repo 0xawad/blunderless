@@ -16,7 +16,10 @@ function stampServiceWorker(): Plugin {
     name: 'stamp-sw',
     apply: 'build',
     generateBundle() {
-      const source = readFileSync(resolve('src/sw.js'), 'utf8').replaceAll('__BUILD__', Date.now().toString(36));
+      const raw = readFileSync(resolve('src/sw.js'), 'utf8');
+      // Without the placeholder every build would share one cache and never drop stale files.
+      if (!raw.includes("'blunderless-__BUILD__'")) this.error('src/sw.js lost its __BUILD__ cache name; restore it or update stampServiceWorker()');
+      const source = raw.replaceAll('__BUILD__', Date.now().toString(36));
       this.emitFile({ type: 'asset', fileName: 'sw.js', source });
     },
   };

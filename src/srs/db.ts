@@ -140,6 +140,43 @@ export async function savePuzzle(p: Omit<PuzzleRow, 'card' | 'addedAt'>): Promis
   });
 }
 
+/**
+ * Makes the 'mine' puzzles of one game (ids "mine:<gameId>:<ply>") match its
+ * latest analysis. New mistakes are added; puzzles that already exist get the
+ * new position, solution and theme but keep their schedule; puzzles whose
+ * move is no longer a mistake are deleted.
+ */
+export async function syncGamePuzzles(
+  gameId: string,
+  wanted: Omit<PuzzleRow, 'card' | 'addedAt'>[],
+): Promise<{ added: number; updated: number; removed: number }> {
+  return db.transaction('rw', db.puzzles, async () => {
+    const prefix = `mine:${gameId}:`;
+    // The prefix alone could also match a game whose id merely starts the same way; the rest must be a ply number.
+    const mine = (await db.puzzles.where('id').startsWith(prefix).toArray()).filter((p) => /^\d+$/.test(p.id.slice(prefix.length)));
+    const have = new Map(mine.map((p) => [p.id, p]));
+    const now = new Date();
+    const puts: PuzzleRow[] = [];
+    let added = 0;
+    let updated = 0;
+    for (const w of wanted) {
+      const old = have.get(w.id);
+      have.delete(w.id);
+      if (!old) {
+        puts.push({ ...w, card: createEmptyCard(now), addedAt: now });
+        added++;
+      } else if (old.fen !== w.fen || old.theme !== w.theme || old.moves.join(' ') !== w.moves.join(' ')) {
+        puts.push({ ...old, ...w });
+        updated++;
+      }
+    }
+    if (puts.length) await db.puzzles.bulkPut(puts);
+    const gone = [...have.keys()];
+    if (gone.length) await db.puzzles.bulkDelete(gone);
+    return { added, updated, removed: gone.length };
+  });
+}
+
 export async function recordPuzzle(
   p: Pick<PuzzleRow, 'id' | 'source' | 'theme'>,
   solved: boolean,

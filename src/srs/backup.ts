@@ -5,7 +5,11 @@ import type { MoveReview } from './types';
 // v2 adds puzzles and attempts. v3 adds games: the ones you played here can't
 // be re-imported, and every analysis is minutes of engine time.
 const VERSION = 3;
-const SETTING_KEYS = new Set(['username', 'onboarded', 'puzzleRating', 'importMonths', 'focus', 'endgameWins', 'lastSpar', 'imported']);
+const SETTING_KEYS = new Set(['username', 'lichessUsername', 'onboarded', 'puzzleRating', 'importMonths', 'focus', 'endgameWins', 'lastSpar', 'imported', 'importedLichess']);
+/** Settings that record progress. Reset removes these and keeps accounts and preferences. */
+export const PROGRESS_SETTINGS = ['puzzleRating', 'endgameWins', 'lastSpar', 'imported', 'importedLichess', 'gamesChecked', 'lastBackup', 'backupSnooze'];
+/** The import refuses anything larger, so the export warns before producing it. */
+export const MAX_BACKUP_CHARS = 200_000_000;
 const UCI_RE = /^[a-h][1-8][a-h][1-8][qrbn]?$/;
 const FEN_RE = /^[1-8pnbrqkPNBRQK/]{15,71} [wb] [KQkq-]{1,4} [a-h1-8-]{1,2} \d+ \d+$/;
 
@@ -55,7 +59,7 @@ function parseCard(v: unknown): Card {
 
 /** A stored game, checked field by field; the analysis is checked for shape and size only. */
 function parseGame(v: unknown): GameRow {
-  if (!isObj(v) || !isStr(v.id, 300) || (v.source !== 'chesscom' && v.source !== 'local') || !isStr(v.pgn, 100_000)) {
+  if (!isObj(v) || !isStr(v.id, 300) || (v.source !== 'chesscom' && v.source !== 'lichess' && v.source !== 'local') || !isStr(v.pgn, 100_000)) {
     throw new Error('bad game row');
   }
   if (!isStr(v.white, 60) || !isStr(v.black, 60) || (v.userColor !== 'white' && v.userColor !== 'black')) throw new Error('bad game players');
@@ -71,7 +75,9 @@ function parseGame(v: unknown): GameRow {
     timeClass: isStr(v.timeClass, 20) ? v.timeClass : 'unknown',
     endTime: toDate(v.endTime),
   };
-  if (isStr(v.url, 300) && v.url.startsWith('https://www.chess.com/')) g.url = v.url;
+  if (isStr(v.url, 300) && (v.url.startsWith('https://www.chess.com/') || v.url.startsWith('https://lichess.org/'))) g.url = v.url;
+  if (v.unanalysable === true) (g as GameRow & { unanalysable?: boolean }).unanalysable = true;
+  if (v.openingChecked === true) (g as GameRow & { openingChecked?: boolean }).openingChecked = true;
   if (isNum(v.whiteElo)) g.whiteElo = v.whiteElo;
   if (isNum(v.blackElo)) g.blackElo = v.blackElo;
   if (v.unreadable === true) g.unreadable = true;
@@ -127,7 +133,7 @@ function parseGame(v: unknown): GameRow {
 
 /** Validates the whole file before touching the database; all or nothing. */
 export async function importBackup(text: string): Promise<number> {
-  if (text.length > 60_000_000) throw new Error('file too large');
+  if (text.length > MAX_BACKUP_CHARS) throw new Error('This backup is too large to restore in the browser.');
   const data: unknown = JSON.parse(text);
   if (!isObj(data) || data.app !== 'blunderless' || !isNum(data.version) || data.version < 1 || data.version > VERSION) throw new Error('not a backup');
   if (!Array.isArray(data.cards) || !Array.isArray(data.reviews) || !Array.isArray(data.settings)) {
@@ -183,6 +189,8 @@ export async function importBackup(text: string): Promise<number> {
     )
     .map((s) => {
       if (s.key === 'username' && !isStr(s.value, 25)) throw new Error('bad username');
+      if (s.key === 'lichessUsername' && !isStr(s.value, 30)) throw new Error('bad lichessUsername');
+      if (s.key === 'importedLichess' && !(isObj(s.value) && isStr(s.value.user, 30))) throw new Error('bad importedLichess');
       if (s.key === 'onboarded' && typeof s.value !== 'boolean') throw new Error('bad onboarded');
       if (s.key === 'puzzleRating' && !isNum(s.value)) throw new Error('bad puzzleRating');
       if (s.key === 'importMonths' && !isNum(s.value)) throw new Error('bad importMonths');
@@ -217,8 +225,20 @@ export async function importBackup(text: string): Promise<number> {
   return cards.length;
 }
 
+/**
+ * Removes all progress: drill cards and reviews, puzzles and attempts, games and
+ * their reviews, and the settings that record progress. Accounts, the focus
+ * openings and display preferences stay.
+ */
 export async function resetAll(): Promise<void> {
-  await db.transaction('rw', [db.cards, db.reviews, db.puzzles, db.attempts, db.games], async () => {
+  await db.transaction('rw', [db.cards, db.reviews, db.puzzles, db.attempts, db.games, db.settings], async () => {
     await Promise.all([db.cards.clear(), db.reviews.clear(), db.puzzles.clear(), db.attempts.clear(), db.games.clear()]);
+    await db.settings.bulkDelete(PROGRESS_SETTINGS);
   });
+}
+
+/** What restoring a backup file would replace, for the confirmation step. */
+export async function currentCounts(): Promise<{ cards: number; reviews: number; puzzles: number; games: number }> {
+  const [cards, reviews, puzzles, games] = await Promise.all([db.cards.count(), db.reviews.count(), db.puzzles.count(), db.games.count()]);
+  return { cards, reviews, puzzles, games };
 }

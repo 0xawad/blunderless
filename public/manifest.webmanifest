@@ -2,10 +2,11 @@
   "name": "blunderless",
   "short_name": "blunderless",
   "description": "Fewer blunders. Better openings. Some light roasting.",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#141413",
-  "theme_color": "#141413",
+  "background_color": "#f5f3ee",
+  "theme_color": "#f5f3ee",
   "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
 }

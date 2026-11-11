@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Callout, EmptyState } from '../components/ui';
+import { PuzzleIcon } from '../components/icons';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Chess } from 'chess.js';
 import type { DrawShape } from 'chessground/draw';
@@ -22,10 +24,17 @@ const OPP_DELAY = 500;
 const themeCache = new Map<string, Puzzle[]>();
 
 async function loadTheme(theme: string): Promise<Puzzle[]> {
-  if (theme === 'mixed') return (await Promise.all(THEMES.map(loadTheme))).flat();
+  if (theme === 'mixed') {
+    // One missing pack must not blank the whole mix: use what loaded, fail only if nothing did.
+    const packs = await Promise.allSettled(THEMES.map(loadTheme));
+    const ok = packs.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+    if (!ok.length) throw new Error('no puzzle packs could be loaded');
+    return ok;
+  }
   const hit = themeCache.get(theme);
   if (hit) return hit;
   const res = await fetch(`/puzzles/${theme}.json`);
+  if (!res.ok) throw new Error(`puzzle pack ${theme}: HTTP ${res.status}`);
   const raw: unknown = await res.json();
   const list = (Array.isArray(raw) ? raw : [])
     .filter((p): p is [string, string, string, number] => Array.isArray(p) && p.length === 4)
@@ -46,7 +55,10 @@ const nextRating = (mine: number, puzzle: number, solved: boolean) =>
   Math.round(mine + 32 * ((solved ? 1 : 0) - 1 / (1 + 10 ** ((puzzle - mine) / 400))));
 
 export function Puzzles() {
-  const [tab, setTab] = useState<string>('mine');
+  // /puzzles?theme=<id> opens the themed trainer on that theme (the coach and the Today plan link here).
+  const [params] = useSearchParams();
+  const asked = params.get('theme');
+  const [tab, setTab] = useState<string>(asked && (asked === 'mixed' || THEMES.includes(asked)) ? asked : 'mine');
   const due = useLiveQuery(
     () => db.puzzles.where('card.due').belowOrEqual(new Date()).sortBy('card.due'),
     [],
@@ -134,14 +146,42 @@ function ThemeTrainer({ theme, rating }: { theme: string; rating: number }) {
     [],
   );
 
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    loadTheme(theme).then((l) => {
-      setList(l);
-      if (l.length) next(l, rating);
-    });
-  }, [theme, next]);
+    let alive = true;
+    setFailed(false);
+    setList(null);
+    setCurrent(null);
+    loadTheme(theme)
+      .then((l) => {
+        if (!alive) return;
+        setList(l);
+        if (l.length) next(l, rating);
+      })
+      .catch(() => alive && setFailed(true));
+    return () => {
+      alive = false;
+    };
+    // rating is read once per load on purpose: a rating change must not reload the pack
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [theme, next, attempt]);
 
-  if (!list || !current) return null;
+  if (failed) {
+    return (
+      <Callout tone="bad" role="alert" actions={<button className="btn small ghost" onClick={() => setAttempt((n) => n + 1)}>{copy.puzzles.retryLoad}</button>}>
+        {copy.puzzles.loadFailed}
+      </Callout>
+    );
+  }
+  if (list && list.length === 0) return <EmptyState icon={<PuzzleIcon />} title={copy.puzzles.emptyPackTitle}>{copy.puzzles.emptyPack}</EmptyState>;
+  if (!list || !current) {
+    return (
+      <div className="skeleton" aria-busy="true" aria-label="Loading">
+        <span style={{ height: 320 }} />
+      </div>
+    );
+  }
 
   return (
     <PuzzleRun

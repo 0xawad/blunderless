@@ -1,22 +1,40 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+// Today: an ordered plan built by the coach, not a dashboard.
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { copy, pick } from '../copy';
-import { db, getSetting, statusOf } from '../srs/db';
+import { copy } from '../copy';
+import { getSetting } from '../srs/db';
 import { repertoires } from '../repertoire';
-import { useCards } from '../components/ui';
+import { Callout, EmptyState, LineMeter, Section, lineCounts, useCards } from '../components/ui';
+import { ArrowRightIcon, BookIcon, CheckIcon, CrownIcon, FlameIcon, GamesIcon, PlayIcon, PuzzleIcon, SwordsIcon, TargetIcon } from '../components/icons';
 import { useFocus } from '../focus';
-import { dayKey, streakOf } from '../streak';
 import { backupDue, download, markBackedUp, snoozeBackup } from '../storage';
 import { exportBackup } from '../srs/backup';
 import { QueueStatus } from '../components/QueueStatus';
-import { FocusCard, useGamesNewestFirst, useRepReports } from './Openings';
 import { useSavedGame } from '../play/saved';
+import { exampleUrl, useCoach, type PlanKind } from '../coach';
+import '../styles/pages/home.css';
+
+const STEP_ICON: Record<PlanKind, ReactNode> = {
+  drill: <BookIcon />,
+  learn: <BookIcon />,
+  spar: <SwordsIcon />,
+  mistakes: <TargetIcon />,
+  puzzles: <PuzzleIcon />,
+  review: <GamesIcon />,
+  endgame: <CrownIcon />,
+  import: <GamesIcon />,
+  play: <PlayIcon />,
+};
 
 function BackupNudge() {
   const [due, setDue] = useState(false);
   useEffect(() => {
-    backupDue().then(setDue);
+    let alive = true;
+    backupDue().then((d) => alive && setDue(d));
+    return () => {
+      alive = false;
+    };
   }, []);
   if (!due) return null;
   const save = async () => {
@@ -25,166 +43,180 @@ function BackupNudge() {
     setDue(false);
   };
   return (
-    <div className="feedback info nudge" role="status">
-      <span>{copy.settings.backupNudge}</span>
-      <span className="row">
-        <button className="btn small primary" onClick={save}>{copy.settings.backupNow}</button>
-        <button className="btn small ghost" onClick={() => snoozeBackup().then(() => setDue(false))}>{copy.settings.backupLater}</button>
-      </span>
+    <Callout
+      actions={
+        <>
+          <button className="btn small primary" onClick={save}>{copy.settings.backupNow}</button>
+          <button className="btn small quiet" onClick={() => snoozeBackup().then(() => setDue(false))}>{copy.settings.backupLater}</button>
+        </>
+      }
+    >
+      {copy.settings.backupNudge}
+    </Callout>
+  );
+}
+
+function PlanSkeleton() {
+  return (
+    <div className="skeleton" aria-busy="true" aria-label="Loading">
+      <span style={{ height: 44, width: '46%' }} />
+      <span style={{ height: 18, width: '70%' }} />
+      <span style={{ height: 64, marginTop: 16 }} />
+      <span style={{ height: 64 }} />
+      <span style={{ height: 64 }} />
     </div>
   );
 }
 
 export function Home() {
+  const coach = useCoach();
   const cards = useCards();
   const focus = useFocus();
-  const games = useGamesNewestFirst();
-  const reports = useRepReports(games);
-  const username = useLiveQuery(() => getSetting<string>('username'), []);
+  // null = loaded and not set; undefined = still loading.
+  const username = useLiveQuery(async () => (await getSetting<string>('username')) ?? (await getSetting<string>('lichessUsername')) ?? null, []);
   const savedGame = useSavedGame();
-  const greeting = useMemo(() => pick(copy.home.greetings), []);
-  const today = useLiveQuery(async () => {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const [puzzlesDue, reviews, attempts, lastSpar, endgameWins] = await Promise.all([
-      db.puzzles.where('card.due').belowOrEqual(new Date()).count(),
-      db.reviews.toArray(),
-      db.attempts.toArray(),
-      getSetting<string>('lastSpar'),
-      getSetting<Record<string, string>>('endgameWins'),
-    ]);
-    const todayKey = dayKey(new Date());
-    return {
-      puzzlesDue,
-      todayAttempts: attempts.filter((a) => a.at >= start).length,
-      streak: streakOf([...reviews.map((r) => r.at), ...attempts.map((a) => a.at)]),
-      sparredToday: lastSpar === todayKey,
-      endgameToday: Object.values(endgameWins ?? {}).includes(todayKey),
-    };
-  }, []);
 
-  // Render once the data is in, so nothing flashes "no games yet" for a frame.
-  if (!focus || !today || !games || !cards || username === undefined) return null;
-  const t = today;
-  const due = cards ? [...cards.values()].filter((c) => statusOf(c) === 'due').length : 0;
-  const started = cards?.size ?? 0;
-  const lastGame = games?.[0];
-  const lastUnreviewed = lastGame && !lastGame.analysis ? lastGame : null;
+  const plan = coach.plan;
+  if (coach.loading || !plan || !focus || username === undefined) return <PlanSkeleton />;
 
-  // Rotate the daily spar through your focus openings.
+  const { profile, counts, streak } = coach;
+  const total = plan.steps.length;
+  const next = plan.next;
+  const started = plan.doneCount > 0;
   const focused = repertoires.filter((r) => focus.includes(r.id));
-  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86_400_000);
-  const sparRep = focused.length ? focused[dayOfYear % focused.length] : undefined;
-  const firstNew = focused.flatMap((r) => r.lines.map((l, i) => ({ r, l, i }))).find((x) => !cards?.has(x.l.id));
-
-  const tasks = t
-    ? [
-        started === 0 && firstNew
-          ? { to: `/learn/${firstNew.r.id}/${firstNew.i}`, label: copy.today.learnFirst(firstNew.r.title), done: false, icon: '♗', tone: 'brand' }
-          : { to: '/drill', label: copy.today.drill(due), done: started > 0 && due === 0, icon: '♘', tone: 'accent' },
-        sparRep && {
-          to: `/openings/${sparRep.id}/map?mode=spar`,
-          label: copy.today.spar(sparRep.title),
-          done: t.sparredToday,
-          icon: '⚔',
-          tone: 'good',
-        },
-        {
-          to: '/puzzles',
-          label: copy.today.puzzles(t.puzzlesDue),
-          done: t.todayAttempts >= 10 || (t.puzzlesDue === 0 && t.todayAttempts > 0),
-          icon: '✦',
-          tone: 'bad',
-        },
-        {
-          to: lastUnreviewed ? `/games/${encodeURIComponent(lastUnreviewed.id)}` : '/games',
-          label: lastUnreviewed ? copy.today.review : lastGame ? copy.today.reviewDone : copy.today.reviewNone,
-          done: !lastUnreviewed && !!lastGame,
-          icon: '♖',
-          tone: 'brand',
-        },
-        { to: '/endgames', label: copy.today.endgame, done: t.endgameToday, icon: '♔', tone: 'good' },
-      ].filter((x): x is NonNullable<typeof x> => !!x)
-    : [];
-  const doneCount = tasks.filter((x) => x.done).length;
-  const allDone = tasks.length > 0 && doneCount === tasks.length;
+  const weak = profile?.top ?? [];
+  const enoughGames = (profile?.sample.window ?? 0) >= 8;
 
   return (
-    <>
-      <div className="home-head">
-        <p className="eyebrow">{username ? `hey ${username}` : 'hey you'}{t ? ` · ${copy.today.streak(t.streak)}` : ''}</p>
+    <div className="td">
+      <header className="td-head">
+        <p className="kicker">
+          {copy.today.hello(username)}
+          <span className="td-streak">
+            <FlameIcon />
+            {copy.today.streak(streak)}
+          </span>
+        </p>
         <h1>{copy.today.title}</h1>
-        <p className="lead">{allDone ? copy.today.allDone : due > 0 ? copy.home.dueSome(due) : greeting}</p>
+        <p className="lead">{plan.headline}</p>
+      </header>
+
+      <div className="td-notices">
+        <QueueStatus />
+        {savedGame && (
+          <Callout tone="brand" actions={<Link to="/play" className="btn small primary">{copy.today.resume}</Link>}>
+            <strong>{copy.play.resumeHome}.</strong>{' '}
+            {copy.play.resumeSub(savedGame.moves.length, copy.play.levels[savedGame.setup.level] ?? '', savedGame.color)}
+          </Callout>
+        )}
+        <BackupNudge />
       </div>
 
-      <BackupNudge />
-      <QueueStatus />
-      {savedGame && (
-        <Link to="/play" className="feedback info nudge resume-nudge">
-          <span>{copy.play.resumeHome} · {copy.play.resumeSub(savedGame.moves.length, copy.play.levels[savedGame.setup.level] ?? '', savedGame.color)}</span>
-          <span className="btn small primary">{copy.play.resume}</span>
-        </Link>
-      )}
-
-      <section className="card today">
-        <div className="page-head" style={{ marginBottom: '0.6rem' }}>
-          <p className="muted small" style={{ margin: 0 }}>{copy.today.lead}</p>
-          {tasks.length > 0 && (
-            <span className="today-count" aria-label={`${doneCount} of ${tasks.length} done`}>
-              {doneCount}/{tasks.length}
-            </span>
-          )}
+      <section className="td-plan" aria-label={copy.today.planLabel}>
+        <div className="td-plan-bar">
+          <div className="td-plan-meta">
+            <strong>{copy.today.progress(plan.doneCount, total)}</strong>
+            <span className="muted">{copy.today.minutesLeft(plan.minutes)}</span>
+          </div>
+          {next ? (
+            <Link to={next.to} className="btn primary lg">
+              {started ? copy.today.continue : copy.today.start}
+              <ArrowRightIcon />
+            </Link>
+          ) : plan.bonus ? (
+            <Link to={plan.bonus.to} className="btn ghost">
+              {plan.bonus.title}
+              <ArrowRightIcon />
+            </Link>
+          ) : null}
         </div>
-        <ul className="tasks">
-          {tasks.map((x, i) => (
-            <li key={x.to + x.label} className={x.done ? 'done' : ''} style={{ '--i': i } as CSSProperties}>
-              <Link to={x.to}>
-                <span className={`action-icon ${x.tone}`} aria-hidden>{x.done ? '✓' : x.icon}</span>
-                <span>{x.label}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <div className="progress" role="img" aria-label={copy.today.progress(plan.doneCount, total)}>
+          <span style={{ width: `${total ? (plan.doneCount / total) * 100 : 0}%` }} />
+        </div>
+
+        <ol className="td-steps stagger">
+          {plan.steps.map((s, i) => {
+            const current = next?.id === s.id;
+            return (
+              <li key={s.id} className={`${s.done ? 'done' : ''}${current ? ' current' : ''}`} style={{ '--i': i } as CSSProperties}>
+                <Link to={s.to} className="td-step" aria-current={current ? 'step' : undefined}>
+                  <span className="td-num" aria-hidden>{s.done ? <CheckIcon /> : i + 1}</span>
+                  <span className="td-step-main">
+                    <strong>{s.title}</strong>
+                    <span className="td-reason">{s.reason}</span>
+                  </span>
+                  <span className="td-step-end">
+                    <span className="td-kind" aria-hidden>{STEP_ICON[s.kind]}</span>
+                    <span className="td-min">{s.done ? copy.today.doneLabel : copy.today.minutes(s.minutes)}</span>
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ol>
       </section>
 
-      {focused.length > 0 && (
-        <>
-          <h2 className="section-title">{copy.rep.focusTitle}</h2>
-          <div className="focus-grid">
-            {focused.map((r) => (
-              <FocusCard key={r.id} rep={r} cards={cards} report={reports.get(r.id)} />
-            ))}
-          </div>
-        </>
-      )}
+      <div className="td-below">
+        <Section
+          title={copy.today.saysTitle}
+          note={enoughGames ? profile?.basisText : undefined}
+          action={enoughGames ? <Link to="/stats">{copy.today.allSignals}</Link> : undefined}
+        >
+          {!enoughGames ? (
+            <EmptyState
+              icon={<GamesIcon />}
+              title={copy.today.saysEmptyTitle}
+              actions={<Link to="/games" className="btn ghost">{copy.today.saysCta}</Link>}
+            >
+              {counts.toAnalyse > 0 && counts.games > 0 ? copy.today.saysEmptyNeedAnalysis(counts.toAnalyse) : copy.today.saysEmptyNoGames}
+            </EmptyState>
+          ) : weak.length === 0 ? (
+            <p className="muted">{copy.today.saysClean}</p>
+          ) : (
+            <ul className="td-says">
+              {weak.map((w) => (
+                <li key={w.id}>
+                  <div className="td-say-head">
+                    <span className="dot blunder" aria-hidden />
+                    <strong>{w.title}</strong>
+                    <span className="td-say-value num">{w.valueText}</span>
+                  </div>
+                  <p>{w.evidence}</p>
+                  <div className="cluster">
+                    <Link to={w.action.to} className="btn small ghost">{w.action.label}</Link>
+                    {w.examples[0] && <Link to={exampleUrl(w.examples[0])} className="linklike small">{copy.today.example}</Link>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
 
-      <div className="actions">
-        <Link to="/games" className="action">
-          <span className="action-icon accent" aria-hidden>♖</span>
-          <span>
-            <strong>Your games</strong>
-            <span className="muted">
-              {lastGame
-                ? copy.home.lastGame(lastGame.userColor === 'white' ? lastGame.black : lastGame.white, lastGame.result)
-                : copy.home.noGames}
-            </span>
-          </span>
-        </Link>
-        <Link to="/play" className="action">
-          <span className="action-icon good" aria-hidden>▶</span>
-          <span>
-            <strong>{copy.home.playCta}</strong>
-            <span className="muted">{copy.home.playSub}</span>
-          </span>
-        </Link>
-        <Link to="/openings" className="action">
-          <span className="action-icon brand" aria-hidden>♗</span>
-          <span>
-            <strong>{copy.home.allOpenings}</strong>
-            <span className="muted">{copy.home.learnSub(started)}</span>
-          </span>
-        </Link>
+        {focused.length > 0 && (
+          <Section title={copy.today.focusTitle} action={<Link to="/openings">{copy.today.focusAll}</Link>}>
+            <ul className="rows">
+              {focused.map((r) => {
+                const c = lineCounts(r, cards);
+                return (
+                  <li key={r.id}>
+                    <Link to={`/openings/${r.id}`} className="row-link td-open">
+                      <span className="row-main">
+                        <strong>{r.title}</strong>
+                        <span className="muted">{r.side === 'white' ? copy.rep.asWhite : copy.rep.asBlack} · {copy.today.focusProgress(c.known, c.total)}</span>
+                        <LineMeter known={c.known} inProgress={c.learning + c.due} total={c.total} label={copy.today.focusProgress(c.known, c.total)} />
+                      </span>
+                      <span className="row-end">
+                        {c.due > 0 && <span className="badge due">{copy.today.focusDue(c.due)}</span>}
+                        <ArrowRightIcon className="chev" />
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </Section>
+        )}
       </div>
-    </>
+    </div>
   );
 }

@@ -1,0 +1,138 @@
+/* =========================================================
+   App shell: a left rail on desktop (labels above 1180px,
+   icons only below), a slim top bar plus bottom tabs on
+   phones. The rail keeps vertical space free for the board.
+   ========================================================= */
+.skip { z-index: var(--z-skip); }
+
+.rail {
+  position: fixed; inset: 0 auto 0 0; width: var(--rail); z-index: var(--z-sticky);
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 18px 12px 12px;
+  background: var(--bg-2); border-right: 1px solid var(--line);
+  overflow-y: auto; scrollbar-width: none;
+}
+.rail::-webkit-scrollbar { display: none; }
+
+.brand {
+  display: flex; align-items: center; gap: 10px; padding: 2px 8px 16px;
+  font-family: var(--display); font-weight: 600; font-size: 1.3rem; letter-spacing: -0.03em; line-height: 1;
+  text-decoration: none; color: var(--text);
+}
+.brand svg { width: 28px; height: 28px; flex: none; }
+
+.rail-group { font-size: var(--fs-xs); font-weight: 500; color: var(--muted); padding: 18px 10px 6px; margin: 0; }
+.rail-item {
+  position: relative; display: flex; align-items: center; gap: 11px; height: 36px; padding: 0 10px;
+  border: 0; border-radius: var(--radius-sm); background: transparent; cursor: pointer; width: 100%;
+  color: var(--text-2); font: inherit; font-size: 0.9rem; font-weight: 500; text-decoration: none; text-align: left;
+  transition: background var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
+}
+.rail-item svg { width: 18px; height: 18px; flex: none; color: var(--muted); transition: color var(--t-fast) var(--ease-out); }
+.rail-item:hover { background: var(--surface-3); color: var(--text); }
+.rail-item:hover svg { color: var(--text); }
+.rail-item.active { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: inset 0 0 0 1px var(--line), var(--shadow-soft); }
+.rail-item.active svg { color: var(--text); }
+.rail-item .count { margin-left: auto; }
+.rail-spacer { flex: 1 1 auto; min-height: var(--s-4); }
+.rail-foot { display: flex; align-items: center; gap: 2px; padding-top: 8px; margin-top: 6px; border-top: 1px solid var(--line); }
+.rail-foot .rail-item { flex: 1; }
+
+.count {
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+  background: var(--brand); color: var(--brand-ink);
+  font-size: 0.6875rem; font-weight: 700; line-height: 1; display: inline-grid; place-items: center;
+}
+
+.iconbtn {
+  width: 36px; height: 36px; flex: none; border-radius: var(--radius-sm); border: 0; background: transparent;
+  display: grid; place-items: center; cursor: pointer; color: var(--muted); text-decoration: none;
+  transition: background var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
+}
+.iconbtn:hover, .iconbtn.active { background: var(--surface-3); color: var(--text); }
+.iconbtn svg { width: 18px; height: 18px; }
+
+/* queue status in the rail */
+.rail-queue { margin: 8px 2px 4px; padding: 10px; border-radius: var(--radius-sm); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); font-size: var(--fs-xs); color: var(--text-2); text-decoration: none; display: block; }
+.rail-queue strong { display: block; font-size: var(--fs-sm); color: var(--text); }
+.rail-queue .progress { margin: 8px 0 0; }
+
+.main { margin-left: var(--rail); padding: 30px var(--gutter) 72px; min-height: 100dvh; }
+.main:focus { outline: none; }
+.main-inner { max-width: var(--content); margin: 0 auto; }
+.page { animation: rise var(--t-med) var(--ease-out) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.mbar, .mtabs { display: none; }
+
+/* ---- icon rail ---- */
+@media (max-width: 1180px) {
+  .rail { padding: 14px 10px 10px; align-items: center; }
+  .brand { padding: 2px 0 12px; }
+  .brand span, .rail-item .label, .rail-queue { display: none; }
+  .rail-group { padding: 0; margin: 8px 0; width: 28px; height: 1px; background: var(--line); font-size: 0; overflow: hidden; }
+  .rail-item { width: 44px; height: 42px; padding: 0; justify-content: center; }
+  .rail-item svg { width: 20px; height: 20px; }
+  .rail-item .count { position: absolute; top: 3px; right: 1px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 0.625rem; }
+  .rail-foot { flex-direction: column; border-top: 0; padding-top: 0; }
+}
+
+/* ---- phones ---- */
+@media (max-width: 760px) {
+  .rail { display: none; }
+  .main { padding: 14px var(--gutter) 28px; min-height: 0; }
+
+  .mbar {
+    position: sticky; top: 0; z-index: var(--z-sticky); height: var(--header);
+    display: flex; align-items: center; justify-content: space-between; padding: 0 6px 0 14px;
+    background: var(--glass); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+  .mbar .brand { padding: 0; font-size: 1.15rem; }
+  .mbar .brand span { display: inline; }
+  .mbar .brand svg { width: 24px; height: 24px; }
+  .mbar .iconbtn { width: 44px; height: 44px; }
+  .mbar .iconbtn svg { width: 22px; height: 22px; }
+
+  .mtabs {
+    position: fixed; inset: auto 0 0 0; z-index: var(--z-sticky); height: var(--tabbar); padding-bottom: env(safe-area-inset-bottom);
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-top: 1px solid var(--line);
+  }
+  .mtabs a {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    font-size: 0.6875rem; font-weight: 500; color: var(--muted); text-decoration: none;
+  }
+  .mtabs a svg { width: 22px; height: 22px; }
+  .mtabs a.active { color: var(--text); font-weight: 600; }
+  .mtabs a.active::before { content: ''; position: absolute; top: 0; left: 50%; width: 24px; height: 2px; margin-left: -12px; border-radius: 0 0 2px 2px; background: var(--brand); }
+  .mtabs .count { position: absolute; top: 5px; left: calc(50% + 5px); min-width: 16px; height: 16px; padding: 0 4px; font-size: 0.625rem; }
+
+  /* the "more" menu */
+  .sheet-scrim { position: fixed; inset: 0; z-index: var(--z-sheet); background: rgb(10 10 8 / 0.32); animation: fade var(--t-med) ease both; }
+  .sheet {
+    position: fixed; z-index: var(--z-sheet); top: calc(var(--header) + 6px); right: 8px; width: min(260px, calc(100vw - 16px));
+    padding: 6px; border-radius: var(--radius); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line), var(--shadow-pop);
+    animation: sheet-in var(--t-med) var(--ease-out) both; transform-origin: top right;
+  }
+  .sheet .rail-item { height: 46px; font-size: 0.95rem; }
+  .sheet .rail-item .label { display: inline; }
+  .sheet hr { margin: 6px 4px; }
+}
+@keyframes sheet-in { from { opacity: 0; transform: scale(0.96) translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Focus mode: training and review screens give the tab bar's space to the board on phones.
+   App.tsx sets .focus-mode on <html> for those routes. */
+@media (max-width: 760px) {
+  :root.focus-mode { --tabbar: 0px; }
+  .focus-mode .mtabs { display: none; }
+}
+
+/* onboarding and other full-bleed screens hide the shell */
+.app.bare .main { margin-left: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

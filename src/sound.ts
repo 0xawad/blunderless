@@ -237,9 +237,12 @@ export function playMove(opts: { capture?: boolean; check?: boolean; castle?: bo
   play('move');
 }
 
-/** Browsers need a user gesture before audio starts; call this from any click. */
+/**
+ * Browsers need a user gesture before audio starts; call this from any click.
+ * Does nothing while sounds are off, so a muted app never builds an audio graph.
+ */
 export function unlockAudio() {
-  getBus();
+  if (getPrefs().sound) getBus();
 }
 
 /**
@@ -251,9 +254,8 @@ export function warmAudioOnFirstInteraction() {
   const warm = () => {
     window.removeEventListener('pointerdown', warm, true);
     window.removeEventListener('keydown', warm, true);
-    const run = () => getBus();
-    if ('requestIdleCallback' in window) requestIdleCallback(run, { timeout: 500 });
-    else setTimeout(run, 50);
+    if ('requestIdleCallback' in window) requestIdleCallback(unlockAudio, { timeout: 500 });
+    else setTimeout(unlockAudio, 50);
   };
   window.addEventListener('pointerdown', warm, true);
   window.addEventListener('keydown', warm, true);

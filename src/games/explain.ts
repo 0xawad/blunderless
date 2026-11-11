@@ -71,10 +71,19 @@ export function describeMove(fen: string, uci: string): string {
 function lineGain(fen: string, pv: string[]): string {
   const mover = new Chess(fen).turn();
   const start = new Chess(fen);
-  const { chess, sans } = playLine(fen, pv.slice(0, 5));
+  const { chess, sans } = playLine(fen, pv.slice(0, 6));
   if (chess.isCheckmate() && chess.turn() !== mover) return `it leads to mate: ${sans.join(' ')}.`;
+  // An odd count ends on your own move. If that move is a capture that can be taken
+  // back, the exchange is still going: judge the line as it stood before it.
+  if (sans.length % 2 === 1) {
+    const last = chess.history({ verbose: true }).at(-1);
+    if (last?.captured && chess.isAttacked(last.to, mover === 'w' ? 'b' : 'w')) {
+      chess.undo();
+      sans.pop();
+    }
+  }
   const gain = balance(chess, mover) - balance(start, mover);
-  return gain >= 2 ? `it wins ${unit(gain)}: ${sans.join(' ')}.` : '';
+  return gain >= 2 && sans.length ? `it wins ${unit(gain)}: ${sans.join(' ')}.` : '';
 }
 
 /** What your move allowed, read off the engine's reply line after it. */
@@ -84,11 +93,19 @@ export function describeConsequence(p: GamePly, replyPv: string[]): string {
   const start = new Chess(p.fenAfter);
   const { chess, sans } = playLine(p.fenAfter, replyPv.slice(0, 4));
   if (chess.isCheckmate() && chess.turn() === you) return `It allows ${sans.join(' ')}, checkmate.`;
-  const lost = balance(start, you) - balance(chess, you);
   const first = playUci(new Chess(p.fenAfter), replyPv[0]);
+  // `start` is the position after your move, so anything you just captured is already
+  // banked. When the reply takes back on the same square that is a trade, and what
+  // you took counts against what you lose (same rule as blunderKind in analyze.ts).
+  const recapture = !!first?.captured && !!p.captured && first.to === p.to;
+  const got = recapture ? PIECE_VALUE[p.captured!] : 0;
+  const lost = balance(start, you) - balance(chess, you) - got;
   if (first?.captured && lost >= 3) {
     const victim = pieceAt(start, first.to);
-    return `After ${sans[0]} you lose ${victim ? `the ${PIECE_NAME[victim.type]}` : unit(lost)}${lost > PIECE_VALUE[victim?.type ?? 'p'] ? ' and more' : ''}.`;
+    const what = victim ? `the ${PIECE_NAME[victim.type]}` : unit(lost);
+    const swap = recapture && victim ? ` for a ${PIECE_NAME[p.captured!]}` : '';
+    const more = lost > PIECE_VALUE[victim?.type ?? 'p'] - got ? ' and more' : '';
+    return `After ${sans[0]} you lose ${what}${swap}${more}.`;
   }
   if (first && isFork(new Chess(playLine(p.fenAfter, [replyPv[0]]).chess.fen()), first.to)) {
     return `${sans[0]} forks you: two things attacked at once, and you can only save one.`;

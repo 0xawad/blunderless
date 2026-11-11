@@ -1,9 +1,12 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { copy } from '../copy';
-import { USERNAME_RE } from '../chesscom';
-import { getSetting, setSetting } from '../srs/db';
-import { exportBackup, importBackup, resetAll } from '../srs/backup';
-import { applyTheme, readTheme, type Theme } from '../theme';
+import { getSetting } from '../srs/db';
+import { getAccounts, setAccount, type GameSource } from '../games/store';
+import { AccountForm } from '../components/AccountForm';
+import { Callout } from '../components/ui';
+import '../styles/pages/settings.css';
+import { currentCounts, exportBackup, importBackup, resetAll } from '../srs/backup';
+import { setTheme, useTheme, type Theme } from '../theme';
 import { useToast } from '../components/Toast';
 import { BOARD_THEMES, PIECE_SETS, setPrefs, usePrefs, type Prefs } from '../prefs';
 import { Chess } from 'chess.js';
@@ -53,27 +56,16 @@ const THEMES: { value: Theme; label: string }[] = [
 
 export function Settings() {
   const toast = useToast();
-  const [name, setName] = useState('');
-  const [theme, setTheme] = useState<Theme>(readTheme);
+  const { theme } = useTheme();
+  const accounts = useLiveQuery(getAccounts, []);
+  const [editing, setEditing] = useState<GameSource | null>(null);
+  const [restore, setRestore] = useState<{ text: string; name: string; counts: Awaited<ReturnType<typeof currentCounts>> } | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const [resetText, setResetText] = useState('');
   const prefs = usePrefs();
   const file = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    getSetting<string>('username').then((u) => setName(u ?? ''));
-  }, []);
-
-  const save = async (e: FormEvent) => {
-    e.preventDefault();
-    const u = name.trim();
-    if (u && !USERNAME_RE.test(u)) return toast(copy.welcome.invalid, 'bad');
-    await setSetting('username', u || undefined);
-    toast(copy.settings.saved, 'good');
-  };
-
-  const pickTheme = (t: Theme) => {
-    setTheme(t);
-    applyTheme(t);
-  };
+  const pickTheme = (t: Theme) => setTheme(t);
 
   const [persisted, setPersisted] = useState<boolean | undefined>();
   useEffect(() => {
@@ -86,36 +78,72 @@ export function Settings() {
     await markBackedUp();
   };
 
-  const doImport = async (f: File | undefined) => {
+  // Choosing a file only stages it: nothing is replaced until the user confirms.
+  const pickFile = async (f: File | undefined) => {
+    if (file.current) file.current.value = '';
     if (!f) return;
     try {
-      toast(copy.settings.importOk(await importBackup(await f.text())), 'good');
+      setRestore({ text: await f.text(), name: f.name, counts: await currentCounts() });
     } catch {
       toast(copy.settings.importBad, 'bad');
     }
-    if (file.current) file.current.value = '';
+  };
+
+  const doRestore = async () => {
+    if (!restore) return;
+    try {
+      toast(copy.settings.importOk(await importBackup(restore.text)), 'good');
+    } catch (e) {
+      toast(e instanceof SyntaxError ? copy.settings.importBad : copy.settings.importFailed(e instanceof Error ? e.message : ''), 'bad');
+    }
+    setRestore(null);
   };
 
   const doReset = async () => {
-    if (window.prompt(copy.settings.resetConfirm) !== 'RESET') return;
+    if (resetText.trim().toUpperCase() !== 'RESET') return;
     await resetAll();
+    setResetting(false);
+    setResetText('');
     toast(copy.settings.resetDone);
   };
 
   return (
-    <>
+    <div className="st">
       <h1>{copy.settings.title}</h1>
 
       <section className="card">
-        <h2>Account</h2>
-        <form onSubmit={save}>
-          <label htmlFor="u">{copy.welcome.usernameLabel}</label>
-          <div className="row">
-            <input id="u" value={name} onChange={(e) => setName(e.target.value)} maxLength={25} spellCheck={false} autoComplete="off" />
-            <button className="btn primary">Save</button>
-          </div>
-          <p className="hint">{copy.welcome.usernameHint}</p>
-        </form>
+        <h2>{copy.settings.accounts}</h2>
+        <p className="muted small">{copy.settings.accountsHint}</p>
+        {(['chesscom', 'lichess'] as GameSource[]).map((src) => {
+          const site = copy.importer.sites[src];
+          const name = accounts?.[src];
+          return (
+            <div className="setting-row" key={src}>
+              {editing === src ? (
+                <AccountForm
+                  fixedSource={src}
+                  initial={name ?? ''}
+                  submitLabel={copy.today.account.save}
+                  onSaved={() => {
+                    setEditing(null);
+                    toast(copy.settings.saved, 'good');
+                  }}
+                />
+              ) : (
+                <>
+                  <div>
+                    <strong>{site}</strong>
+                    <div className="muted">{name ?? copy.today.account.none}</div>
+                  </div>
+                  <div className="cluster">
+                    <button className="btn ghost small" onClick={() => setEditing(src)}>{name ? copy.settings.change : copy.today.account.check}</button>
+                    {name && <button className="btn quiet small" onClick={() => void setAccount(src, undefined)}>{copy.today.account.remove}</button>}
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })}
       </section>
 
       <section className="card board-settings">
@@ -250,15 +278,46 @@ export function Settings() {
         <div className="row">
           <button className="btn ghost" onClick={doExport}>{copy.settings.export}</button>
           <button className="btn ghost" onClick={() => file.current?.click()}>{copy.settings.import}</button>
-          <input ref={file} type="file" accept="application/json,.json" hidden onChange={(e) => doImport(e.target.files?.[0])} />
-          <button className="btn danger" onClick={doReset}>{copy.settings.reset}</button>
+          <input ref={file} type="file" accept="application/json,.json" hidden onChange={(e) => pickFile(e.target.files?.[0])} />
+          <button className="btn danger" onClick={() => setResetting(true)}>{copy.settings.reset}</button>
         </div>
       </section>
+
+      {restore && (
+        <Callout
+          tone="warn"
+          role="alert"
+          actions={
+            <>
+              <button className="btn small ghost" onClick={doExport}>{copy.settings.backupFirst}</button>
+              <button className="btn small danger-solid" onClick={doRestore}>{copy.settings.restoreNow}</button>
+              <button className="btn small quiet" onClick={() => setRestore(null)}>{copy.settings.cancel}</button>
+            </>
+          }
+        >
+          <strong>{copy.settings.restoreTitle(restore.name)}</strong> {copy.settings.restoreBody(restore.counts.cards, restore.counts.puzzles, restore.counts.games)}
+        </Callout>
+      )}
+      {resetting && (
+        <Callout
+          tone="bad"
+          role="alert"
+          actions={
+            <>
+              <input type="text" className="st-reset-input" value={resetText} onChange={(e) => setResetText(e.target.value)} aria-label={copy.settings.resetType} placeholder="RESET" autoFocus />
+              <button className="btn small danger-solid" disabled={resetText.trim().toUpperCase() !== 'RESET'} onClick={doReset}>{copy.settings.reset}</button>
+              <button className="btn small quiet" onClick={() => { setResetting(false); setResetText(''); }}>{copy.settings.cancel}</button>
+            </>
+          }
+        >
+          {copy.settings.resetConfirm}
+        </Callout>
+      )}
 
       <section className="card">
         <h2>About</h2>
         <p className="muted small">{copy.settings.about}</p>
       </section>
-    </>
+    </div>
   );
 }

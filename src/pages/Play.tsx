@@ -235,6 +235,16 @@ function PlayGame({
   const [hints, setHints] = useState(resume?.hints ?? 0);
   const [hint, setHint] = useState<{ level: 1 | 2; uci: string } | null>(null);
   const [thinking, setThinking] = useState(false);
+  // The coach is grading your last move: undo waits, so it cannot race the engine's reply.
+  const [grading, setGrading] = useState(false);
+  // The engine failed to reply; clocks are frozen until Retry.
+  const [stuck, setStuckState] = useState(false);
+  const stuckRef = useRef(false);
+  const setStuck = (v: boolean) => {
+    if (stuckRef.current && !v) clock.current.since = performance.now();
+    stuckRef.current = v;
+    setStuckState(v);
+  };
   const [result, setResult] = useState<'win' | 'loss' | 'draw' | null>(null);
   const [reason, setReason] = useState<'time' | 'resign' | null>(null);
   const [dismissed, setDismissed] = useState(false);
@@ -308,6 +318,10 @@ function PlayGame({
   useEffect(() => {
     if (!timed || result) return;
     const id = window.setInterval(() => {
+      if (stuckRef.current) {
+        clock.current.since = performance.now(); // frozen: nobody's time runs while the engine is down
+        return;
+      }
       const side = chess.turn() as Side;
       const ms = left(side);
       if (ms <= 0 && clock.current.moved[side] > 0) {
@@ -332,7 +346,8 @@ function PlayGame({
   useEffect(() => {
     const moves = chess.history({ verbose: true }).map((m) => m.from + m.to + (m.promotion ?? ''));
     if (result || moves.length === 0) {
-      if (result) clearSavedGame();
+      // Finished, or undone back to the start: there is nothing to resume.
+      clearSavedGame();
       return;
     }
     saveGame({
@@ -351,11 +366,12 @@ function PlayGame({
   }, [fen, log, result, saves, hints]);
 
   // Time spent thinking before you leave counts too: snapshot the clocks on the way out.
+  const abandoned = useRef(false);
   const latest = useRef({ log, saves, hints });
   latest.current = { log, saves, hints };
   useEffect(() => {
     const snapshot = () => {
-      if (resultRef.current || !timed) return;
+      if (resultRef.current || abandoned.current || !timed) return;
       const moves = chess.history({ verbose: true }).map((m) => m.from + m.to + (m.promotion ?? ''));
       if (!moves.length) return;
       saveGame({
@@ -371,9 +387,13 @@ function PlayGame({
         savedAt: Date.now(),
       });
     };
+    // pagehide is not reliably delivered when a phone backgrounds and later kills the app; visibilitychange is.
+    const onHide = () => document.visibilityState === 'hidden' && snapshot();
     window.addEventListener('pagehide', snapshot);
+    document.addEventListener('visibilitychange', onHide);
     return () => {
       window.removeEventListener('pagehide', snapshot);
+      document.removeEventListener('visibilitychange', onHide);
       snapshot();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -416,6 +436,7 @@ function PlayGame({
   }, [chess]);
 
   const engineMove = useCallback(async () => {
+    setStuck(false);
     setThinking(true);
     const t0 = performance.now();
     try {
@@ -424,7 +445,14 @@ function PlayGame({
       const opts = { ...LEVELS[setup.level] };
       // Depth-limited (weak) levels stay weak; only the timed levels speed up.
       if (budget < 30_000 && opts.movetime) opts.movetime = Math.max(60, Math.min(opts.movetime, budget / 25));
-      const r = await getEngine().search(chess.fen(), opts);
+      const at = chess.fen();
+      let r;
+      try {
+        r = await getEngine().search(at, opts);
+      } catch {
+        r = await getEngine().search(at, opts); // getEngine() respawns a dead worker; one more try
+      }
+      if (chess.fen() !== at) return; // the position changed under us (undo): this reply is stale
       // A human-ish pause: instant replies feel robotic, long ones feel broken.
       // Openings go quickly, like they do for people who know them.
       const early = chess.history().length < 12 ? 0.45 : 1;
@@ -440,7 +468,11 @@ function PlayGame({
       sync();
       if (!checkOver()) prepare();
     } catch {
-      if (alive.current) toast(copy.engine.failed, 'bad');
+      if (alive.current) {
+        // Stop the engine's clock: it must not lose on time for a move it never got to make.
+        setStuck(true);
+        toast(copy.engine.failed, 'bad');
+      }
     } finally {
       if (alive.current) setThinking(false);
     }
@@ -475,10 +507,15 @@ function PlayGame({
     if (checkOver()) return;
 
     // Coach: grade the move you just played against the pre-move evaluation.
+    // The position is remembered so that an undo (or anything else that changes
+    // the board) during the search cancels both the verdict and the reply.
+    const played = chess.fen();
     if (prefs.coach && before) {
+      setGrading(true);
       try {
-        const after = await getEngine().search(chess.fen(), { depth: COACH_DEPTH });
+        const after = await getEngine().search(played, { depth: COACH_DEPTH });
         if (!alive.current) return;
+        if (chess.fen() !== played) return;
         const drop = before.win - myWin(after.score, chess.turn());
         const v: Verdict =
           uci === before.best ? 'best' : drop < 5 ? 'good' : drop < 12 ? 'inaccuracy' : drop < 25 ? 'mistake' : 'blunder';
@@ -488,8 +525,11 @@ function PlayGame({
         if (v === 'blunder') sfx('wrong');
       } catch {
         /* no verdict this time */
+      } finally {
+        if (alive.current) setGrading(false);
       }
     }
+    if (chess.fen() !== played || resultRef.current) return;
     engineMove();
   };
 
@@ -519,17 +559,29 @@ function PlayGame({
 
   /** Undo your last move (and the engine's reply if it already came). Untimed games only. */
   const undo = () => {
-    if (thinking || result || timed) return;
+    if (thinking || grading || result || timed) return;
+    // Take back your last move, plus the engine's reply when it has already answered.
     const n = chess.turn() === mine ? 2 : 1;
+    // Nothing of yours to take back (e.g. only the engine's first move is on the board).
+    if (chess.history().length < n) return;
     for (let i = 0; i < n; i++) chess.undo();
     setLog((l) => l.slice(0, -n));
     setVerdict(null);
     setHint(null);
+    setPending(null);
+    setCct([false, false, false]);
     setView(null);
     const prev = chess.history({ verbose: true }).at(-1);
     setLast(prev ? [prev.from, prev.to] : undefined);
     sync();
-    prepare();
+    if (chess.turn() === mine) prepare();
+    else engineMove();
+  };
+
+  // Leaving for a new game abandons this one: the unmount snapshot must not save it again.
+  const newGame = () => {
+    abandoned.current = true;
+    onNew();
   };
 
   const resign = () => {
@@ -541,17 +593,21 @@ function PlayGame({
     finish('loss', 'resign');
   };
 
+  // You can only take back a move of your own: with just the engine's first move on the board there is none.
+  const canUndo = chess.history().length >= (chess.turn() === mine ? 2 : 1);
+
   const askHint = async () => {
     if (!myTurn) return;
-    let best = pre.current?.fen === chess.fen() ? pre.current.best : '';
+    const at = chess.fen();
+    let best = pre.current?.fen === at ? pre.current.best : '';
     if (!best) {
       try {
-        best = (await getEngine().search(chess.fen(), { depth: COACH_DEPTH })).bestmove;
+        best = (await getEngine().search(at, { depth: COACH_DEPTH })).bestmove;
       } catch {
         return;
       }
     }
-    if (!best || !alive.current) return;
+    if (!best || !alive.current || chess.fen() !== at) return;
     setHints((h) => h + 1);
     setHint((h) => ({ level: h?.uci === best && h.level === 1 ? 2 : 1, uci: best }));
   };
@@ -666,7 +722,7 @@ function PlayGame({
                 )}
                 <div className="row">
                   {plyCount > 0 && <button className="btn primary" onClick={review} autoFocus>{copy.play.review}</button>}
-                  <button className="btn ghost" onClick={onNew} autoFocus={plyCount === 0}>{copy.play.newGame}</button>
+                  <button className="btn ghost" onClick={newGame} autoFocus={plyCount === 0}>{copy.play.newGame}</button>
                   <button className="btn small" onClick={() => setDismissed(true)}>{copy.play.lookAtBoard}</button>
                 </div>
               </BoardOverlay>
@@ -716,6 +772,16 @@ function PlayGame({
           </div>
         )}
 
+        {stuck && !result && (
+          <div className="feedback bad" role="alert">
+            <div>
+              {copy.play.engineStuck}
+              <div className="row">
+                <button className="btn small" onClick={() => engineMove()}>{copy.play.engineRetry}</button>
+              </div>
+            </div>
+          </div>
+        )}
         {verdict && !result && !w && !viewing && (
           <div className={`verdict ${verdict.v}`} role="status">
             <strong>{verdict.san}{VERDICT_MARK[verdict.v]}</strong> {copy.play.verdicts[verdict.v]}
@@ -770,7 +836,7 @@ function PlayGame({
           {!result && (
             <>
               <button className="btn ghost" onClick={askHint} disabled={!myTurn || viewing}>{copy.play.hint}</button>
-              {!timed && <button className="btn ghost" onClick={undo} disabled={thinking || log.length === 0}>{copy.play.undo}</button>}
+              {!timed && <button className="btn ghost" onClick={undo} disabled={thinking || grading || !canUndo}>{copy.play.undo}</button>}
               {confirmResign ? (
                 <>
                   <button className="btn danger-solid" onClick={resign}>{copy.play.resignConfirm}</button>
@@ -784,7 +850,7 @@ function PlayGame({
           {result && plyCount > 0 && (
             <button className="btn primary" onClick={review}>{copy.play.review}</button>
           )}
-          <button className="btn ghost" onClick={onNew}>{copy.play.newGame}</button>
+          <button className="btn ghost" onClick={newGame}>{copy.play.newGame}</button>
         </div>
         <p className="hint">
           {copy.play.youPlay(color)} · {setup.guard ? copy.play.guardOn : copy.play.guardOff}

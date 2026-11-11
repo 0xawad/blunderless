@@ -1,0 +1,11 @@
+/* Settings: flat sections under hairlines, not a stack of boxes. */
+.st { max-width: 860px; }
+.st > h1 { margin-bottom: var(--s-4); }
+.st > section.card { background: none; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: var(--s-5) 0; margin: 0; }
+.st > section.card > h2 { margin-bottom: var(--s-3); }
+.st > .callout { margin-bottom: var(--s-5); }
+.st .setting-row { display: flex; justify-content: space-between; align-items: center; gap: var(--s-4); padding: var(--s-3) 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.st .setting-row:first-of-type { border-top: 0; }
+.st .setting-row .muted { font-size: var(--fs-sm); }
+.st .setting-row .acct { flex: 1 1 100%; }
+.st-reset-input { width: 110px; height: 32px; }

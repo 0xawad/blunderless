@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Chess } from 'chess.js';
 import { getSetting, setSetting } from '../srs/db';
@@ -20,7 +21,12 @@ async function recordWin(id: string) {
 }
 
 export function Endgames() {
-  const [active, setActive] = useState<{ id: string; n: number } | null>(null);
+  // /endgames?eg=<id> opens that position directly (the Today plan links here).
+  const [params] = useSearchParams();
+  const [active, setActive] = useState<{ id: string; n: number } | null>(() => {
+    const eg = params.get('eg');
+    return eg && ENDGAMES.some((e) => e.id === eg) ? { id: eg, n: 0 } : null;
+  });
   const wins = useEndgameWins();
   const solved = new Set(Object.keys(wins ?? {}));
   const eg = active && ENDGAMES.find((e) => e.id === active.id);

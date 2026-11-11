@@ -2,6 +2,10 @@
 // Searches are serialised: one position at a time, in call order. If the
 // worker dies or a search hangs, every pending search rejects and the next
 // getEngine() call starts a fresh worker.
+//
+// A search that overruns its budget is first asked to stop (the engine then
+// answers with the best move it has so far); the worker is only killed when
+// it ignores that too.
 
 export type Score = { cp: number; mate?: undefined } | { mate: number; cp?: undefined };
 
@@ -19,6 +23,11 @@ export interface SearchOptions {
   skill?: number;
   /** Calibrated strength via UCI_LimitStrength (Stockfish accepts 1320-3190). Overrides skill. */
   elo?: number;
+  /**
+   * Abandons the search: a job still waiting its turn is skipped, a running
+   * one is stopped. Either way the promise rejects with an AbortError.
+   */
+  signal?: AbortSignal;
 }
 
 export interface PvLine {
@@ -28,35 +37,86 @@ export interface PvLine {
   pv: string[];
 }
 
+export interface AnalyseOptions {
+  multipv?: number;
+  depth?: number;
+  /**
+   * The search ended by itself: it reached `depth`, or it ran out of time and
+   * was stopped ('timeout') with the lines found so far. Not called after stop().
+   */
+  onDone?: (lines: PvLine[], how: 'depth' | 'timeout') => void;
+  /** The engine failed to start or died. Not called after stop(). */
+  onError?: (err: Error) => void;
+}
+
 export interface AnalysisHandle {
-  /** Stops the search; resolves once the engine has acknowledged. */
+  /** Stops the search; resolves once the engine has acknowledged. A no-op once the search has ended. */
   stop(): Promise<void>;
+}
+
+/** The engine could not start, crashed, or stopped answering. */
+export class EngineError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'EngineError';
+  }
 }
 
 const MULTI = '/engine/stockfish-19-lite.js';
 const SINGLE = '/engine/stockfish-19-lite-single.js';
 const BOOT_TIMEOUT = 10_000;
+/** Thread pool and hash allocation: slow on a weak phone, but never this slow unless something is wrong. */
+const READY_TIMEOUT = 10_000;
 const SEARCH_TIMEOUT = 60_000;
+const ANALYSIS_TIMEOUT = SEARCH_TIMEOUT * 2;
+/** After `stop` the engine must answer within a moment. */
+const STOP_TIMEOUT = 5_000;
 
-function parsePv(line: string): PvLine | null {
-  const t = line.split(' ');
-  if (t[0] !== 'info' || !t.includes('pv') || !t.includes('score')) return null;
-  const mpv = t.indexOf('multipv');
-  const s = t.indexOf('score');
-  const kind = t[s + 1];
-  const val = Number(t[s + 2]);
-  const score: Score = kind === 'mate' ? { mate: val } : { cp: val };
-  return {
-    multipv: mpv === -1 ? 1 : Number(t[mpv + 1]),
-    score,
-    depth: Number(t[t.indexOf('depth') + 1]),
-    pv: t.slice(t.indexOf('pv') + 1),
-  };
+function abortError(): Error {
+  const e = new Error('search aborted');
+  e.name = 'AbortError';
+  return e;
 }
 
-function parseInfo(line: string): Omit<SearchResult, 'bestmove'> | null {
-  const l = parsePv(line);
-  return l && l.multipv === 1 ? { score: l.score, depth: l.depth, pv: l.pv } : null;
+/** A callback from outside must not be able to break the engine's bookkeeping. */
+function safely(fn: () => void) {
+  try {
+    fn();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+export interface InfoLine extends PvLine {
+  /** Set on aspiration-window lines: the score is only a bound, not a result. */
+  bound?: 'lower' | 'upper';
+}
+
+/**
+ * Parses a UCI `info` line that carries a score. Lines without a `pv` (the
+ * engine's whole answer for a checkmated or stalemated position is
+ * `info depth 0 score mate 0`) come back with an empty pv.
+ */
+export function parseInfoLine(line: string): InfoLine | null {
+  const t = line.split(' ');
+  if (t[0] !== 'info') return null;
+  const s = t.indexOf('score');
+  if (s === -1) return null;
+  const kind = t[s + 1];
+  const val = Number(t[s + 2]);
+  if ((kind !== 'cp' && kind !== 'mate') || t[s + 2] === undefined || !Number.isFinite(val)) return null;
+  const mpv = t.indexOf('multipv');
+  const d = t.indexOf('depth');
+  const pv = t.indexOf('pv');
+  const info: InfoLine = {
+    multipv: mpv === -1 ? 1 : Number(t[mpv + 1]) || 1,
+    score: kind === 'mate' ? { mate: val } : { cp: val },
+    depth: d === -1 ? 0 : Number(t[d + 1]) || 0,
+    pv: pv === -1 ? [] : t.slice(pv + 1),
+  };
+  if (t[s + 3] === 'lowerbound') info.bound = 'lower';
+  else if (t[s + 3] === 'upperbound') info.bound = 'upper';
+  return info;
 }
 
 export class Engine {
@@ -72,90 +132,134 @@ export class Engine {
 
   constructor() {
     this.ready = this.boot();
-    this.ready.catch(() => this.kill(new Error('engine failed to boot')));
+    this.ready.catch(() => this.kill(new EngineError('engine failed to boot')));
   }
 
   private spawn(url: string): Promise<void> {
+    if (this.dead) return Promise.reject(new EngineError('engine terminated'));
     this.worker?.terminate();
-    this.worker = new Worker(url);
-    this.worker.onmessage = (e: MessageEvent) => this.listener?.(String(e.data));
+    const worker = new Worker(url);
+    this.worker = worker;
+    // A worker that has been replaced must not talk over its successor.
+    worker.onmessage = (e: MessageEvent) => {
+      if (this.worker === worker) this.listener?.(String(e.data));
+    };
+    return this.expect('uciok', ['uci'], BOOT_TIMEOUT, 'engine failed to load');
+  }
+
+  /**
+   * Sends `cmds` and waits for the line `answer`. Rejects if the worker
+   * errors, is killed, or stays silent for `ms`, so no boot step can hang.
+   */
+  private expect(answer: string, cmds: string[], ms: number, what: string): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('engine boot timeout')), BOOT_TIMEOUT);
-      this.worker.onerror = () => {
+      const settle = (err?: Error) => {
         clearTimeout(timer);
-        reject(new Error('engine failed to load'));
+        this.listener = null;
+        this.failPending = null;
+        if (err) reject(err);
+        else resolve();
       };
+      const timer = setTimeout(() => settle(new EngineError(`${what} (timed out)`)), ms);
+      this.worker.onerror = () => settle(new EngineError(what));
+      this.failPending = settle;
       this.listener = (line) => {
-        if (line === 'uciok') {
-          clearTimeout(timer);
-          resolve();
-        }
+        if (line === answer) settle();
       };
-      this.send('uci');
+      for (const c of cmds) this.send(c);
     });
   }
 
   private async boot() {
+    const hash = 'setoption name Hash value 32';
+    const single = async () => {
+      await this.spawn(SINGLE);
+      await this.expect('readyok', [hash, 'isready'], READY_TIMEOUT, 'engine setup failed');
+    };
     if (globalThis.crossOriginIsolated) {
       try {
         await this.spawn(MULTI);
-        this.threaded = true;
         const threads = Math.max(1, Math.min(4, (navigator.hardwareConcurrency ?? 2) - 1));
-        this.send(`setoption name Threads value ${threads}`);
-      } catch {
-        await this.spawn(SINGLE);
+        // Allocating the thread pool or the hash can stall or crash on a low-memory phone.
+        await this.expect('readyok', [`setoption name Threads value ${threads}`, hash, 'isready'], READY_TIMEOUT, 'engine setup failed');
+        this.threaded = true;
+      } catch (e) {
+        if (this.dead) throw e;
+        await single();
       }
     } else {
-      await this.spawn(SINGLE);
+      await single();
     }
-    this.send('setoption name Hash value 32');
-    await this.waitFor('isready', (l) => l === 'readyok');
+    if (this.dead) throw new EngineError('engine terminated');
     // From here on a worker crash fails the running search instead of hanging it.
-    this.worker.onerror = () => this.kill(new Error('engine crashed'));
+    this.worker.onerror = () => this.kill(new EngineError('engine crashed'));
   }
 
   private kill(err: Error) {
     this.dead = true;
     this.worker?.terminate();
-    this.failPending?.(err);
+    const fail = this.failPending;
     this.failPending = null;
+    fail?.(err);
   }
 
   private send(cmd: string) {
     this.worker.postMessage(cmd);
   }
 
-  private waitFor(cmd: string, done: (line: string) => boolean): Promise<void> {
-    return new Promise((resolve) => {
-      this.listener = (line) => {
-        if (done(line)) resolve();
-      };
-      this.send(cmd);
-    });
-  }
-
   search(fen: string, opts: SearchOptions = {}): Promise<SearchResult> {
+    const { signal } = opts;
     const run = async () => {
+      if (signal?.aborted) throw abortError(); // skipped while it was still queued
       await this.ready;
-      if (this.dead) throw new Error('engine is dead');
+      if (this.dead) throw new EngineError('engine is dead');
+      if (signal?.aborted) throw abortError();
       this.setStrength(opts.elo ? 20 : (opts.skill ?? 20), opts.elo ?? 0);
       return new Promise<SearchResult>((resolve, reject) => {
-        let last: Omit<SearchResult, 'bestmove'> = { score: { cp: 0 }, pv: [], depth: 0 };
-        const timer = setTimeout(() => this.kill(new Error('engine search timed out')), SEARCH_TIMEOUT);
-        this.failPending = (err) => {
+        let exact: InfoLine | null = null;
+        let bound: InfoLine | null = null;
+        let stopSent = false;
+        let aborted = false;
+        const stop = () => {
+          if (stopSent) return;
+          stopSent = true;
+          this.send('stop');
           clearTimeout(timer);
+          timer = setTimeout(() => this.kill(new EngineError('engine ignored stop')), STOP_TIMEOUT);
+        };
+        // Out of time: take the best move found so far rather than kill a healthy engine.
+        let timer = setTimeout(stop, SEARCH_TIMEOUT);
+        const onAbort = () => {
+          aborted = true;
+          stop();
+        };
+        const finish = () => {
+          clearTimeout(timer);
+          signal?.removeEventListener('abort', onAbort);
+          this.failPending = null;
+          this.listener = null;
+        };
+        this.failPending = (err) => {
+          finish();
           reject(err);
         };
         this.listener = (line) => {
-          const info = parseInfo(line);
-          if (info) last = info;
-          else if (line.startsWith('bestmove')) {
-            clearTimeout(timer);
-            this.failPending = null;
-            const best = line.split(' ')[1];
-            resolve({ ...last, bestmove: best === '(none)' ? '' : best });
+          const info = parseInfoLine(line);
+          if (info) {
+            // A bound is not a score: a search cut off mid-window must not report one as its result.
+            if (info.multipv !== 1) return;
+            if (info.bound) bound = info;
+            else exact = info;
+            return;
           }
+          if (!line.startsWith('bestmove')) return;
+          finish();
+          if (aborted) return reject(abortError());
+          const best = line.split(' ')[1] ?? '';
+          const last = exact ?? bound ?? { score: { cp: 0 } as Score, pv: [], depth: 0 };
+          resolve({ score: last.score, pv: last.pv, depth: last.depth, bestmove: best === '(none)' ? '' : best });
         };
+        signal?.addEventListener('abort', onAbort, { once: true });
         this.send(`position fen ${fen}`);
         this.send(opts.movetime ? `go movetime ${opts.movetime}` : `go depth ${opts.depth ?? 12}`);
       });
@@ -168,57 +272,75 @@ export class Engine {
   /**
    * Streams the top `multipv` lines for a position until stopped or `depth`
    * is reached. Queued behind other searches like everything else.
+   * `opts.onDone` and `opts.onError` report how it ended.
    */
-  analyse(fen: string, opts: { multipv?: number; depth?: number }, onLines: (lines: PvLine[]) => void): AnalysisHandle {
+  analyse(fen: string, opts: AnalyseOptions, onLines: (lines: PvLine[]) => void): AnalysisHandle {
     let stopRequested = false;
     let sendStop: (() => void) | null = null;
     const multipv = opts.multipv ?? 3;
 
     const run = async () => {
       await this.ready;
-      if (this.dead || stopRequested) return;
+      if (stopRequested) return;
+      if (this.dead) throw new EngineError('engine is dead');
       this.setStrength(20, 0);
       this.send(`setoption name MultiPV value ${multipv}`);
-      await new Promise<void>((resolve, reject) => {
-        const lines: PvLine[] = [];
-        let stopped = false;
-        // A deep search that never answers (or a `stop` that is never acknowledged)
-        // would otherwise block every later search behind it. Both timers belong
-        // to this job only and are cleared the moment it ends.
-        let timer = setTimeout(() => this.kill(new Error('engine analysis timed out')), SEARCH_TIMEOUT * 2);
-        const done = () => clearTimeout(timer);
-        this.failPending = (err) => {
-          done();
-          reject(err);
-        };
-        this.listener = (line) => {
-          const l = parsePv(line);
-          if (l) {
-            lines[l.multipv - 1] = l;
-            if (!stopped) onLines(lines.filter(Boolean));
-          } else if (line.startsWith('bestmove')) {
-            done();
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const lines: PvLine[] = [];
+          let stopSent = false;
+          let timedOut = false;
+          const stop = () => {
+            if (stopSent) return;
+            stopSent = true;
+            this.send('stop');
+            clearTimeout(timer);
+            timer = setTimeout(() => this.kill(new EngineError('engine ignored stop')), STOP_TIMEOUT);
+          };
+          // A deep search on a slow device is not a fault: stop it and keep what it found.
+          // Both timers belong to this job only and are cleared the moment it ends.
+          let timer = setTimeout(() => {
+            timedOut = true;
+            stop();
+          }, ANALYSIS_TIMEOUT);
+          const finish = () => {
+            clearTimeout(timer);
+            // The job is over: a late stop() must not reach the engine or arm a kill timer.
+            sendStop = null;
             this.failPending = null;
+            this.listener = null;
+          };
+          this.failPending = (err) => {
+            finish();
+            reject(err);
+          };
+          this.listener = (line) => {
+            const l = parseInfoLine(line);
+            if (l) {
+              if (l.bound || !l.pv.length) return;
+              lines[l.multipv - 1] = { multipv: l.multipv, score: l.score, depth: l.depth, pv: l.pv };
+              if (!stopRequested) safely(() => onLines(lines.filter(Boolean)));
+              return;
+            }
+            if (!line.startsWith('bestmove')) return;
+            finish();
+            if (!stopRequested) safely(() => opts.onDone?.(lines.filter(Boolean), timedOut ? 'timeout' : 'depth'));
             resolve();
-          }
-        };
-        sendStop = () => {
-          if (stopped) return;
-          stopped = true;
-          this.send('stop');
-          // After `stop` the engine must answer within a moment.
-          done();
-          timer = setTimeout(() => this.kill(new Error('engine ignored stop')), 5_000);
-        };
-        this.send(`position fen ${fen}`);
-        this.send(`go depth ${opts.depth ?? 20}`);
-        if (stopRequested) sendStop();
-      });
-      this.send('setoption name MultiPV value 1');
+          };
+          sendStop = stop;
+          this.send(`position fen ${fen}`);
+          this.send(`go depth ${opts.depth ?? 20}`);
+        });
+      } finally {
+        if (!this.dead) this.send('setoption name MultiPV value 1');
+      }
     };
 
     const p = this.chain.then(run, run);
     this.chain = p.catch(() => undefined);
+    p.catch((e: unknown) => {
+      if (!stopRequested) safely(() => opts.onError?.(e instanceof Error ? e : new EngineError(String(e))));
+    });
     return {
       stop: () => {
         stopRequested = true;
@@ -241,7 +363,7 @@ export class Engine {
   }
 
   terminate() {
-    this.kill(new Error('engine terminated'));
+    this.kill(new EngineError('engine terminated'));
   }
 }
 

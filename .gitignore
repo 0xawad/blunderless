@@ -5,3 +5,6 @@ dist
 .DS_Store
 .env*
 public/engine
+
+# local tooling
+.claude/

@@ -1,13 +1,20 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
-import { applyTheme, readTheme } from './theme';
+import { readTheme, setTheme } from './theme';
 import { applyPrefsToDocument } from './prefs';
 import { warmAudioOnFirstInteraction } from './sound';
-import './styles.css';
+import './styles/tokens.css';
+import './styles/legacy.css';
+import './styles/base.css';
+import './styles/shell.css';
+import './styles/components.css';
+import './styles/board.css';
 import './pieces.css';
 
-applyTheme(readTheme());
+// public/theme-init.js has already done both of these before first paint;
+// repeating them here keeps the app correct if that script failed to load.
+setTheme(readTheme());
 applyPrefsToDocument();
 warmAudioOnFirstInteraction();
 
@@ -19,11 +26,18 @@ createRoot(document.getElementById('root')!).render(
 
 // A chunk that fails to load is almost always from a build that is no longer
 // served (a deploy happened while this tab was open): reload onto the new one.
+// Once per page and per minute, so being offline cannot turn into a reload loop
+// (the error boundary then offers a Reload button instead).
 window.addEventListener('vite:preloadError', (e) => {
-  e.preventDefault();
   const key = 'reloaded-for-chunk';
-  if (sessionStorage.getItem(key) === location.href) return; // don't loop
-  sessionStorage.setItem(key, location.href);
+  try {
+    const [href, at] = (sessionStorage.getItem(key) ?? '').split('\n');
+    if (href === location.href && Date.now() - Number(at) < 60_000) return;
+    sessionStorage.setItem(key, `${location.href}\n${Date.now()}`);
+  } catch {
+    return; // no session storage to remember the attempt in: let the error boundary handle it
+  }
+  e.preventDefault();
   location.reload();
 });
 

@@ -69,7 +69,7 @@ export interface BookReport {
 
 export interface GameRow {
   id: string;
-  source: 'chesscom' | 'local';
+  source: 'chesscom' | 'lichess' | 'local';
   url?: string;
   pgn: string;
   white: string;
@@ -83,8 +83,12 @@ export interface GameRow {
   book?: BookReport;
   /** Set when the PGN can't be replayed, so it stops counting as "to analyze". */
   unreadable?: boolean;
+  /** Set when you made fewer than two moves: nothing to review, so it is never analysed or scored. */
+  unanalysable?: boolean;
   /** Deepest named opening (Lichess ECO table), filled at import. */
   opening?: { eco: string; name: string };
+  /** Set when the opening was looked up and has no name, so it is not looked up again. */
+  openingChecked?: boolean;
   analysis?: GameAnalysis;
 }
 

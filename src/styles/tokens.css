@@ -1,0 +1,225 @@
+@import '@fontsource-variable/geist/index.css';
+@import '@fontsource-variable/geist-mono/index.css';
+@import '@fontsource-variable/fraunces/opsz.css';
+
+/* =========================================================
+   Design tokens. See DESIGN_SYSTEM.md.
+
+   One warm paper-and-ink neutral family. Ink is the action
+   colour, amber is the brand highlight (used sparingly: the
+   mark, "now" indicators, due counts). Green / amber / orange
+   / red only ever describe move quality or outcome.
+   ========================================================= */
+:root {
+  /* neutrals */
+  --bg: #f5f3ee;
+  --bg-2: #efece6;
+  --surface: #fdfcf9;
+  --surface-2: #f0ede6;
+  --surface-3: #e6e2d9;
+  --glass: rgb(245 243 238 / 0.86);
+  --line: #e3dfd6;
+  --line-strong: #cdc8bc;
+  --text: #1a1916;
+  --text-2: #45423b;
+  --muted: #6a675f;
+
+  /* action + brand */
+  --accent: #1a1916;
+  --accent-hover: #34322d;
+  --accent-ink: #fbfaf6;
+  --accent-soft: #e9e5dc;
+  --brand: #d99a2b;
+  --brand-ink: #2a1c04;
+  --brand-soft: #f8edd6;
+  --brand-text: #8a5a00;
+
+  /* outcome */
+  --good: #2f6336;
+  --good-soft: #e8f0e6;
+  --bad: #a3302c;
+  --bad-soft: #fbe9e8;
+  --bad-ink: #ffffff; /* text on a solid --bad fill */
+  --warn: #8a5d00;
+  --warn-soft: #faf1d8;
+  --info: #1f6694;
+  --info-soft: #e2f0f9;
+
+  /* move quality (text-safe on --surface, 4.5:1+) */
+  --q-best: #2f6336;
+  --q-good: #4f6b4a;
+  --q-book: #6a675f;
+  --q-inaccuracy: #8a6a00;
+  --q-mistake: #b3530a;
+  --q-blunder: #a3302c;
+  --q-missed: #8b3a8f;
+  /* the same, as fills for dots, bars and graph marks */
+  --q-best-fill: #4c9a57;
+  --q-inaccuracy-fill: #d6ac1f;
+  --q-mistake-fill: #e0812a;
+  --q-blunder-fill: #d1453f;
+  --q-missed-fill: #a45aa8;
+
+  /* shape */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+
+  /* space scale (4px base) */
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+  --s-7: 3rem;
+
+  /* layout */
+  --rail: 232px;
+  --header: 0px; /* height of the sticky top bar; 0 on desktop, where the rail replaces it */
+  --tabbar: 0px;
+  --content: 1160px;
+  --gutter: 32px;
+
+  /* board */
+  --board-light: #ebe6db;
+  --board-dark: #a0978a;
+  --board-radius: 6px;
+
+  /* elevation: one light source, warm-tinted */
+  --shadow-soft: 0 1px 2px rgb(40 32 20 / 0.05), 0 6px 16px -8px rgb(40 32 20 / 0.1);
+  --shadow-pop: 0 2px 6px rgb(40 32 20 / 0.06), 0 22px 48px -20px rgb(40 32 20 / 0.3);
+  --shadow-board: 0 0 0 1px rgb(40 32 20 / 0.08), 0 24px 48px -28px rgb(40 32 20 / 0.4);
+
+  /* motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --t-fast: 120ms;
+  --t-med: 200ms;
+  --t-slow: 320ms;
+
+  /* layers */
+  --z-board-ui: 6;
+  --z-sticky: 20;
+  --z-sheet: 40;
+  --z-toast: 50;
+  --z-skip: 60;
+
+  /* type */
+  --font: 'Geist Variable', 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'Geist Mono Variable', 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --display: 'Fraunces Variable', 'Fraunces', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.8125rem;
+  --fs-base: 0.9375rem;
+  --fs-md: 1.0625rem;
+  --fs-lg: 1.25rem;
+  --fs-xl: 1.625rem;
+  --fs-2xl: clamp(1.9rem, 1.2rem + 2vw, 2.6rem);
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #121211;
+    --bg-2: #161615;
+    --surface: #1a1a18;
+    --surface-2: #222220;
+    --surface-3: #2c2b28;
+    --glass: rgb(18 18 17 / 0.86);
+    --line: #292825;
+    --line-strong: #3a3934;
+    --text: #edebe6;
+    --text-2: #c6c3bb;
+    --muted: #9c988f;
+    --accent: #edebe6;
+    --accent-hover: #ffffff;
+    --accent-ink: #141413;
+    --accent-soft: #2a2a26;
+    --brand: #e8b04f;
+    --brand-ink: #1f1604;
+    --brand-soft: #2e2716;
+    --brand-text: #e8b04f;
+    --good: #8cc492;
+    --good-soft: #1a271b;
+    --bad: #ec8b86;
+    --bad-soft: #321d1c;
+    --bad-ink: #1c0f0e;
+    --warn: #dcae55;
+    --warn-soft: #2e2716;
+    --info: #85bbe0;
+    --info-soft: #172631;
+    --q-best: #8cc492;
+    --q-good: #a9bfa5;
+    --q-book: #9c988f;
+    --q-inaccuracy: #e0c25a;
+    --q-mistake: #f0a25e;
+    --q-blunder: #ee8c86;
+    --q-missed: #d49ad8;
+    --board-light: #d9d3c6;
+    --board-dark: #8b8273;
+    --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.35);
+    --shadow-pop: 0 2px 6px rgb(0 0 0 / 0.3), 0 24px 52px -20px rgb(0 0 0 / 0.75);
+    --shadow-board: 0 0 0 1px rgb(255 255 255 / 0.05), 0 24px 48px -28px rgb(0 0 0 / 0.8);
+    color-scheme: dark;
+  }
+}
+:root[data-theme='dark'] {
+  --bg: #121211;
+  --bg-2: #161615;
+  --surface: #1a1a18;
+  --surface-2: #222220;
+  --surface-3: #2c2b28;
+  --glass: rgb(18 18 17 / 0.86);
+  --line: #292825;
+  --line-strong: #3a3934;
+  --text: #edebe6;
+  --text-2: #c6c3bb;
+  --muted: #9c988f;
+  --accent: #edebe6;
+  --accent-hover: #ffffff;
+  --accent-ink: #141413;
+  --accent-soft: #2a2a26;
+  --brand: #e8b04f;
+  --brand-ink: #1f1604;
+  --brand-soft: #2e2716;
+  --brand-text: #e8b04f;
+  --good: #8cc492;
+  --good-soft: #1a271b;
+  --bad: #ec8b86;
+  --bad-soft: #321d1c;
+  --bad-ink: #1c0f0e;
+  --warn: #dcae55;
+  --warn-soft: #2e2716;
+  --info: #85bbe0;
+  --info-soft: #172631;
+  --q-best: #8cc492;
+  --q-good: #a9bfa5;
+  --q-book: #9c988f;
+  --q-inaccuracy: #e0c25a;
+  --q-mistake: #f0a25e;
+  --q-blunder: #ee8c86;
+  --q-missed: #d49ad8;
+  --board-light: #d9d3c6;
+  --board-dark: #8b8273;
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-pop: 0 2px 6px rgb(0 0 0 / 0.3), 0 24px 52px -20px rgb(0 0 0 / 0.75);
+  --shadow-board: 0 0 0 1px rgb(255 255 255 / 0.05), 0 24px 48px -28px rgb(0 0 0 / 0.8);
+  color-scheme: dark;
+}
+
+:root[data-board='walnut'] { --board-light: #f0d9b5; --board-dark: #b58863; --board-hl: rgb(205 210 106 / 0.75); --board-hl-dark: rgb(170 162 58 / 0.85); }
+:root[data-board='forest'] { --board-light: #ebecd0; --board-dark: #739552; --board-hl: rgb(245 246 130 / 0.78); --board-hl-dark: rgb(185 202 67 / 0.9); }
+:root[data-board='ocean'] { --board-light: #dee3e6; --board-dark: #8ca2ad; }
+:root[data-board='rose'] { --board-light: #f3e5e0; --board-dark: #b07a74; }
+
+/* Narrow rail (icons only) on small laptops and tablets. */
+@media (max-width: 1180px) {
+  :root { --rail: 68px; --gutter: 24px; }
+}
+/* Phones: top bar + bottom tabs replace the rail. */
+@media (max-width: 760px) {
+  :root { --rail: 0px; --header: 52px; --tabbar: calc(58px + env(safe-area-inset-bottom)); --gutter: 14px; }
+}

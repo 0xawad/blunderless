@@ -7,14 +7,18 @@ export const copy = {
   tagline: 'Fewer blunders. Better openings. Some light roasting.',
 
   welcome: {
-    title: 'Welcome, chess enjoyer.',
-    body: 'Fewer blunders, a real opening repertoire, and an honest look at your games. All in your browser, no account.',
+    title: 'Lose fewer games to the same mistakes.',
+    body: 'Blunderless reads your games, shows what keeps going wrong, and turns it into a short plan each day: the opening lines you forgot, the tactics you missed, drilled until they stick.',
+    points: ['Runs in your browser. No sign-up, and your progress stays on this device.', 'Works with Chess.com and Lichess games.', 'About fifteen minutes a day.'],
+    connect: 'Whose games should we read?',
+    offline: 'You are offline, so the username cannot be checked right now. You can save it anyway.',
     usernameLabel: 'Your Chess.com username',
     usernameHint: "We'll use it to pull your games and find your favourite ways to lose. Optional, for now.",
     invalid: "That doesn't look like a Chess.com username. Letters, numbers, - and _ only.",
     notFound: "Chess.com has never heard of them. Typo? Saved it anyway.",
     cta: "Let's go",
-    skip: 'Skip, I live dangerously',
+    skip: 'Continue without an account',
+    skipNote: 'You can connect one later in Settings. Openings, puzzles and play work without it.',
   },
 
   home: {
@@ -156,13 +160,24 @@ export const copy = {
     saved: 'Saved.',
     export: 'Export progress',
     import: 'Import progress',
-    importOk: (n: number) => `Imported ${n} lines and their puzzles. Games re-import from Chess.com.`,
+    importOk: (n: number) => `Restored ${n} line${n === 1 ? '' : 's'} with their reviews, puzzles and games.`,
+    importFailed: (why: string) => `That backup could not be restored. ${why}`.trim(),
+    accounts: 'Accounts',
+    accountsHint: 'Used only to download your public games. Nothing is sent anywhere else.',
+    change: 'Change',
+    cancel: 'Cancel',
+    backupFirst: 'Save a backup first',
+    restoreNow: 'Replace my data',
+    restoreTitle: (file: string) => `Restore ${file}?`,
+    restoreBody: (cards: number, puzzles: number, games: number) =>
+      `This replaces the ${cards} drill line${cards === 1 ? '' : 's'} and ${puzzles} puzzle${puzzles === 1 ? '' : 's'} on this device with the ones in the file. Games in the file are added to your ${games}; none are removed.`,
+    resetType: 'Type RESET to confirm',
     importBad: "That file isn't a blunderless backup. Nice try.",
     reset: 'Reset all progress',
-    resetConfirm: 'This deletes every card and review on this device. Type RESET to confirm.',
+    resetConfirm: 'This deletes all drill progress, puzzles, puzzle rating, endgame wins, games and their reviews on this device. Your accounts and display settings stay. Type RESET to confirm.',
     resetDone: 'Fresh start. Like your first game, minus the scholar\'s mate.',
     storageNote: 'Everything lives in this browser only. No accounts, no servers. Export a backup now and then.',
-    themeHint: 'System follows your OS. The header button flips it too.',
+    themeHint: 'System follows your device. The button in the navigation flips it too.',
     boardTitle: 'Board and pieces',
     previewHint: 'Try it: move a piece, right-drag to draw an arrow.',
     boardSize: 'Board size',
@@ -189,8 +204,8 @@ export const copy = {
 
   games: {
     title: 'Your games',
-    lead: 'Pulled from Chess.com. Stockfish reads every move so you have to face what really happened.',
-    noUser: 'Set your Chess.com username in Settings first. We need to know whose crimes to investigate.',
+    lead: 'Pulled from Chess.com and Lichess. Stockfish reads every move so you have to face what really happened.',
+    noUser: 'Connect a Chess.com or Lichess account. We need to know whose crimes to investigate.',
     import: 'Import games',
     importNew: 'Get new games',
     months: (n: number) => (n === 12 ? 'Last year' : `Last ${n} month${n === 1 ? '' : 's'}`),
@@ -205,13 +220,48 @@ export const copy = {
       n === 0
         ? 'Nothing new. Go play a game.'
         : `${n} new game${n === 1 ? '' : 's'}.${requeued ? ` ${requeued} repertoire line${requeued === 1 ? '' : 's'} you fumbled are back in your drill queue.` : ''}`,
-    importFailed: "Chess.com didn't answer. Try again in a bit.",
+    importFailed: "The site didn't answer. Try again in a bit.",
     empty: 'No games yet. Import some, or play one in Play mode.',
     analyze: 'Analyze',
-    badPgn: "Chess.com sent a PGN we can't read. The game is here, but there's nothing to replay.",
+    badPgn: "This game's PGN can't be read. The game is here, but there's nothing to replay.",
     filters: { all: 'All', win: 'Wins', loss: 'Losses', draw: 'Draws', pending: 'Not analyzed' } as Record<string, string>,
     record: (w: number, l: number, d: number) => `${w}W · ${l}L · ${d}D`,
-    analyzeAll: (n: number) => `Analyze ${n} game${n === 1 ? '' : 's'}`,
+    analyzeAll: (n: number) => `Review ${n} game${n === 1 ? '' : 's'}`,
+    sync: 'Sync games',
+    syncing: 'Syncing',
+    cancel: 'Cancel',
+    connectTitle: 'Whose games?',
+    synced: (n: number, requeued: number) =>
+      n === 0
+        ? 'Nothing new. Go play a game.'
+        : `${n} new game${n === 1 ? '' : 's'}.${requeued ? ` ${requeued} repertoire line${requeued === 1 ? '' : 's'} you fumbled ${requeued === 1 ? 'is' : 'are'} back in your drill queue.` : ''}`,
+    partial: (site: string, months: string) => `${site}: ${months} could not be downloaded. Sync again to pick ${months.includes(',') ? 'them' : 'it'} up.`,
+    failure: {
+      invalid: (site: string) => `That is not a valid ${site} username.`,
+      'not-found': (site: string) => `${site} has no player by that name. Check the username in Settings.`,
+      unreachable: (site: string) => `${site} did not answer. Check your connection and try again.`,
+      'rate-limited': (site: string) => `${site} asked us to slow down. Try again in a minute.`,
+      storage: () => 'The browser refused to save the games. Storage may be full.',
+      busy: (site: string) => `An import from ${site} is already running.`,
+    } as Record<string, (site: string) => string>,
+    retry: 'Try again',
+    search: 'Search opponent or opening',
+    noMatch: 'No games match these filters.',
+    clearFilters: 'Clear filters',
+    showMore: (n: number) => `Show ${n} more`,
+    count: (shown: number, total: number) => (shown === total ? `${total} game${total === 1 ? '' : 's'}` : `${shown} of ${total} games`),
+    emptyTitle: 'No games yet',
+    sourceFilters: { all: 'Any site', chesscom: 'Chess.com', lichess: 'Lichess', local: 'Played here' } as Record<string, string>,
+    vs: (opp: string) => `vs ${opp}`,
+    asColor: { white: 'White', black: 'Black' } as Record<string, string>,
+    resultWord: { win: 'Win', loss: 'Loss', draw: 'Draw' } as Record<string, string>,
+    notReviewable: 'Nothing to review',
+    review: 'Review',
+    accuracyOf: (n: number) => `${n}% accuracy`,
+    counts: (b: number, m: number) => `${b} blunder${b === 1 ? '' : 's'}, ${m} mistake${m === 1 ? '' : 's'}`,
+    storageFull: 'The browser refused to save the review. Storage may be full, so the rest of the batch was stopped.',
+    someFailed: (n: number) => `${n} game${n === 1 ? '' : 's'} could not be reviewed.`,
+    reviewedClean: 'Reviewed. No serious mistakes this time.',
     analyzing: (pct: number) => `Stockfish is judging you... ${pct}%`,
     madePuzzles: (n: number) =>
       n === 0 ? 'No serious mistakes. Who are you and what have you done with the 750?' : `${n} new puzzle${n === 1 ? '' : 's'} from your own mistakes. Personalised pain.`,
@@ -293,10 +343,52 @@ export const copy = {
     spar: (title: string) => `Spar one line: ${title}`,
     streak: (n: number) => (n ? `${n}-day streak` : 'Start a streak'),
     allDone: 'All done. Go play a game and bring back fresh material.',
+    account: {
+      label: (site: string) => `Your ${site} username`,
+      site: 'Site',
+      check: 'Connect',
+      checking: 'Checking',
+      save: 'Save',
+      remove: 'Remove',
+      invalid: (site: string) => `That does not look like a ${site} username.`,
+      notFound: (site: string) => `${site} has no player by that name.`,
+      unreachable: (site: string) => `Could not reach ${site} to check. You can save it anyway.`,
+      useAnyway: 'Use it anyway',
+      connected: (site: string, name: string) => `${site}: ${name}`,
+      none: 'Not connected',
+    },
+    hello: (name?: string | null) => (name ? `Hello, ${name}` : 'Hello'),
+    start: 'Start',
+    continue: 'Continue',
+    startStep: (title: string) => `Start: ${title}`,
+    planLabel: "Today's steps",
+    progress: (done: number, total: number) => `${done} of ${total} done`,
+    minutesLeft: (m: number) => (m <= 0 ? 'Nothing left' : `About ${Math.max(1, Math.round(m))} min left`),
+    minutes: (m: number) => `${Math.max(1, Math.round(m))} min`,
+    doneLabel: 'Done',
+    bonus: 'Still keen?',
+    saysTitle: 'What your games say',
+    saysNote: (basis: string) => basis,
+    saysEmptyTitle: 'Nothing to say yet',
+    saysEmptyNoGames: 'Bring in your games and let Stockfish read them. After about eight reviewed games this turns into a short list of what costs you the most, each with something to practise.',
+    saysEmptyNeedAnalysis: (n: number) => `${n} game${n === 1 ? ' is' : 's are'} waiting for a review. After about eight reviewed games this turns into a short list of what costs you the most.`,
+    saysClean: 'No clear weakness in your recent games. Either you are improving or the sample is being kind.',
+    saysCta: 'Go to games',
+    example: 'See an example',
+    allSignals: 'Full profile',
+    focusTitle: 'Your openings',
+    focusAll: 'All openings',
+    focusDue: (n: number) => `${n} due`,
+    focusProgress: (known: number, total: number) => `${known} of ${total} lines known`,
+    resume: 'Resume',
   },
 
   review: {
     tabs: { summary: 'Summary', moves: 'Moves', engine: 'Engine' },
+    missingTitle: 'That game is not here',
+    missing: 'It may have been removed, or it belongs to a backup that was not restored on this device.',
+    missingCta: 'Back to games',
+    engineDown: 'Stockfish stopped answering. Step to another move to restart it, or reload the page.',
     accuracy: 'Accuracy',
     you: 'You',
     opp: 'Opponent',
@@ -355,6 +447,11 @@ export const copy = {
   } as Record<string, { label: string; roast: string }>,
 
   puzzles: {
+    loadFailed: 'These puzzles could not be loaded. Check your connection and try again.',
+    retryLoad: 'Try again',
+    emptyPackTitle: 'No puzzles in this set',
+    emptyPack: 'Pick another theme.',
+    credit: 'Themed puzzles come from the Lichess puzzle database, which is in the public domain.',
     title: 'Puzzles',
     lead: "Your own blunders come first. They're the ones that actually cost you games.",
     mine: 'My blunders',
@@ -444,6 +541,8 @@ export const copy = {
     resume: 'Resume',
     discard: 'Discard',
     resumeHome: 'Game in progress',
+    engineStuck: 'Stockfish did not answer, so the clocks are paused.',
+    engineRetry: 'Ask again',
     resigned: 'You resigned. Live to fight another game.',
     onTime: { win: 'Stockfish ran out of time. A rare sight.', loss: 'You ran out of time. The clock is part of the game.', draw: 'Out of time, but nobody could mate.' } as Record<string, string>,
     time: 'Time control',
@@ -494,11 +593,349 @@ export const copy = {
     title: 'Well. That was a blunder.',
     body: "Something in this page broke. Your data is fine; it's all still in this browser.",
     retry: 'Try again',
+    // A page chunk failed to download; only a reload can fetch it again.
+    chunk: 'This page did not finish loading. You may be offline, or a newer version was published while this tab was open. Your data is fine.',
+    reload: 'Reload',
+  },
+
+  toast: {
+    dismiss: 'Dismiss',
+  },
+
+  // The board itself (src/chess/Board.tsx): what a screen reader hears, and typing a move instead of dragging.
+  board: {
+    label: 'Chess board',
+    result: 'Result',
+    resize: 'Drag to resize the board',
+    colors: { w: 'White', b: 'Black' } as Record<string, string>,
+    pieces: { k: 'king', q: 'queen', r: 'rook', b: 'bishop', n: 'knight', p: 'pawn' } as Record<string, string>,
+    piecesPlural: { k: 'kings', q: 'queens', r: 'rooks', b: 'bishops', n: 'knights', p: 'pawns' } as Record<string, string>,
+    // One side of the position, e.g. "White: king e1; rooks a1, h1; pawns a2, b2."
+    side: (color: string, pieces: string) => `${color}: ${pieces}.`,
+    noPieces: 'no pieces',
+    toMove: (color: string) => `${color} to move.`,
+    check: 'Check.',
+    checkmate: 'Checkmate.',
+    stalemate: 'Stalemate.',
+    draw: 'Draw.',
+    moved: (color: string, piece: string, to: string) => `${color} ${piece} to ${to}.`,
+    took: (color: string, piece: string, victim: string, on: string) => `${color} ${piece} takes ${victim} on ${on}.`,
+    castled: (color: string, queenside: boolean) => `${color} castles ${queenside ? 'queenside' : 'kingside'}.`,
+    promoted: (piece: string) => `Promotes to ${piece}.`,
+    moveLabel: 'Type a move',
+    movePlaceholder: 'Type a move: Nf3 or e2e4',
+    movePlay: 'Play move',
+    moveIllegal: (typed: string) => `${typed} is not a legal move here.`,
+    moveAmbiguous: (typed: string) => `More than one piece can play ${typed}. Add where it starts, like Nbd2 or b1d2.`,
+    moveWait: 'It is not your move yet.',
+    promoLabel: 'Choose a piece to promote to',
+    promoHint: 'Press Escape to cancel and take the pawn move back.',
+    promoPieces: { q: 'Queen', r: 'Rook', b: 'Bishop', n: 'Knight' } as Record<string, string>,
+  },
+
+  // Everything the coach (src/coach) says: signal names, evidence sentences, plan steps and reasons.
+  coach: {
+    basis: (n: number) => `Based on your last ${n} analysed game${n === 1 ? '' : 's'}.`,
+    basisNone: 'No analysed games yet. Analyse a few and the coach has something to go on.',
+    stale: (n: number) => `${n} older review${n === 1 ? ' is' : 's are'} left out until re-analysed.`,
+    noValue: 'No reading yet',
+    status: { weak: 'Needs work', ok: 'Fine', strong: 'Strength', insufficient: 'Not enough data' } as Record<string, string>,
+    needGames: (have: number, need: number) =>
+      `${have === 0 ? 'No' : `Only ${have}`} analysed game${have === 1 ? '' : 's'} so far, and this needs ${need} before it means anything.`,
+    perGame: (rate: string) => `${rate} per game`,
+    rateBaseline: (strong: string, weak: string) => `Under ${strong} per game is solid. Over ${weak} is deciding games.`,
+    shareBaseline: (strong: number, weak: number) => `Under ${strong}% is solid. Over ${weak}% needs work.`,
+    times: (n: number) => (n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`),
+    practise: (theme: string) => `Practise ${theme}`,
+    signals: {
+      hung: {
+        title: 'Hanging pieces',
+        evidence: (n: number, games: number) =>
+          n === 0
+            ? `No pieces left hanging in your last ${games} games.`
+            : `You left ${n} piece${n === 1 ? '' : 's'} hanging in your last ${games} games.`,
+        headline: (rate: string) => `Today is about keeping your pieces on the board: you hang ${rate} a game.`,
+      },
+      tactics: {
+        title: 'Tactics',
+        evidence: (missed: number, into: number, games: number) =>
+          `You missed ${missed} tactic${missed === 1 ? '' : 's'} and walked into ${into} in your last ${games} games.`,
+        headline: (rate: string) => `Today is about tactics: ${rate} a game are getting past you.`,
+      },
+      mates: {
+        title: 'Checkmates',
+        evidence: (allowed: number, missed: number, games: number) =>
+          `You allowed ${allowed} mate${allowed === 1 ? '' : 's'} and missed ${missed} of your own in your last ${games} games.`,
+        headline: (rate: string) => `Today is about checkmates: ${rate} a game are being allowed or missed.`,
+      },
+      clock: {
+        title: 'Clock',
+        value: (pct: number) => `${pct}% of mistakes`,
+        evidence: (clockErrors: number, errors: number, endedLow: number, games: number) =>
+          `${clockErrors} of your ${errors} mistakes came with the clock low or in under 3 seconds, and you finished ${endedLow} of ${games} games short on time.`,
+        none: 'None of your analysed games carry clock times.',
+        need: (games: number, needGames: number, needErrors: number) =>
+          `Clock times on ${games} game${games === 1 ? '' : 's'} so far, and this needs ${needGames} games and ${needErrors} mistakes to read.`,
+        headline: (pct: number) => `Today is about the clock: it is behind ${pct}% of your mistakes.`,
+        action: 'Play a timed game',
+      },
+      prep: {
+        title: 'Opening prep',
+        value: (pct: number) => `${pct}% of games`,
+        evidence: (left: number, games: number, move: number, line: string, times: string) =>
+          left === 0
+            ? `You did not leave your prep first in any of your last ${games} games in book.`
+            : `You left your prep first in ${left} of your last ${games} games in book, on average at move ${move}${
+                line ? `, most often in ${line} (${times})` : ''
+              }.`,
+        need: (games: number, need: number) =>
+          `${games === 0 ? 'No' : `Only ${games}`} recent game${games === 1 ? '' : 's'} followed your prep for two moves or more, and this needs ${need}.`,
+        headline: (pct: number) => `Today is about your openings: you leave your prep first in ${pct}% of games.`,
+        drill: 'Drill this line',
+        learn: 'Learn this line',
+        open: 'Open your repertoire',
+      },
+      conversion: {
+        title: 'Finishing won games',
+        value: (pct: number) => `${pct}% not won`,
+        evidence: (winning: number, notWon: number, lost: number, drawn: number, sudden: number) =>
+          notWon === 0
+            ? `You were clearly winning in ${winning} games and won every one of them.`
+            : `You were clearly winning in ${winning} games and did not win ${notWon} of them (${lost} lost, ${drawn} drawn)${
+                sudden ? `; ${sudden} went in a single move` : ''
+              }.`,
+        need: (games: number, need: number) =>
+          `You were clearly winning in ${games === 0 ? 'none' : `only ${games}`} of your analysed games, and this needs ${need}.`,
+        headline: (pct: number) => `Today is about finishing the job: ${pct}% of your winning positions got away.`,
+        action: 'Practise endgames',
+      },
+      phase: {
+        title: 'Game phases',
+        value: (gap: number) => `${gap} point${gap === 1 ? '' : 's'} behind`,
+        evidence: (phase: string, acc: number, rest: number) =>
+          `Your ${phase} accuracy is ${acc}%, against ${rest}% for the rest of the game.`,
+        need: 'Not enough moves in each phase yet to compare them.',
+        baseline: (gap: number) => `A gap under ${gap} points is normal. The opening always scores a little higher.`,
+        headline: (phase: string, gap: number) => `Today is about your ${phase}: it trails the rest of your game by ${gap} points.`,
+        names: { opening: 'opening', middlegame: 'middlegame', endgame: 'endgame' } as Record<string, string>,
+        actions: {
+          opening: 'Work on your openings',
+          middlegame: 'Practise tactics',
+          endgame: 'Practise endgames',
+        } as Record<string, string>,
+      },
+      colour: {
+        title: (side: string) => (side === 'white' ? 'Results as White' : 'Results as Black'),
+        value: (gap: number) => `${gap} points behind`,
+        evidence: (side: string, score: number, games: number, otherScore: number, otherGames: number) =>
+          `You score ${score}% as ${side === 'white' ? 'White' : 'Black'} over ${games} games and ${otherScore}% as ${
+            side === 'white' ? 'Black' : 'White'
+          } over ${otherGames}.`,
+        baseline: (gap: number) => `A gap under ${gap} points is not reported.`,
+        headline: (side: string, gap: number) =>
+          `Today is about playing ${side === 'white' ? 'White' : 'Black'}: you score ${gap} points less with it.`,
+        action: (side: string) => (side === 'white' ? 'Work on your White openings' : 'Work on your Black openings'),
+      },
+    },
+    motifs: {
+      kind: {
+        'hung-piece': (times: string) => `You hung a piece ${times}`,
+        'allowed-mate': (times: string) => `You allowed mate ${times}`,
+        'missed-mate': (times: string) => `You missed a mate ${times}`,
+        fork: (times: string) => `You walked into a fork ${times}`,
+        'missed-tactic': (times: string) => `You missed a tactic ${times}`,
+        'walked-into-tactic': (times: string) => `You walked into a tactic ${times}`,
+      } as Record<string, (times: string) => string>,
+      fromGames: (what: string, games: number) =>
+        `${what} in your last ${games} analysed game${games === 1 ? '' : 's'}. The puzzles follow that.`,
+      fromPuzzles: (theme: string, pct: number, attempts: number) =>
+        `${theme} is your weakest theme: ${pct}% solved over your last ${attempts} tries.`,
+      fallback: 'No pattern in your games yet, so a mix of everything.',
+    },
+    trends: {
+      metrics: {
+        accuracy: 'Accuracy',
+        blunders: 'Blunders per game',
+        mistakes: 'Mistakes per game',
+        score: 'Score',
+      } as Record<string, string>,
+      trend: { better: 'Better', worse: 'Worse', flat: 'Steady' } as Record<string, string>,
+      delta: (window: number) => `Your last ${window} games against the ${window} before`,
+      deltaNeed: (have: number, need: number) =>
+        `${have} analysed game${have === 1 ? '' : 's'} so far. A trend needs ${need}.`,
+      colours: { white: 'As White', black: 'As Black' } as Record<string, string>,
+      timeClasses: {
+        bullet: 'Bullet',
+        blitz: 'Blitz',
+        rapid: 'Rapid',
+        daily: 'Daily',
+        training: 'Practice games',
+      } as Record<string, string>,
+      otherTime: 'Other',
+    },
+    plan: {
+      headline: {
+        onboarding: 'Start with one line, then bring in your games so the plan can follow what you actually play.',
+        allDone: 'All done for today, so go play a game and bring back fresh material.',
+        forgot: (n: number) =>
+          `Today starts with ${n === 1 ? 'the line' : `the ${n} lines`} a real game showed you forgot.`,
+        due: (n: number) => `${n} line${n === 1 ? ' is' : 's are'} due, so today starts with your openings.`,
+        mistakes: (n: number) =>
+          `${n} of your own mistakes ${n === 1 ? 'is' : 'are'} due, so today is about not making ${n === 1 ? 'it' : 'them'} twice.`,
+        steady: 'Nothing urgent today, so this is a short session to keep everything ticking over.',
+      },
+      drill: {
+        title: (n: number) => `Drill ${n} due line${n === 1 ? '' : 's'}`,
+        titleDone: 'Lines drilled',
+        titleNone: 'No lines due',
+        forgot: (n: number, due: number) =>
+          due === 1
+            ? 'You left this line early in a real game and have not drilled it since.'
+            : `You left ${n === 1 ? 'one' : n} of these early in a real game and ${n === 1 ? 'have not drilled it' : 'have not drilled them'} since.`,
+        due: 'Due today on your schedule. A minute now saves a lost opening later.',
+        done: (n: number) => `${n} line${n === 1 ? '' : 's'} drilled today, nothing left due.`,
+        none: 'Nothing is due. Your memory is holding, for now.',
+      },
+      learn: {
+        title: (rep: string) => `Learn your first line: ${rep}`,
+        reason: 'You have no lines yet. This is where your repertoire starts.',
+        next: (rep: string) => `Learn the next line: ${rep}`,
+        nextReason: 'Nothing is due, so there is room for a new line.',
+      },
+      mistakes: {
+        title: (n: number) => `Fix ${n} of your own mistakes`,
+        titleDone: 'Own mistakes fixed',
+        reason: (due: number) =>
+          `${due} position${due === 1 ? '' : 's'} from your own games ${due === 1 ? 'is' : 'are'} due. You have met ${due === 1 ? 'it' : 'them'} before.`,
+        done: 'Done for today. They come back when you are about to forget them.',
+      },
+      puzzles: {
+        title: (n: number, theme: string) => `Solve ${n} puzzle${n === 1 ? '' : 's'} on ${theme}`,
+        titleMixed: (n: number) => `Solve ${n} mixed puzzle${n === 1 ? '' : 's'}`,
+        titleDone: 'Puzzles done for today',
+        done: (n: number) => `${n} puzzle${n === 1 ? '' : 's'} tried today.`,
+      },
+      review: {
+        title: 'Review your latest game',
+        titleDone: 'Latest game reviewed',
+        loss: (opp: string) => `You lost to ${opp} and have not looked at why yet.`,
+        win: (opp: string) => `You beat ${opp}. Worth checking whether that was skill or their blunder.`,
+        draw: (opp: string) => `You drew with ${opp}. One of you missed something.`,
+        opponent: 'your opponent',
+        done: 'Nothing newer to look at.',
+      },
+      import: {
+        title: 'Import your games',
+        reason: 'The plan can only follow your games once they are here.',
+      },
+      spar: {
+        title: (rep: string) => `Spar one line: ${rep}`,
+        reason: "Today's opening in your focus rotation, played from memory.",
+        prep: (pct: number) => `You leave your prep first in ${pct}% of games. Playing it from memory is the fix.`,
+        done: 'One line played from memory.',
+      },
+      endgame: {
+        title: (name: string) => `Win one endgame: ${name}`,
+        titleDone: 'Endgame won',
+        fresh: 'You have not won this one yet.',
+        again: 'You have won every one of them once. This one is due a repeat.',
+        conversion: (pct: number) => `${pct}% of your winning positions got away. Technique is the fix.`,
+        phase: (gap: number) => `Your endgame trails the rest of your game by ${gap} points.`,
+        done: 'One endgame won today.',
+      },
+      play: {
+        title: 'Play a game',
+        reason: 'Play one game so there is something to review.',
+        bonus: 'Everything else is done. Go and get fresh material.',
+      },
+    },
   },
 
   engine: {
     failed: "Stockfish didn't answer. Reload the page and try again.",
   },
 
+  // Status lines the game importer reports while it works (games/store.ts fills ImportProgress.label with these).
+  importer: {
+    sites: { chesscom: 'Chess.com', lichess: 'Lichess' } as Record<string, string>,
+    listing: (site: string) => `Asking ${site} which games you have`,
+    month: (month: string) => `Downloading ${month}`,
+    received: (n: number) => `${n} game${n === 1 ? '' : 's'} downloaded`,
+    saving: (n: number) => `Saving ${n} game${n === 1 ? '' : 's'}`,
+    rateLimited: (site: string, secs: number) => `${site} asked us to slow down. Trying again in ${secs} seconds.`,
+    retrying: (site: string, secs: number) => `${site} did not answer. Trying again in ${secs} seconds.`,
+    anonymous: 'Anonymous',
+    lichessAi: (level: number) => `Lichess AI level ${level}`,
+  },
+
+  progress: {
+    title: 'Progress',
+    lead: 'Whether your real games are getting better, and what to work on next.',
+    games: 'Games reviewed',
+    accuracy: 'Accuracy',
+    blunders: 'Blunders per game',
+    puzzles: 'Puzzle accuracy',
+    lines: 'Lines known',
+    streak: 'Day streak',
+    of: (n: number) => `of ${n}`,
+    trendTitle: 'Your last games',
+    trendAccuracy: 'Accuracy, ten-game average',
+    trendBlunders: 'Blunders in each game',
+    trendAlt: (n: number, from: number, to: number) => `Accuracy over your last ${n} reviewed games, from ${from}% to ${to}% on a ten-game average.`,
+    trendTip: (acc: number, bl: number, result: string) => `You ${result}: ${acc}% accuracy, ${bl} blunder${bl === 1 ? '' : 's'}.`,
+    profileTitle: 'What costs you games',
+    resultsTitle: 'Results',
+    byOpening: 'By opening',
+    byColour: 'By colour',
+    byTime: 'By time control',
+    colGames: 'Games',
+    colScore: 'Score',
+    colAccuracy: 'Accuracy',
+    motifsTitle: 'Puzzle motifs',
+    motifsNote: 'Solve rate over your last 20 attempts at each theme.',
+    recommended: 'Recommended next',
+    practise: 'Practise',
+    untried: 'Not tried',
+    emptyTitle: 'No reviewed games yet',
+    empty: 'Import your games and let Stockfish review them. Trends, results by opening and your weakness profile all come from those reviews.',
+    emptyCta: 'Go to games',
+    needReview: (n: number) => `${n} game${n === 1 ? '' : 's'} still need a review.`,
+    reviewCta: 'Review them',
+    example: 'See an example',
+    result: { win: 'won', loss: 'lost', draw: 'drew' } as Record<string, string>,
+  },
+
+  notFoundTitle: 'Nothing on this square',
   notFound: 'This square is empty. Like your opening prep used to be.',
+  notFoundCta: 'Back to today',
+
+  nav: {
+    today: 'Today',
+    openings: 'Openings',
+    puzzles: 'Puzzles',
+    endgames: 'Endgames',
+    play: 'Play',
+    games: 'Games',
+    progress: 'Progress',
+    settings: 'Settings',
+    more: 'More',
+    groupTrain: 'Train',
+    groupPlay: 'Play and review',
+    soundOn: 'Turn sounds on',
+    soundOff: 'Turn sounds off',
+    themeLight: 'Light theme',
+    themeDark: 'Dark theme',
+    analysing: 'Analysing your games',
+    analysingCount: (n: number, total: number) => `Game ${n} of ${total}`,
+    skip: 'Skip to content',
+    main: 'Main',
+    loading: 'Loading',
+    welcome: 'Welcome',
+    linesDue: (n: number) => `${n} line${n === 1 ? '' : 's'} due`,
+    puzzlesDue: (n: number) => `${n} puzzle${n === 1 ? '' : 's'} due`,
+    // Accessible name of a nav item that carries a count, e.g. "Openings, 3 lines due".
+    withCount: (label: string, count: string) => `${label}, ${count}`,
+    // Browser tab and history title, e.g. "Openings · blunderless".
+    pageTitle: (page: string) => `${page} · blunderless`,
+  },
 } as const;

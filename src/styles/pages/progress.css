@@ -1,0 +1,59 @@
+/* Progress */
+.pg .stats-row { padding: var(--s-2) 0 var(--s-5); border-bottom: 1px solid var(--line); }
+.pg-two { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 0 var(--s-6); align-items: start; }
+@media (max-width: 1000px) { .pg-two { grid-template-columns: 1fr; } }
+
+.chart { margin: 0; }
+.chart svg { display: block; width: 100%; height: 200px; overflow: visible; }
+.chart-grid { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.chart-tick { fill: var(--muted); font: 500 11px var(--mono); }
+.chart-bar { fill: var(--q-blunder-fill); opacity: 0.38; }
+.chart-bar.on { opacity: 0.8; }
+.chart-line { fill: none; stroke: var(--text); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.chart-point { fill: var(--surface); stroke: var(--text); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.chart-dot.good { fill: var(--q-best-fill); }
+.chart-dot.bad { fill: var(--q-blunder-fill); }
+.chart-dot.neutral { fill: var(--line-strong); }
+.chart-hit { cursor: pointer; outline: none; }
+.chart-hit:focus-visible rect { stroke: var(--text); stroke-width: 1.5; }
+.chart-tip { min-height: 1.5em; margin-top: var(--s-2); font-size: var(--fs-sm); color: var(--text-2); }
+.chart-legend { display: flex; gap: var(--s-4); flex-wrap: wrap; font-size: var(--fs-sm); color: var(--muted); margin-bottom: var(--s-3); }
+.chart-legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; background: var(--text); vertical-align: middle; margin-right: 6px; }
+.chart-legend i.bar { height: 9px; width: 9px; background: var(--q-blunder-fill); opacity: 0.6; }
+
+.pg-signals { list-style: none; margin: 0; padding: 0; }
+.pg-signals > li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px var(--s-4); padding: var(--s-4) 0; border-top: 1px solid var(--line); }
+.pg-signals > li:first-child { border-top: 0; padding-top: 0; }
+.pg-sig-title { display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; }
+.pg-sig-value { font: 600 var(--fs-md) var(--mono); letter-spacing: -0.02em; text-align: right; white-space: nowrap; }
+.pg-signals p { grid-column: 1 / -1; margin: 0; color: var(--text-2); font-size: 0.9rem; max-width: 68ch; }
+.pg-signals p.pg-base { color: var(--muted); font-size: var(--fs-sm); }
+.pg-signals .cluster { grid-column: 1 / -1; margin-top: var(--s-2); }
+.pg-signals li.insufficient strong, .pg-signals li.insufficient p { color: var(--muted); }
+
+.pg-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.pg-table caption { text-align: left; font-size: var(--fs-sm); font-weight: 600; color: var(--muted); padding: var(--s-4) 0 var(--s-2); }
+.pg-table:first-of-type caption { padding-top: 0; }
+.pg-table th { text-align: right; font-weight: 500; font-size: var(--fs-xs); color: var(--muted); padding: 0 0 6px 12px; }
+.pg-table th:first-child, .pg-table td:first-child { text-align: left; padding-left: 0; }
+.pg-table td { padding: 8px 0 8px 12px; border-top: 1px solid var(--line); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pg-table td:first-child { white-space: normal; width: 44%; }
+.pg-table td.bar { width: 22%; }
+.pg-table .side { color: var(--muted); font-size: var(--fs-xs); margin-left: 6px; white-space: nowrap; }
+.scorebar { display: block; height: 6px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }
+.scorebar > span { display: block; height: 100%; border-radius: 99px; background: var(--text-2); }
+.scorebar > span.good { background: var(--q-best-fill); }
+.scorebar > span.bad { background: var(--q-blunder-fill); }
+
+.pg-motifs { list-style: none; margin: 0; padding: 0; }
+.pg-motifs li { display: grid; grid-template-columns: minmax(0, 1fr) 30% 3.4rem; gap: var(--s-3); align-items: center; padding: 7px 0; border-top: 1px solid var(--line); font-size: 0.9rem; }
+.pg-motifs li:first-child { border-top: 0; }
+.pg-motifs a { text-decoration: none; }
+.pg-motifs a:hover { text-decoration: underline; }
+.pg-motifs .val { text-align: right; font-variant-numeric: tabular-nums; }
+.pg-motifs .val.none { color: var(--muted); font-size: var(--fs-xs); }
+.pg-rec { margin-bottom: var(--s-4); }
+@media (max-width: 560px) {
+  .pg-table td.bar, .pg-table th.bar { display: none; }
+  .chart svg { height: 160px; }
+}

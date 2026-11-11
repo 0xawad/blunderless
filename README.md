@@ -15,7 +15,7 @@ A local-first chess trainer for improving club players. It runs entirely in the 
   - Each opening shows how it holds up in real games: how often you actually play it when you could, your score, who leaves book first, the replies that take you out of prep, and where you drift off it yourself.
   - "What you actually play" lists every opening family in your imported games with your score.
   - "Play it out" starts a game against Stockfish from the end of any line.
-- **Games.** Imports 1 to 12 months from Chess.com, then only new games after that. Filter by result and speed.
+- **Games.** Imports 1 to 12 months from Chess.com and Lichess, then only new games after that. Filter by result and speed.
   - Every game gets a book report: where you left your prep, or where your opponent did. Lines you had already learned and then got wrong go back into your drill queue.
   - Stockfish 19 (lite WASM, multi-threaded when cross-origin isolated) reviews every move in a background queue that keeps running while you use the rest of the app.
   - **Review:** opening name (ECO, from the Lichess openings database), Lichess-style accuracy for both sides (volatility-weighted plus harmonic mean), per-phase accuracy, a clickable eval graph, key moments, the game's "decided at" move, and jump-to-next-mistake.

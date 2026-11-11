@@ -41,6 +41,89 @@ export function gameAccuracy(wins: number[], color: 'w' | 'b'): number | undefin
 
 export const ANALYSIS_DEPTH = 12;
 export const ANALYSIS_VERSION = 3;
+/** With fewer moves of yours than this there is nothing to review, and no honest accuracy to report. */
+export const MIN_USER_PLIES = 2;
+
+/** How many plies of a game the user played. */
+export function userPlyCount(plies: { color: 'w' | 'b' }[], userColor: 'white' | 'black'): number {
+  const mine = userColor === 'white' ? 'w' : 'b';
+  return plies.reduce((n, p) => n + (p.color === mine ? 1 : 0), 0);
+}
+
+/** Thrown by analyzeGame for a game with fewer than MIN_USER_PLIES moves of yours. */
+export class UnanalysableError extends Error {
+  constructor() {
+    super('too few moves to analyse');
+    this.name = 'UnanalysableError';
+  }
+}
+
+export interface PositionEval {
+  score: Score;
+  bestmove: string;
+  pv: string[];
+}
+
+/**
+ * Finished engine results by position and depth, kept in memory. Games in a
+ * batch share their first dozen moves over and over, and a game that was
+ * interrupted is analysed again from the start; both become free. Least
+ * recently used entries are dropped past `max`.
+ */
+export class EvalCache {
+  private map = new Map<string, PositionEval>();
+  private readonly max: number;
+
+  constructor(max = 4000) {
+    this.max = max;
+  }
+
+  /** Move counters do not change what the engine finds; the fifty-move clock can, so it stays in the key. */
+  private key(fen: string, depth: number) {
+    return `${fen.split(' ').slice(0, 5).join(' ')}|${depth}`;
+  }
+
+  get(fen: string, depth: number): PositionEval | undefined {
+    const k = this.key(fen, depth);
+    const hit = this.map.get(k);
+    if (hit) {
+      this.map.delete(k);
+      this.map.set(k, hit);
+    }
+    return hit;
+  }
+
+  set(fen: string, depth: number, value: PositionEval) {
+    const k = this.key(fen, depth);
+    this.map.delete(k);
+    this.map.set(k, value);
+    if (this.map.size > this.max) this.map.delete(this.map.keys().next().value as string);
+  }
+
+  get size() {
+    return this.map.size;
+  }
+
+  clear() {
+    this.map.clear();
+  }
+}
+
+/** Shared by every analysis in this tab. */
+export const evalCache = new EvalCache();
+
+export interface AnalyzeOptions {
+  /** Checked between positions, and passed to the engine so the running search stops too. Rejects with an AbortError. */
+  signal?: AbortSignal;
+  /** Defaults to the shared cache; null searches every position afresh. */
+  cache?: EvalCache | null;
+}
+
+function abortError(): Error {
+  const e = new Error('analysis aborted');
+  e.name = 'AbortError';
+  return e;
+}
 
 export function classify(drop: number, isBest: boolean, winBefore = 50, winAfter = 50): MoveClass {
   if (isBest) return 'best';
@@ -131,25 +214,40 @@ function phaseStats(accs: number[]): PhaseStats {
   return { moves: accs.length, accuracy: accs.length ? Math.round(accs.reduce((a, b) => a + b, 0) / accs.length) : 0 };
 }
 
-/** Runs Stockfish over every position. onProgress gets 0..1. */
+/**
+ * Runs Stockfish over every position. onProgress gets 0..1.
+ * Throws UnanalysableError for a game with fewer than MIN_USER_PLIES moves of
+ * yours, and an AbortError when `opts.signal` fires.
+ */
 export async function analyzeGame(
   plies: GamePly[],
   userColor: 'white' | 'black',
   onProgress?: (p: number) => void,
   openings?: OpeningBook,
   clock?: { tc: TimeControl; plies: PlyClock[] } | null,
+  opts: AnalyzeOptions = {},
 ): Promise<GameAnalysis> {
+  if (userPlyCount(plies, userColor) < MIN_USER_PLIES) throw new UnanalysableError();
+  const { signal } = opts;
+  const cache = opts.cache === undefined ? evalCache : opts.cache;
   const engine = getEngine();
   const fens = [plies[0]?.fenBefore ?? new Chess().fen(), ...plies.map((p) => p.fenAfter)];
-  const results: { score: Score; bestmove: string; pv: string[] }[] = [];
+  const results: PositionEval[] = [];
   for (let i = 0; i < fens.length; i++) {
+    if (signal?.aborted) throw abortError();
     const c = new Chess(fens[i]);
     if (c.isGameOver()) {
       const mated = c.isCheckmate();
       results.push({ score: mated ? ({ mate: 0 } as Score) : ({ cp: 0 } as Score), bestmove: '', pv: [] });
     } else {
-      const r = await engine.search(fens[i], { depth: ANALYSIS_DEPTH });
-      results.push({ score: r.score, bestmove: r.bestmove, pv: r.pv.slice(0, 6) });
+      let hit = cache?.get(fens[i], ANALYSIS_DEPTH);
+      if (!hit) {
+        const r = await engine.search(fens[i], { depth: ANALYSIS_DEPTH, signal });
+        hit = { score: r.score, bestmove: r.bestmove, pv: r.pv.slice(0, 6) };
+        // A search the watchdog cut short is good enough for this game, not for every later one.
+        if (r.depth >= ANALYSIS_DEPTH || r.score.mate !== undefined) cache?.set(fens[i], ANALYSIS_DEPTH, hit);
+      }
+      results.push(hit);
     }
     onProgress?.((i + 1) / fens.length);
   }
@@ -255,7 +353,8 @@ export async function analyzeGame(
     depth: ANALYSIS_DEPTH,
     evals,
     moves,
-    accuracy: gameAccuracy(wins, mine) ?? 100,
+    // Never undefined here: the guard at the top guarantees moves of yours to score.
+    accuracy: gameAccuracy(wins, mine) ?? 0,
     oppAccuracy: gameAccuracy(wins, mine === 'w' ? 'b' : 'w'),
     time,
     blunders,

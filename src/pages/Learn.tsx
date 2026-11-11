@@ -68,6 +68,10 @@ export function Learn() {
   useEffect(() => {
     const max = line?.plies.length ?? 0;
     const onKey = (e: KeyboardEvent) => {
+      if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
+      // Same reset as the on-screen stepper, so the next move is quizzed, not shown already revealed.
+      setMisses(0);
+      setQuizMsg(null);
       if (e.key === 'ArrowRight') setPly((p) => Math.min(max, p + 1));
       if (e.key === 'ArrowLeft') setPly((p) => Math.max(0, p - 1));
       if (e.key === 'Home') setPly(0);

@@ -1,5 +1,19 @@
+# Cloudflare Pages headers. The service worker (src/sw.js) sits in front of
+# these for returning visitors; they still decide what a first visit and the
+# worker's own fetches get.
+#
+# CSP notes:
+# - script-src 'self' has no inline exception, which is why the first-paint
+#   theme script is a file (/theme-init.js) and not an inline <script>.
+# - style-src 'self' blocks <style> elements and style="" attributes in markup.
+#   The app has neither: React and chessground set styles through the CSSOM
+#   (element.style), which CSP does not restrict. Do not add 'unsafe-inline'.
+# - connect-src lists the only hosts the app talks to: the two game-import
+#   APIs and Cloudflare Web Analytics.
+# - COOP/COEP make the page cross-origin isolated, which threaded Stockfish
+#   (SharedArrayBuffer) needs.
 /*
-  Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval' https://static.cloudflareinsights.com; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.chess.com https://cloudflareinsights.com; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval' https://static.cloudflareinsights.com; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.chess.com https://lichess.org https://cloudflareinsights.com; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Embedder-Policy: require-corp
   Cross-Origin-Resource-Policy: same-origin
@@ -8,11 +22,28 @@
   Referrer-Policy: no-referrer
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
 
+# Content-hashed by the build: safe to keep forever.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 
+# Files below keep their names across deploys, so they must be revalidated
+# (no-cache = "check with the server first", answered with a 304 when unchanged).
 /sw.js
   Cache-Control: no-cache
+
+/theme-init.js
+  Cache-Control: no-cache
+
+/openings.json
+  Cache-Control: no-cache
+
+/puzzles/*
+  Cache-Control: no-cache
+
+# Twelve small images per piece set, requested on every page load when no
+# service worker is in control: a short lifetime saves those round trips.
+/pieces/*
+  Cache-Control: public, max-age=3600
 
 /engine/*
   Cache-Control: public, max-age=86400

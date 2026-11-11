@@ -1,0 +1,77 @@
+/* =========================================================
+   Base: element defaults and type. Loaded after legacy.css,
+   so these win at equal specificity.
+   ========================================================= */
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+body {
+  font: var(--fs-base) / 1.55 var(--font);
+  font-variant-numeric: tabular-nums;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 { margin: 0 0 0.35em; text-wrap: balance; }
+h1 {
+  font-family: var(--display);
+  font-optical-sizing: auto;
+  font-weight: 500;
+  font-size: var(--fs-2xl);
+  line-height: 1.04;
+  letter-spacing: -0.022em;
+}
+h2 { font-size: 1.125rem; font-weight: 600; line-height: 1.2; letter-spacing: -0.015em; }
+h3 { font-size: var(--fs-base); font-weight: 600; line-height: 1.3; letter-spacing: -0.005em; }
+h4 { font-size: var(--fs-sm); font-weight: 600; line-height: 1.3; color: var(--text-2); }
+p { margin: 0 0 0.7em; text-wrap: pretty; }
+small { font-size: var(--fs-sm); }
+strong, b { font-weight: 600; }
+a { color: inherit; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+hr { border: 0; border-top: 1px solid var(--line); margin: var(--s-5) 0; }
+
+:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; border-radius: var(--radius-xs); }
+::selection { background: color-mix(in srgb, var(--brand) 35%, transparent); }
+
+/* type utilities */
+.display { font-family: var(--display); font-optical-sizing: auto; font-weight: 500; letter-spacing: -0.02em; line-height: 1.05; }
+.lead { color: var(--text-2); font-size: var(--fs-md); line-height: 1.5; max-width: 60ch; }
+.muted { color: var(--muted); }
+.small { font-size: var(--fs-sm); }
+.xs { font-size: var(--fs-xs); }
+.num { font-family: var(--mono); font-feature-settings: 'zero' 0; letter-spacing: -0.02em; }
+.kicker { font-size: var(--fs-sm); font-weight: 500; color: var(--muted); margin: 0 0 var(--s-2); display: flex; align-items: center; gap: var(--s-2); }
+.eyebrow { font-size: var(--fs-sm); }
+.section-title { margin: var(--s-6) 0 var(--s-2); font-size: 1.125rem; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.nowrap { white-space: nowrap; }
+.good-text { color: var(--good); }
+.bad-text { color: var(--bad); }
+.warn-text { color: var(--warn); }
+
+/* move-quality text colours, one place */
+.q-best { color: var(--q-best); }
+.q-good { color: var(--q-good); }
+.q-book { color: var(--q-book); }
+.q-inaccuracy { color: var(--q-inaccuracy); }
+.q-mistake { color: var(--q-mistake); }
+.q-blunder { color: var(--q-blunder); }
+.q-missed-win { color: var(--q-missed); }
+
+/* layout utilities */
+.stack { display: flex; flex-direction: column; gap: var(--s-3); }
+.stack.tight { gap: var(--s-2); }
+.stack.loose { gap: var(--s-5); }
+.cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+.between { display: flex; align-items: center; justify-content: space-between; gap: var(--s-4); }
+.grow { flex: 1 1 auto; min-width: 0; }
+.cols-2 { display: grid; gap: var(--s-5); grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cols-3 { display: grid; gap: var(--s-4); grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cols-auto { display: grid; gap: var(--s-4); grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
+@media (max-width: 900px) {
+  .cols-2, .cols-3 { grid-template-columns: 1fr; }
+}
+.desktop-only { display: revert; }
+@media (max-width: 760px) {
+  .desktop-only { display: none !important; }
+}
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

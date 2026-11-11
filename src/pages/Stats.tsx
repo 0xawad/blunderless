@@ -1,149 +1,170 @@
-import { useLiveQuery } from 'dexie-react-hooks';
+// Progress: are your real games getting better, and at what. Everything comes from the coach.
+import { Link, useNavigate } from 'react-router-dom';
 import { copy } from '../copy';
-import { db, statusOf } from '../srs/db';
-import { repertoires } from '../repertoire';
-import { RepertoireTile, useCards } from '../components/ui';
+import { Callout, EmptyState, PageHeader, Section, Stat } from '../components/ui';
+import { ScoreBar, TrendChart, type TrendDatum } from '../components/charts';
+import { TrendIcon } from '../components/icons';
+import { exampleUrl, puzzlesUrl, useCoach, type BreakdownRow, type Signal, type TrendDelta } from '../coach';
+import '../styles/pages/progress.css';
 
-import { streakOf } from '../streak';
+const STATUS_BADGE: Record<Signal['status'], string> = { weak: 'bad', ok: '', strong: 'good', insufficient: '' };
 
-export function Stats() {
-  const cards = useCards();
-  const data = useLiveQuery(async () => {
-    const [reviews, attempts, games] = await Promise.all([
-      db.reviews.toArray(),
-      db.attempts.toArray(),
-      db.games.orderBy('endTime').toArray(),
-    ]);
-    return { reviews, attempts, analyzed: games.filter((g) => g.analysis).slice(-20) };
-  }, []);
-  if (!data || !cards) return null;
+function deltaOf(d: TrendDelta | undefined, unit: string) {
+  if (!d || d.trend === 'flat') return undefined;
+  const sign = d.delta > 0 ? '+' : '';
+  const n = Math.abs(d.delta) >= 10 || unit === '%' ? Math.round(d.delta) : d.delta.toFixed(1);
+  return { text: `${sign}${n}${unit} · ${d.trendLabel}`, dir: d.trend === 'better' ? ('up' as const) : ('down' as const) };
+}
 
-  const { reviews, attempts, analyzed } = data;
-  const total = repertoires.reduce((n, r) => n + r.lines.length, 0);
-  const known = [...cards.values()].filter((c) => statusOf(c) === 'known').length;
-  const solved = attempts.filter((a) => a.solved).length;
-  const avgBlunders = analyzed.length
-    ? (analyzed.reduce((n, g) => n + g.analysis!.blunders, 0) / analyzed.length).toFixed(1)
-    : '–';
-  const avgAcc = analyzed.length
-    ? `${Math.round(analyzed.reduce((n, g) => n + g.analysis!.accuracy, 0) / analyzed.length)}%`
-    : '–';
-
-  const kinds = new Map<string, number>();
-  for (const g of analyzed) for (const m of g.analysis!.moves) if (m.kind) kinds.set(m.kind, (kinds.get(m.kind) ?? 0) + 1);
-  const kindRows = [...kinds.entries()].sort((a, b) => b[1] - a[1]);
-  const maxKind = kindRows[0]?.[1] ?? 1;
-  const maxBlunders = Math.max(1, ...analyzed.map((g) => g.analysis!.blunders));
-
-  // Clock: how many of your errors came in time trouble vs. in a rush with time left.
-  const timed = analyzed.filter((g) => g.analysis!.time);
-  const errors = timed.reduce((n, g) => n + g.analysis!.blunders + g.analysis!.mistakes, 0);
-  const lowTime = timed.reduce((n, g) => n + g.analysis!.time!.lowTimeErrors, 0);
-  const hasty = timed.reduce((n, g) => n + g.analysis!.time!.hastyErrors, 0);
-  const endedLow = timed.filter((g) => g.analysis!.time!.endedLow).length;
-
-  // Accuracy by phase, averaged over games that had that phase.
-  const phase = (ph: 'opening' | 'middlegame' | 'endgame') => {
-    const xs = analyzed.map((g) => g.analysis!.phases?.[ph]).filter((p) => p && p.moves > 0).map((p) => p!.accuracy);
-    return xs.length ? `${Math.round(xs.reduce((a, b) => a + b, 0) / xs.length)}%` : '–';
-  };
-
+function Breakdown({ caption, rows, withSide }: { caption: string; rows: BreakdownRow[]; withSide?: boolean }) {
+  if (!rows.length) return null;
   return (
-    <>
-      <h1>{copy.stats.title}</h1>
-      <p className="lead">{copy.stats.lead}</p>
-
-      <section className="tiles">
-        <Tile label={copy.stats.linesKnown} value={String(known)} sub={copy.stats.ofLines(total)} />
-        <Tile label={copy.stats.streak} value={copy.stats.days(streakOf([...reviews.map((r) => r.at), ...attempts.map((a) => a.at)]))} sub={copy.stats.streakSub} />
-        <Tile
-          label={copy.stats.puzzleRate}
-          value={attempts.length ? `${Math.round((solved / attempts.length) * 100)}%` : '—'}
-          sub={attempts.length ? `${solved}/${attempts.length}` : copy.stats.noPuzzles}
-        />
-        <Tile label={copy.stats.blundersPerGame} value={avgBlunders === '–' ? '—' : avgBlunders} sub={analyzed.length ? `last ${analyzed.length}` : copy.stats.noGames} />
-        <Tile label={copy.stats.accuracy} value={avgAcc === '–' ? '—' : avgAcc} sub={analyzed.length ? undefined : copy.stats.noGames} />
-      </section>
-
-      {analyzed.length === 0 ? (
-        <p className="empty">{copy.stats.none}</p>
-      ) : (
-        <>
-          {kindRows[0] && <div className="feedback info">{copy.stats.verdict(copy.kinds[kindRows[0][0]].label.toLowerCase())}</div>}
-
-          <section className="card">
-            <h2>{copy.stats.blunderChart}</h2>
-            <div className="colchart" role="img" aria-label={`Blunders per game, oldest to newest: ${analyzed.map((g) => g.analysis!.blunders).join(', ')}`}>
-              {analyzed.map((g) => {
-                const n = g.analysis!.blunders;
-                const opp = g.userColor === 'white' ? g.black : g.white;
-                return (
-                  <div key={g.id} className="col" tabIndex={0}>
-                    <span className="bar" style={{ height: `${Math.max(2, (n / maxBlunders) * 100)}%` }} />
-                    <span className="tip">
-                      {n} blunder{n === 1 ? '' : 's'} · vs {opp} · {g.endTime.toLocaleDateString()}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="axis muted small">
-              <span>older</span>
-              <span>newer</span>
-            </div>
-          </section>
-
-          <section className="tiles">
-            <Tile label={copy.review.phases.opening} value={phase('opening')} sub={copy.stats.phaseAcc} />
-            <Tile label={copy.review.phases.middlegame} value={phase('middlegame')} sub={copy.stats.phaseAcc} />
-            <Tile label={copy.review.phases.endgame} value={phase('endgame') === '–' ? '—' : phase('endgame')} sub={phase('endgame') === '–' ? copy.stats.noEndgames : copy.stats.phaseAcc} />
-          </section>
-
-          {timed.length > 0 && (
-            <section className="card">
-              <h2>{copy.stats.clockTitle}</h2>
-              <ul className="lessons">
-                <li>{copy.stats.clockLow(lowTime, errors)}</li>
-                <li>{copy.stats.clockHasty(hasty)}</li>
-                <li>{copy.stats.clockEndedLow(endedLow, timed.length)}</li>
-              </ul>
-              {errors > 0 && (lowTime + hasty) / errors >= 0.4 && <div className="feedback info">{copy.stats.clockVerdict}</div>}
-            </section>
-          )}
-
-          <section className="card">
-            <h2>{copy.stats.kindsChart}</h2>
-            <ul className="hbars">
-              {kindRows.map(([k, n]) => (
-                <li key={k}>
-                  <span className="hlabel">{copy.kinds[k].label}</span>
-                  <span className="htrack">
-                    <span className="bar" style={{ width: `${(n / maxKind) * 100}%` }} />
-                  </span>
-                  <span className="hval">{n}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        </>
-      )}
-
-      <h2>{copy.stats.mastery}</h2>
-      <section className="grid">
-        {repertoires.map((r) => (
-          <RepertoireTile key={r.id} rep={r} cards={cards} />
+    <table className="pg-table">
+      <caption>{caption}</caption>
+      <thead>
+        <tr>
+          <th scope="col"><span className="sr-only">{caption}</span></th>
+          <th scope="col">{copy.progress.colGames}</th>
+          <th scope="col">{copy.progress.colScore}</th>
+          <th scope="col" className="bar"><span className="sr-only">{copy.progress.colScore}</span></th>
+          <th scope="col">{copy.progress.colAccuracy}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.key}>
+            <td>
+              {r.label}
+              {withSide && r.side && <span className="side">{copy.coach.trends.colours[r.side]}</span>}
+            </td>
+            <td>{r.games}</td>
+            <td>{Math.round(r.score)}%</td>
+            <td className="bar"><ScoreBar value={r.score} tone={r.score >= 55 ? 'good' : r.score < 45 ? 'bad' : 'neutral'} /></td>
+            <td>{r.accuracy === null ? '–' : `${Math.round(r.accuracy)}%`}</td>
+          </tr>
         ))}
-      </section>
-    </>
+      </tbody>
+    </table>
   );
 }
 
-function Tile({ label, value, sub }: { label: string; value: string; sub?: string }) {
+export function Stats() {
+  const { loading, profile, trends, motifs, counts, streak } = useCoach();
+  const navigate = useNavigate();
+
+  if (loading || !profile || !trends || !motifs) {
+    return (
+      <div className="skeleton" aria-busy="true" aria-label="Loading">
+        <span style={{ height: 44, width: '32%' }} />
+        <span style={{ height: 70, marginTop: 12 }} />
+        <span style={{ height: 220 }} />
+      </div>
+    );
+  }
+
+  const delta = (m: TrendDelta['metric']) => trends.deltas?.items.find((d) => d.metric === m);
+  const series = trends.series.slice(-40);
+  const data: TrendDatum[] = series.map((p) => ({
+    bar: p.blunders,
+    line: p.accuracyAvg,
+    tone: p.result === 'win' ? 'good' : p.result === 'loss' ? 'bad' : 'neutral',
+    tip: copy.progress.trendTip(Math.round(p.accuracy), p.blunders, copy.progress.result[p.result]),
+    href: `/games/${encodeURIComponent(p.gameId)}`,
+  }));
+  const lo = series.length ? Math.max(0, Math.floor((Math.min(...series.map((p) => p.accuracyAvg)) - 8) / 10) * 10) : 40;
+  const practised = motifs.themes.filter((t) => t.attempts > 0).length > 0;
+
   return (
-    <div className="card tile-stat">
-      <span className="muted small">{label}</span>
-      <strong>{value}</strong>
-      {sub && <span className="muted small">{sub}</span>}
+    <div className="pg">
+      <PageHeader title={copy.progress.title} lead={copy.progress.lead} />
+
+      {counts.toAnalyse > 0 && (
+        <div style={{ marginBottom: 'var(--s-5)' }}>
+          <Callout actions={<Link to="/games" className="btn small ghost">{copy.progress.reviewCta}</Link>}>
+            {copy.progress.needReview(counts.toAnalyse)} {profile.staleText}
+          </Callout>
+        </div>
+      )}
+
+      <div className="stats-row">
+        <Stat value={counts.analysed} label={copy.progress.games} />
+        <Stat value={trends.summary ? Math.round(trends.summary.accuracy) : '–'} unit={trends.summary ? '%' : undefined} label={copy.progress.accuracy} delta={deltaOf(delta('accuracy'), '%')} />
+        <Stat value={trends.summary ? trends.summary.blunders.toFixed(1) : '–'} label={copy.progress.blunders} delta={deltaOf(delta('blunders'), '')} />
+        <Stat value={motifs.overall.solvedPct === null ? '–' : Math.round(motifs.overall.solvedPct)} unit={motifs.overall.solvedPct === null ? undefined : '%'} label={copy.progress.puzzles} />
+        <Stat value={counts.linesKnown} unit={` ${copy.progress.of(counts.linesTotal)}`} label={copy.progress.lines} />
+        <Stat value={streak} label={copy.progress.streak} />
+      </div>
+
+      {series.length === 0 ? (
+        <EmptyState icon={<TrendIcon />} title={copy.progress.emptyTitle} actions={<Link to="/games" className="btn primary">{copy.progress.emptyCta}</Link>}>
+          {copy.progress.empty}
+        </EmptyState>
+      ) : (
+        <>
+          <Section title={copy.progress.trendTitle} note={trends.deltasText}>
+            <div className="chart-legend">
+              <span><i />{copy.progress.trendAccuracy}</span>
+              <span><i className="bar" />{copy.progress.trendBlunders}</span>
+            </div>
+            <TrendChart
+              data={data}
+              lo={lo}
+              hi={100}
+              alt={copy.progress.trendAlt(series.length, Math.round(series[0].accuracyAvg), Math.round(series[series.length - 1].accuracyAvg))}
+              onOpen={(href) => navigate(href)}
+            />
+          </Section>
+
+          <div className="pg-two">
+            <Section title={copy.progress.profileTitle} note={profile.basisText}>
+              <ul className="pg-signals">
+                {profile.signals.map((s) => (
+                  <li key={s.id} className={s.status}>
+                    <div className="pg-sig-title">
+                      <strong>{s.title}</strong>
+                      <span className={`badge ${STATUS_BADGE[s.status]}`}>{copy.coach.status[s.status]}</span>
+                    </div>
+                    <span className="pg-sig-value">{s.status === 'insufficient' ? '' : s.valueText}</span>
+                    <p>{s.evidence}</p>
+                    {s.baselineText && s.status !== 'insufficient' && <p className="pg-base">{s.baselineText}</p>}
+                    {s.status === 'weak' && (
+                      <div className="cluster">
+                        <Link to={s.action.to} className="btn small ghost">{s.action.label}</Link>
+                        {s.examples[0] && <Link to={exampleUrl(s.examples[0])} className="linklike small">{copy.progress.example}</Link>}
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </Section>
+
+            <div>
+              <Section title={copy.progress.resultsTitle}>
+                <Breakdown caption={copy.progress.byColour} rows={trends.byColour} />
+                <Breakdown caption={copy.progress.byTime} rows={trends.byTimeClass} />
+                <Breakdown caption={copy.progress.byOpening} rows={trends.byOpening.slice(0, 8)} withSide />
+              </Section>
+            </div>
+          </div>
+        </>
+      )}
+
+      <Section title={copy.progress.motifsTitle} note={practised ? copy.progress.motifsNote : undefined}>
+        <div className="pg-rec">
+          <Callout tone="brand" actions={<Link to={motifs.recommended.to} className="btn small primary">{copy.progress.practise}</Link>}>
+            <strong>{copy.progress.recommended}: {motifs.recommended.label}.</strong> {motifs.recommended.reason}
+          </Callout>
+        </div>
+        <ul className="pg-motifs">
+          {motifs.themes.map((t) => (
+            <li key={t.theme}>
+              <Link to={puzzlesUrl(t.theme)}>{t.label}</Link>
+              <ScoreBar value={t.recentPct ?? 0} tone={t.recentPct === null ? 'neutral' : t.recentPct >= 75 ? 'good' : t.recentPct < 50 ? 'bad' : 'neutral'} />
+              {t.recentPct === null ? <span className="val none">{copy.progress.untried}</span> : <span className="val">{Math.round(t.recentPct)}%</span>}
+            </li>
+          ))}
+        </ul>
+      </Section>
     </div>
   );
 }

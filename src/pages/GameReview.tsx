@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { San } from '../components/San';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Chess } from 'chess.js';
 import type { DrawShape } from 'chessground/draw';
@@ -20,6 +20,9 @@ import { EvalGraph } from '../components/EvalGraph';
 import { BookChip } from './Games';
 import { useToast } from '../components/Toast';
 import { PlayerBar } from '../components/PlayerBar';
+import { EvalBar, SquareBadge } from '../components/Stage';
+import { BackLink, EmptyState } from '../components/ui';
+import { GamesIcon } from '../components/icons';
 
 const MARK: Record<string, string> = { blunder: '??', 'missed-win': '??', mistake: '?', inaccuracy: '?!', best: '!', book: '' };
 type Tab = 'summary' | 'moves' | 'engine';
@@ -34,7 +37,9 @@ const fmtCp = (cp: number) => {
 
 export function GameReview() {
   const { id = '' } = useParams();
-  const game = useLiveQuery(() => db.games.get(id), [id]);
+  // undefined = still loading; null = no such game.
+  const game = useLiveQuery(async () => (await db.games.get(id)) ?? null, [id]);
+  const [params] = useSearchParams();
   const toast = useToast();
   const plies = useMemo(() => {
     try {
@@ -54,9 +59,25 @@ export function GameReview() {
   // Your retry move stays on the board while the engine judges it (and after).
   const [retryMove, setRetryMove] = useState<{ fen: string; from: string; to: string } | null>(null);
   const q = useQueue();
+  // Bumped whenever the position or the retry changes, so a late engine verdict for an old attempt is dropped.
+  const retrySeq = useRef(0);
+  const [engineDown, setEngineDown] = useState(false);
+
+  // Deep link: /games/<id>?ply=N opens on that position with the move list showing.
+  const linked = useRef(false);
+  useEffect(() => {
+    if (linked.current || !plies) return;
+    linked.current = true;
+    const n = Number(params.get('ply'));
+    if (params.has('ply') && Number.isFinite(n)) {
+      setPly(Math.max(0, Math.min(plies.length, Math.floor(n))));
+      setTab('moves');
+    }
+  }, [plies, params]);
   const progress = q.current === id ? q.progress : q.pending.includes(id) ? 0 : null;
 
   const go = useCallback((p: number) => {
+    retrySeq.current++;
     setVariation([]);
     setRetry(null);
     setRetryMove(null);
@@ -69,12 +90,13 @@ export function GameReview() {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof Element && e.target.closest('input, select, textarea')) return;
       if (e.key === 'f') setFlipped((x) => !x);
+      if (retry) return; // stepping away mid-retry would land the verdict on another move
       if (e.key === 'ArrowRight' && !variation.length) go(Math.min(n, ply + 1));
       if (e.key === 'ArrowLeft') variation.length ? setVariation((v) => v.slice(0, -1)) : go(Math.max(0, ply - 1));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [plies?.length, ply, variation.length, go]);
+  }, [plies?.length, ply, variation.length, go, retry]);
 
   const a = game?.analysis;
   const mine = game?.userColor === 'white' ? 'w' : 'b';
@@ -96,7 +118,9 @@ export function GameReview() {
       return;
     }
     let alive = true;
-    const h = getEngine().analyse(fen, { multipv: 3, depth: 18 }, (ls) => alive && setLines([...ls]));
+    setLines([]); // never show the previous position's lines against this one
+    setEngineDown(false);
+    const h = getEngine().analyse(fen, { multipv: 3, depth: 18, onError: () => alive && setEngineDown(true) }, (ls) => alive && setLines([...ls]));
     return () => {
       alive = false;
       h.stop();
@@ -104,8 +128,21 @@ export function GameReview() {
   }, [fen, wantEngine]);
 
   if (game === undefined) return null;
-  if (!game) return <p className="empty">{copy.notFound}</p>;
-  if (!plies) return <p className="empty">{copy.games.badPgn}</p>;
+  if (!game) {
+    return (
+      <EmptyState center icon={<GamesIcon />} title={copy.review.missingTitle} actions={<Link to="/games" className="btn primary">{copy.review.missingCta}</Link>}>
+        {copy.review.missing}
+      </EmptyState>
+    );
+  }
+  if (!plies) {
+    return (
+      <>
+        <BackLink to="/games">{copy.nav.games}</BackLink>
+        <p className="muted">{copy.games.badPgn}</p>
+      </>
+    );
+  }
 
   const review = ply > 0 && !exploring ? a?.moves[ply - 1] : undefined;
   const nextReview = a?.moves[ply];
@@ -126,7 +163,6 @@ export function GameReview() {
       : undefined
     : a?.evals[ply];
   const evalText = evalCp === undefined ? '' : fmtCp(evalCp);
-  const evalHeight = `${50 + Math.max(-48, Math.min(48, (evalCp ?? 0) / 20))}%`;
   const lastMove: [string, string] | undefined = varLast ? [varLast.from, varLast.to] : last ? [last.from, last.to] : undefined;
 
   const run = () => enqueue([game.id]);
@@ -177,14 +213,21 @@ export function GameReview() {
         setRetry({ result: 'best', text: pick(copy.review.retryBest), pv: r.pv });
         return;
       }
+      if (c.isCheckmate()) {
+        setRetry({ result: 'best', text: pick(copy.review.retryBest), pv: [uci] });
+        return;
+      }
+      const seq = ++retrySeq.current;
       setRetry({ text: copy.review.engineWaiting });
       try {
         const res = await getEngine().search(c.fen(), { depth: 10 });
+        if (seq !== retrySeq.current) return; // you moved on while the engine was thinking
         const after = winPct((mine === 'w' ? 1 : -1) * (c.turn() === 'w' ? 1 : -1) * scoreToCp(res.score));
         const drop = before - after;
         const bestSan = uciToSan(plies[ply].fenBefore, r.best);
         setRetry(drop < 8 ? { result: 'good', text: copy.review.retryGood, pv: r.pv } : { result: 'bad', text: copy.review.retryBad(bestSan), pv: r.pv });
       } catch {
+        if (seq !== retrySeq.current) return;
         setRetry(null);
         setRetryMove(null);
         toast(copy.engine.failed, 'bad');
@@ -206,22 +249,18 @@ export function GameReview() {
 
   return (
     <>
-      <Link to="/games" className="back">← Games</Link>
+      <BackLink to="/games">{copy.nav.games}</BackLink>
       <div className="play review">
         <div className="board-col-wrap">
           <div className="pinned">
           <div className="board-stack">
             {bar(orientation === 'white' ? 'black' : 'white')}
             <div className="board-col">
-              {a && (
-                <div className="evalbar-v" aria-label={`Evaluation ${evalText}`} style={orientation === 'black' ? { transform: 'scaleY(-1)' } : undefined}>
-                  <span style={{ height: evalHeight }} />
-                  <b className={evalCp !== undefined && evalCp >= 0 ? 'bottom' : 'top'} style={orientation === 'black' ? { transform: 'scaleY(-1)' } : undefined}>
-                    {evalText.replace('-', '')}
-                  </b>
-                </div>
-              )}
-              <Board fen={retry && retryMove ? retryMove.fen : fen} orientation={orientation} lastMove={retry && retryMove ? [retryMove.from, retryMove.to] : lastMove} shapes={shapes} interactive={retry ? !retry.result && !retryMove : true} onMove={onMove} resizable />
+              {a && evalCp !== undefined && <EvalBar whitePct={winPct(evalCp)} text={evalText} orientation={orientation} />}
+              <div className="board-holder">
+                <Board fen={retry && retryMove ? retryMove.fen : fen} orientation={orientation} lastMove={retry && retryMove ? [retryMove.from, retryMove.to] : lastMove} shapes={shapes} interactive={retry ? !retry.result && !retryMove : true} onMove={onMove} resizable />
+                {review && last && !retry && <SquareBadge cls={review.cls} square={last.to} orientation={orientation} />}
+              </div>
             </div>
             {bar(orientation)}
           </div>
@@ -276,13 +315,13 @@ export function GameReview() {
               <div>
                 {retry.text ?? copy.review.retrying}
                 {retry.result && retry.pv?.length ? (
-                  <div className="muted small" style={{ marginTop: '0.3rem' }}>{playLine(plies[ply].fenBefore, retry.pv).sans.join(' ')}</div>
+                  <div className="muted small" style={{ marginTop: '0.3rem' }}>{playLine(plies[ply]?.fenBefore ?? fen, retry.pv).sans.join(' ')}</div>
                 ) : null}
                 <div className="row">
                   {retry.result && retry.result !== 'best' && (
                     <button className="btn small" onClick={() => { setRetry({}); setRetryMove(null); }}>Try again</button>
                   )}
-                  <button className="btn small ghost" onClick={() => { setRetry(null); setRetryMove(null); }}>{copy.review.retryCancel}</button>
+                  <button className="btn small ghost" onClick={() => { retrySeq.current++; setRetry(null); setRetryMove(null); }}>{copy.review.retryCancel}</button>
                 </div>
               </div>
             </div>
@@ -390,7 +429,11 @@ export function GameReview() {
           )}
 
           {a && (tab === 'engine' || exploring) && !retry && (
-            <EngineLines fen={fen} lines={lines} onPlay={(uci) => onMove(uci.slice(0, 2), uci.slice(2, 4))} />
+            engineDown ? (
+              <p className="field-error" role="alert">{copy.review.engineDown}</p>
+            ) : (
+              <EngineLines fen={fen} lines={lines} onPlay={(uci) => onMove(uci.slice(0, 2), uci.slice(2, 4))} />
+            )
           )}
 
           {game.url && (

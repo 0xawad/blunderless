@@ -1,62 +1,44 @@
-import { useState, type FormEvent } from 'react';
+// First run: say what the product does, connect an account (or not), go to Today.
 import { useNavigate } from 'react-router-dom';
 import { copy } from '../copy';
 import { setSetting } from '../srs/db';
-import { USERNAME_RE, chessComPlayerExists } from '../chesscom';
+import { AccountForm } from '../components/AccountForm';
+import { BrandMark, CheckIcon } from '../components/icons';
+import '../styles/pages/welcome.css';
 
 export function Welcome() {
   const navigate = useNavigate();
-  const [name, setName] = useState('');
-  const [note, setNote] = useState<string>();
-  const [busy, setBusy] = useState(false);
 
-  const finish = async (username?: string) => {
-    if (username) await setSetting('username', username);
+  const finish = async () => {
     await setSetting('onboarded', true);
     navigate('/', { replace: true });
   };
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    const u = name.trim();
-    if (!u) return finish();
-    if (!USERNAME_RE.test(u)) return setNote(copy.welcome.invalid);
-    setBusy(true);
-    const exists = await chessComPlayerExists(u);
-    setBusy(false);
-    if (exists === false) {
-      setNote(copy.welcome.notFound);
-      setTimeout(() => finish(u), 1400);
-      return;
-    }
-    finish(u);
-  };
-
   return (
-    <section className="card welcome">
-      <div className="welcome-piece" aria-hidden>♞</div>
+    <div className="wl">
+      <div className="wl-brand">
+        <BrandMark />
+        <span>{copy.brand}</span>
+      </div>
       <h1>{copy.welcome.title}</h1>
       <p className="lead">{copy.welcome.body}</p>
-      <form onSubmit={submit}>
-        <label htmlFor="u">{copy.welcome.usernameLabel}</label>
-        <input
-          id="u"
-          value={name}
-          onChange={(e) => {
-            setName(e.target.value);
-            setNote(undefined);
-          }}
-          autoComplete="off"
-          spellCheck={false}
-          maxLength={25}
-          placeholder="e.g. hikaru (we wish)"
-        />
-        <p className="hint">{note ?? copy.welcome.usernameHint}</p>
-        <div className="row">
-          <button className="btn primary lg" disabled={busy}>{copy.welcome.cta}</button>
-          <button type="button" className="btn ghost" onClick={() => finish()}>{copy.welcome.skip}</button>
+      <ul className="wl-points">
+        {copy.welcome.points.map((p) => (
+          <li key={p}>
+            <CheckIcon />
+            {p}
+          </li>
+        ))}
+      </ul>
+
+      <section className="panel wl-connect">
+        <h2>{copy.welcome.connect}</h2>
+        <AccountForm onSaved={() => void finish()} submitLabel={copy.welcome.cta} />
+        <div className="wl-skip">
+          <button type="button" className="btn quiet" onClick={() => void finish()}>{copy.welcome.skip}</button>
+          <p className="muted small">{copy.welcome.skipNote}</p>
         </div>
-      </form>
-    </section>
+      </section>
+    </div>
   );
 }
