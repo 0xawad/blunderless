@@ -221,7 +221,7 @@ export const copy = {
         ? 'Nothing new. Go play a game.'
         : `${n} new game${n === 1 ? '' : 's'}.${requeued ? ` ${requeued} repertoire line${requeued === 1 ? '' : 's'} you fumbled are back in your drill queue.` : ''}`,
     importFailed: "The site didn't answer. Try again in a bit.",
-    empty: 'No games yet. Import some, or play one in Play mode.',
+    empty: 'Sync your games from Chess.com or Lichess, or play one against Stockfish here.',
     analyze: 'Analyze',
     badPgn: "This game's PGN can't be read. The game is here, but there's nothing to replay.",
     filters: { all: 'All', win: 'Wins', loss: 'Losses', draw: 'Draws', pending: 'Not analyzed' } as Record<string, string>,
@@ -326,6 +326,8 @@ export const copy = {
     families: 'What you actually play',
     familiesLead: 'Every opening in your imported games, by name. Score is from your side.',
     familiesNone: 'Import games to see what you really play.',
+    familiesNoneTitle: 'No games to go on yet',
+    learnNext: 'Learn the next line',
     asWhite: 'As White',
     asBlack: 'As Black',
   },

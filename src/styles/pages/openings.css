@@ -1,0 +1,23 @@
+/* Openings index */
+.op-list { list-style: none; margin: 0; padding: 0; }
+.op-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-4) var(--s-6); align-items: center; padding: var(--s-5) 0; border-top: 1px solid var(--line); }
+.op-row:first-child { border-top: 0; padding-top: var(--s-2); }
+.op-main h3 { font-size: var(--fs-lg); letter-spacing: -0.02em; margin: 0 0 2px; }
+.op-main h3 a { text-decoration: none; }
+.op-main h3 a:hover { text-decoration: underline; }
+.op-main > .muted { margin: 0 0 var(--s-3); font-size: 0.9rem; }
+.op-main .meter { max-width: 420px; }
+.op-main .kicker { margin-bottom: 4px; }
+.op-stats { display: flex; flex-wrap: wrap; gap: 2px var(--s-5); margin: var(--s-2) 0 0; font-size: var(--fs-sm); }
+.op-actions { display: flex; flex-wrap: wrap; gap: var(--s-2); justify-content: flex-end; max-width: 360px; }
+.op-families { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-6); }
+.op-families h4 { margin-bottom: var(--s-2); }
+.op-fam { list-style: none; margin: 0; padding: 0; }
+.op-fam li { display: grid; grid-template-columns: minmax(0, 1fr) 28% 5.5rem; gap: var(--s-3); align-items: center; padding: 7px 0; border-top: 1px solid var(--line); font-size: 0.9rem; }
+.op-fam li:first-child { border-top: 0; }
+.op-fam .num { text-align: right; font-size: var(--fs-sm); }
+@media (max-width: 900px) {
+  .op-row { grid-template-columns: 1fr; }
+  .op-actions { justify-content: flex-start; max-width: none; }
+  .op-families { grid-template-columns: 1fr; gap: var(--s-5); }
+}

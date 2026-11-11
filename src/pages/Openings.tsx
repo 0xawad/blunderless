@@ -3,7 +3,10 @@ import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { copy } from '../copy';
 import { repertoires, type Repertoire } from '../repertoire';
-import { RepertoireTile, useCards } from '../components/ui';
+import { EmptyState, LineMeter, PageHeader, Section, lineCounts, useCards } from '../components/ui';
+import { ScoreBar } from '../components/charts';
+import { ArrowRightIcon, BookIcon, CompassIcon, GamesIcon, SwordsIcon } from '../components/icons';
+import '../styles/pages/openings.css';
 import { db, statusOf, type CardRow } from '../srs/db';
 import { openingFamilies, repReport, type RepReport } from '../games/openingReport';
 import { toggleFocus, useFocus } from '../focus';
@@ -108,59 +111,97 @@ export function Openings() {
 
   const focused = repertoires.filter((r) => focus.includes(r.id));
   const others = repertoires.filter((r) => !focus.includes(r.id));
+  const due = repertoires.reduce((n, r) => n + lineCounts(r, cards).due, 0);
+  // The one thing to do next: drill what is due, else learn the next new line of a focus opening.
+  const nextNew = focused.flatMap((r) => r.lines.map((l, i) => ({ r, l, i }))).find((x) => !cards?.has(x.l.id));
+
+  const row = (r: Repertoire, isFocus: boolean) => {
+    const c = lineCounts(r, cards);
+    const report = reports.get(r.id);
+    const score = report?.adopted ? Math.round(((report.wins + report.draws / 2) / report.adopted) * 100) : null;
+    const next = r.lines.findIndex((l) => !cards?.get(l.id));
+    return (
+      <li key={r.id} className="op-row">
+        <div className="op-main">
+          <p className="kicker">
+            <span className={`player-dot ${r.side}`} aria-hidden />
+            {r.side === 'white' ? copy.rep.asWhite : copy.rep.asBlack}
+          </p>
+          <h3><Link to={`/openings/${r.id}`}>{r.title}</Link></h3>
+          <p className="muted">{r.tagline}</p>
+          <LineMeter known={c.known} inProgress={c.learning + c.due} total={c.total} label={copy.rep.progress(c.known, c.started, c.total)} />
+          <p className="op-stats muted">
+            <span>{copy.rep.progress(c.known, c.started, c.total)}</span>
+            <span>
+              {report?.reached ? copy.rep.adoption(report.adopted, report.reached) : copy.rep.adoptionNone}
+              {score !== null && ` · ${copy.rep.score(score)}`}
+            </span>
+          </p>
+        </div>
+        <div className="op-actions">
+          {c.due > 0 && <Link to={`/drill?rep=${r.id}`} className="btn primary small">{copy.rep.drill(c.due)}</Link>}
+          <Link to={next >= 0 ? `/learn/${r.id}/${next}` : `/openings/${r.id}`} className="btn ghost small"><BookIcon />{copy.rep.learn}</Link>
+          <Link to={`/openings/${r.id}/map?mode=spar`} className="btn ghost small"><SwordsIcon />{copy.rep.spar}</Link>
+          <Link to={`/openings/${r.id}/map`} className="btn ghost small"><CompassIcon />{copy.rep.explore}</Link>
+          <button className="btn quiet small" onClick={() => toggleFocus(r.id, focus)}>
+            {isFocus ? copy.map.removeFocus : copy.map.addFocus}
+          </button>
+        </div>
+      </li>
+    );
+  };
 
   return (
-    <>
-      <h1>{copy.rep.focusTitle}</h1>
-      <p className="lead">{copy.rep.focusLead}</p>
-      <div className="focus-grid">
-        {focused.map((r) => (
-          <FocusCard key={r.id} rep={r} cards={cards} report={reports.get(r.id)} onUnfocus={() => toggleFocus(r.id, focus)} />
-        ))}
-      </div>
+    <div className="op">
+      <PageHeader
+        title={copy.nav.openings}
+        lead={copy.rep.focusLead}
+        actions={
+          due > 0 ? (
+            <Link to="/drill" className="btn primary">{copy.rep.drill(due)}<ArrowRightIcon /></Link>
+          ) : nextNew ? (
+            <Link to={`/learn/${nextNew.r.id}/${nextNew.i}`} className="btn primary">{copy.rep.learnNext}<ArrowRightIcon /></Link>
+          ) : null
+        }
+      />
+
+      <Section title={copy.rep.focusTitle}>
+        {focused.length ? <ul className="op-list">{focused.map((r) => row(r, true))}</ul> : <p className="muted">{copy.rep.othersLead}</p>}
+      </Section>
 
       {others.length > 0 && (
-        <>
-          <h2 className="section-title">{copy.rep.others}</h2>
-          <p className="muted small">{copy.rep.othersLead}</p>
-          <section className="grid">
-            {others.map((r) => (
-              <div key={r.id} className="tile-wrap">
-                <RepertoireTile rep={r} cards={cards} />
-                <button className="chip focus-toggle" onClick={() => toggleFocus(r.id, focus)} aria-label={`${copy.map.addFocus}: ${r.title}`}>☆ {copy.rep.focus}</button>
-              </div>
-            ))}
-          </section>
-        </>
+        <Section title={copy.rep.others} note={copy.rep.othersLead}>
+          <ul className="op-list">{others.map((r) => row(r, false))}</ul>
+        </Section>
       )}
 
-      <h2 className="section-title">{copy.rep.families}</h2>
-      <p className="muted small">{copy.rep.familiesLead}</p>
-      {families.length ? (
-        <div className="families">
-          {(['white', 'black'] as const).map((side) => (
-            <section key={side} className="card">
-              <p className="eyebrow">{side === 'white' ? copy.rep.asWhite : copy.rep.asBlack}</p>
-              <ul className="hbars">
-                {families
-                  .filter((f) => f.side === side)
-                  .slice(0, 8)
-                  .map((f) => (
-                    <li key={f.name}>
-                      <span className="hlabel" title={f.name}>{f.name}</span>
-                      <span className="htrack">
-                        <span className={`bar ${f.score >= 55 ? 'good' : f.score < 45 ? 'bad' : ''}`} style={{ width: `${f.score}%` }} />
-                      </span>
-                      <span className="hval">{f.score}% · {f.games}</span>
-                    </li>
-                  ))}
-              </ul>
-            </section>
-          ))}
-        </div>
-      ) : (
-        <p className="muted small">{copy.rep.familiesNone}</p>
-      )}
-    </>
+      <Section title={copy.rep.families} note={families.length ? copy.rep.familiesLead : undefined}>
+        {families.length ? (
+          <div className="op-families">
+            {(['white', 'black'] as const).map((side) => (
+              <div key={side}>
+                <h4>{side === 'white' ? copy.rep.asWhite : copy.rep.asBlack}</h4>
+                <ul className="op-fam">
+                  {families
+                    .filter((f) => f.side === side)
+                    .slice(0, 8)
+                    .map((f) => (
+                      <li key={f.name}>
+                        <span className="truncate" title={f.name}>{f.name}</span>
+                        <ScoreBar value={f.score} tone={f.score >= 55 ? 'good' : f.score < 45 ? 'bad' : 'neutral'} />
+                        <span className="num">{f.score}% · {f.games}</span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyState icon={<GamesIcon />} title={copy.rep.familiesNoneTitle} actions={<Link to="/games" className="btn ghost">{copy.nav.games}<ArrowRightIcon /></Link>}>
+            {copy.rep.familiesNone}
+          </EmptyState>
+        )}
+      </Section>
+    </div>
   );
 }
