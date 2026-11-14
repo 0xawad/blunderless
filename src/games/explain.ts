@@ -31,7 +31,7 @@ function balance(chess: Chess, color: 'w' | 'b'): number {
   return n;
 }
 
-const unit = (n: number) => (n === 1 ? 'a pawn' : n === 3 ? 'a piece' : n === 5 ? 'a rook' : n === 9 ? 'the queen' : `${n} points of material`);
+const unit = (n: number) => (n === 1 ? 'a pawn' : n === 3 ? 'a piece' : n === 5 ? 'a rook' : n === 9 ? 'the queen' : `material worth ${n} pawns`);
 
 /**
  * A fork worth the name: the piece on `sq` attacks two or more things that each

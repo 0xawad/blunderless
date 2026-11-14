@@ -66,7 +66,7 @@ const BADGE: Partial<Record<MoveClass, string>> = {
   inaccuracy: '?!',
   mistake: '?',
   blunder: '??',
-  'missed-win': '!?',
+  'missed-win': '??',
 };
 
 /** Where a badge for `square` (e.g. "e4") goes inside .board-wrap, as CSS left/top. */

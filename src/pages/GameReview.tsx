@@ -71,14 +71,15 @@ export function GameReview() {
   // Deep link: /games/<id>?ply=N opens on that position with the move list showing.
   const linked = useRef(false);
   useEffect(() => {
-    if (linked.current || !plies) return;
+    // Wait for the game itself: before it loads `plies` is an empty list and every ply would clamp to 0.
+    if (linked.current || !game || !plies) return;
     linked.current = true;
     const n = Number(params.get('ply'));
     if (params.has('ply') && Number.isFinite(n)) {
       setPly(Math.max(0, Math.min(plies.length, Math.floor(n))));
       setTab('moves');
     }
-  }, [plies, params]);
+  }, [game, plies, params]);
   const progress = q.current === id ? q.progress : q.pending.includes(id) ? 0 : null;
 
   const go = useCallback((p: number) => {
