@@ -108,7 +108,7 @@ describe('trades and exchanges', () => {
   it('still says what a quiet move wins once the exchange is finished', () => {
     const pv = ['b2b4', 'h7h6', 'b4a5', 'b6a5'];
     const text = explainMove(kh1, { cls: 'mistake', drop: 22, best: 'b2b4', pv }, [], 'b4');
-    expect(text).toBe('Better was b4: it wins 2 points of material: b4 h6 bxa5 bxa5.');
+    expect(text).toBe('Better was b4: it wins material worth 2 pawns: b4 h6 bxa5 bxa5.');
   });
 });
 
