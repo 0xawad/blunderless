@@ -26,6 +26,28 @@ What was already right and is kept: the left sidebar that becomes a five-tab bar
 
 **The one thing the design should be remembered by:** the app takes its colour from your board. **The one thing removed:** the display serif.
 
+## Glass
+
+The app follows Apple's two-layer model for Liquid Glass (`references/hig/liquid-glass.md` in the skill, read for this pass along with `materials.md`): "Don't use Liquid Glass in the content layer", and use it "sparingly", on the layer of controls and navigation that floats above the content. Styles: `src/styles/glass.css`.
+
+| Layer | What is in it | Surface |
+|---|---|---|
+| Functional | Sidebar; phone top bar and tab bar; the menu sheet; toasts; the result card over the board; the promotion picker; the sticky action bar under a board panel on phones | Glass: 28px backdrop blur, 1.6x saturation, a translucent fill, a bright inner edge over a faint outer rim |
+| Content | The page, lists, panels, the coach's note, the board | Opaque. No blur |
+
+- **Three fills.** Regular (62% white, 56% dark) for the sheet and overlays; strong (78% and 76%) for the sidebar and the result card, which carry more text; bar (80% and 86%) for the phone bars and toasts, which sit over whatever scrolls beneath them.
+- **The page has a wash.** Two very soft radial tints of the board's colour sit behind everything, so the glass has something to pick up. This is the brand living in the content layer, which is where the guide says to put it, and it is the only gradient in the app.
+- **Colour budget.** Glass itself has no colour. On it, labels are monochrome; the tint appears only on the selected item and on a primary button, as a filled background.
+- **Scroll edge.** The phone's top bar fades out along its lower edge instead of ending on a line. The tab bar is a floating capsule clear of the screen edges.
+- **Legibility, measured.** Inactive labels on the bars are at least 5.7 to 1 over the page, over white, over black and over both colours of board square, in both themes. The selected tab, which is semibold, is at least 3.6 to 1 in the worst of those cases and 5.5 over the page.
+- **Fallbacks.** Under `prefers-reduced-transparency`, `prefers-contrast: more`, or a browser without `backdrop-filter`, every glass surface becomes an opaque surface with a visible border, the top bar gets its line back, and the wash is removed.
+
+Checklist from the guide, applied: glass only on floating controls and navigation; seven custom glass surfaces, none stacked on another; text-heavy surfaces use the denser fills; at most one tinted action per view; opaque fallbacks; a scroll edge effect on the top bar; no hit region reduced (tabs are 52px tall, controls 44px on phones).
+
+## Motion
+
+One easing (`--ease-out`, a decelerating curve) for everything, and a slightly springy one (`--ease-spring`) for presses and for things that arrive: buttons and chips scale to 97% while pressed, the switch thumb and the result card settle with a small overshoot, pages rise 8px as they appear. Durations are 140, 240 and 380ms. Nothing loops, nothing moves on scroll, and all of it is off under reduced motion.
+
 ## Principles
 
 1. **The board is first-class.** On any screen with a board, the board is as large as the viewport allows and nothing competes with it.
@@ -33,7 +55,7 @@ What was already right and is kept: the left sidebar that becomes a five-tab bar
 3. **Lists over cards.** Type and space first, then a hairline, then a divided list. A bordered surface is for a tool or a form, and never nests.
 4. **One primary action per view.** One tinted button. Everything else is ghost, quiet, or a link.
 5. **Say it plainly.** Sentence case. No exclamation marks. The jokes live in `src/copy.ts`, in body copy, never in a label or a button.
-6. **Motion confirms, it does not perform.** 120 to 320ms, ease-out, transform and opacity only, off under reduced motion.
+6. **Motion confirms, it does not perform.** 140 to 380ms, transform and opacity only, off under reduced motion.
 
 ## Tokens
 
@@ -46,10 +68,10 @@ What was already right and is kept: the left sidebar that becomes a five-tab bar
 | Attention | `--brand`, `--brand-ink`, `--brand-soft`, `--brand-text` | Amber. Due counts and due badges only. |
 | Outcome | `--good`, `--bad`, `--warn`, `--info` and `-soft` pairs; `--bad-ink` | Win and loss, success and error. |
 | Move quality | `--q-best`, `--q-good`, `--q-book`, `--q-inaccuracy`, `--q-mistake`, `--q-blunder`, `--q-missed`, `--q-great`, `--q-brilliant` and `-fill` variants | Text variants pass 4.5 to 1 on a surface; `-fill` is for dots, badges and graph marks. |
-| Radius | `--radius-xs` 6, `--radius-sm` 8, `--radius` 12, `--radius-lg` 16 | Buttons 10, groups 16, the board 6. |
+| Radius | `--radius-xs` 6, `--radius-sm` 10, `--radius` 14, `--radius-lg` 20 | Buttons are capsules, inputs 12, groups 20, the board 8. |
 | Space | `--s-1`..`--s-7` (4, 8, 12, 16, 24, 32, 48px) | |
 | Layout | `--rail`, `--header`, `--tabbar`, `--content`, `--gutter` | Set per breakpoint; never hard-coded. |
-| Motion | `--t-fast` 120ms, `--t-med` 200ms, `--t-slow` 320ms, `--ease-out` | |
+| Motion | `--t-fast` 140ms, `--t-med` 240ms, `--t-slow` 380ms, `--ease-out`, `--ease-spring` | See Motion. |
 | Layers | `--z-board-ui`, `--z-sticky`, `--z-sheet`, `--z-toast`, `--z-skip` | |
 
 Board tints: Green `#3b7a3a`, Brown `#8a5a2c`, Stone `#6b655a`, Ocean `#47708a`, Rosewood `#9a5852`.
@@ -110,7 +132,9 @@ Volume is a setting that scales the app's level only; the device volume has the 
 
 ## Do not
 
-- Add gradients, glass blur on content, glows or coloured icon tiles.
+- Put glass on content: panels, list rows, the coach's note and the board stay opaque.
+- Stack glass on glass, or add a second gradient beside the page wash.
+- Add glows or coloured icon tiles.
 - Use amber for anything except "due".
 - Use colour alone for move quality or result.
 - Use emoji or chess glyphs as icons in controls.

@@ -238,7 +238,7 @@
 }
 /* Phones: top bar + bottom tabs replace the rail. */
 @media (max-width: 760px) {
-  :root { --rail: 0px; --header: 52px; --tabbar: calc(58px + env(safe-area-inset-bottom)); --gutter: 14px; }
+  :root { --rail: 0px; --header: 52px; --tabbar: calc(80px + env(safe-area-inset-bottom)); --gutter: 14px; }
 }
 
 :root[data-board='slate'] { --tint: #6b655a; --tint-hover: #59544a; --tint-text: #5f594f; }

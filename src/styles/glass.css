@@ -1,0 +1,195 @@
+/* =========================================================
+   Glass. Loaded last.
+
+   Two layers, as in Apple's Liquid Glass guidance:
+
+   - Content layer: the page, lists, panels, the board. Opaque
+     surfaces. No blur, ever.
+   - Functional layer: what floats above the content. The
+     sidebar, the phone's top bar and tab bar, the menu sheet,
+     toasts, the result card over the board, the promotion
+     picker, and the sticky action bar on phones. Only these
+     are glass.
+
+   The page carries a very soft wash of the board's colour, so
+   the glass has something to pick up; that wash is the brand
+   living in the content layer, and it is the only gradient.
+
+   Every glass surface has an opaque answer for reduced
+   transparency, increased contrast, and browsers without
+   backdrop-filter.
+   ========================================================= */
+:root {
+  --glass-fill: rgb(255 255 255 / 0.62);
+  --glass-fill-strong: rgb(255 255 255 / 0.78);
+  /* small bars carry labels over whatever scrolls beneath, including the board: more fill, brighter labels */
+  --glass-fill-bar: rgb(255 255 255 / 0.8);
+  --glass-edge: rgb(255 255 255 / 0.75);
+  --glass-rim: rgb(20 20 22 / 0.07);
+  --glass-shadow: 0 1px 1px rgb(20 20 22 / 0.04), 0 12px 32px -14px rgb(20 20 22 / 0.22);
+  --glass-blur: blur(28px) saturate(1.6);
+  --glass-solid: var(--surface);
+  --wash-a: color-mix(in srgb, var(--tint) 13%, transparent);
+  --wash-b: color-mix(in srgb, var(--tint) 8%, transparent);
+
+  /* softer, continuous-looking corners */
+  --radius-sm: 10px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --board-radius: 8px;
+
+  /* one easing for everything that moves */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --t-fast: 140ms;
+  --t-med: 240ms;
+  --t-slow: 380ms;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --glass-fill: rgb(44 44 48 / 0.56);
+    --glass-fill-strong: rgb(40 40 44 / 0.76);
+    --glass-fill-bar: rgb(34 34 37 / 0.86);
+    --glass-edge: rgb(255 255 255 / 0.13);
+    --glass-rim: rgb(0 0 0 / 0.4);
+    --glass-shadow: 0 1px 1px rgb(0 0 0 / 0.3), 0 16px 40px -16px rgb(0 0 0 / 0.7);
+    --glass-solid: var(--surface-2);
+    --wash-a: color-mix(in srgb, var(--tint) 20%, transparent);
+    --wash-b: color-mix(in srgb, var(--tint) 12%, transparent);
+  }
+}
+:root[data-theme='dark'] {
+  --glass-fill: rgb(44 44 48 / 0.56);
+  --glass-fill-strong: rgb(40 40 44 / 0.76);
+  --glass-fill-bar: rgb(34 34 37 / 0.86);
+  --glass-edge: rgb(255 255 255 / 0.13);
+  --glass-rim: rgb(0 0 0 / 0.4);
+  --glass-shadow: 0 1px 1px rgb(0 0 0 / 0.3), 0 16px 40px -16px rgb(0 0 0 / 0.7);
+  --glass-solid: var(--surface-2);
+  --wash-a: color-mix(in srgb, var(--tint) 20%, transparent);
+  --wash-b: color-mix(in srgb, var(--tint) 12%, transparent);
+}
+
+/* ---- content layer: the page ---- */
+html { background: var(--bg); }
+body { background: transparent; }
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(62% 54% at 0% 0%, var(--wash-a), transparent 72%),
+    radial-gradient(54% 48% at 100% 100%, var(--wash-b), transparent 72%),
+    var(--bg);
+}
+
+/* ---- the material ---- */
+.rail, .mbar, .mtabs, .sheet, .toast, .overlay-card, .board-wrap .promo {
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  /* a bright inner edge above a faint outer rim: the lit lip of a pane of glass */
+  box-shadow: inset 0 1px 0 var(--glass-edge), inset 0 0 0 1px color-mix(in srgb, var(--glass-edge) 40%, transparent), 0 0 0 1px var(--glass-rim), var(--glass-shadow);
+  border: 0;
+}
+
+/* ---- sidebar: a floating pane; larger, so a little more opaque for its text ---- */
+.rail {
+  inset: 10px auto 10px 10px; width: calc(var(--rail) - 12px);
+  border-radius: 22px; background: var(--glass-fill-strong); padding: 16px 10px 10px;
+}
+.rail-item { border-radius: 12px; transition: background var(--t-med) var(--ease-out), color var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-out); }
+.rail-item:active { transform: scale(0.98); }
+.rail-item:hover { background: color-mix(in srgb, var(--text) 7%, transparent); }
+.rail-foot { border-top-color: color-mix(in srgb, var(--text) 9%, transparent); }
+.rail-queue { background: color-mix(in srgb, var(--text) 5%, transparent); box-shadow: none; border-radius: 12px; }
+@media (max-width: 1180px) {
+  .rail { width: calc(var(--rail) - 12px); padding: 12px 6px 8px; border-radius: 20px; }
+}
+
+/* ---- phone bars ---- */
+@media (max-width: 760px) {
+  /* Top bar: glass that fades out along its lower edge instead of ending on a line,
+     so content slides under it (the scroll edge effect). */
+  .mbar {
+    border-bottom: 0; box-shadow: none; background: var(--glass-fill-bar);
+    height: calc(var(--header) + 12px); margin-bottom: -12px; padding-bottom: 12px;
+    -webkit-mask-image: linear-gradient(#000 calc(100% - 14px), transparent);
+    mask-image: linear-gradient(#000 calc(100% - 14px), transparent);
+  }
+  /* Tab bar: a floating capsule, clear of the screen edges. */
+  .mtabs {
+    inset: auto 10px calc(8px + env(safe-area-inset-bottom)) 10px;
+    height: 62px; padding: 5px; border-radius: 31px; border-top: 0; gap: 2px; background: var(--glass-fill-bar);
+  }
+  .mtabs a { color: var(--text-2); }
+  .mbar .iconbtn { color: var(--text-2); }
+  .mtabs a { border-radius: 26px; transition: background var(--t-med) var(--ease-out), color var(--t-fast) var(--ease-out); }
+  .mtabs a.active { background: var(--tint-soft); }
+  .mtabs .count { top: 4px; }
+  .sheet { border-radius: 22px; padding: 8px; }
+  .sheet-scrim { background: rgb(10 10 12 / 0.22); }
+  /* The sticky action bar under a board panel floats too. */
+  .panel-foot {
+    background: var(--glass-fill-strong);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    border-top: 0; box-shadow: inset 0 1px 0 var(--glass-edge), 0 -1px 0 var(--glass-rim);
+  }
+}
+
+/* ---- transient surfaces ---- */
+.toast { color: var(--text); border-radius: 16px; padding: 12px 16px; background: var(--glass-fill-bar); }
+.toast.good { background: color-mix(in srgb, var(--good-soft) 78%, transparent); color: var(--good); }
+.toast.bad { background: color-mix(in srgb, var(--bad-soft) 82%, transparent); color: var(--bad); }
+.overlay-card { border-radius: 24px; color: var(--text); background: var(--glass-fill-strong); }
+.board-overlay { background: rgb(10 10 12 / 0.28); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.board-wrap .promo { border-radius: 14px; }
+
+/* ---- controls: capsules, and a press you can feel ---- */
+.btn { border-radius: 999px; padding: 0 1.05rem; transition: background var(--t-med) var(--ease-out), border-color var(--t-med) var(--ease-out), color var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-spring), box-shadow var(--t-med) var(--ease-out); }
+.btn.lg { border-radius: 999px; padding: 0 1.5rem; }
+.btn.icon { padding: 0; }
+.btn:active { transform: scale(0.97); }
+.btn.primary { box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22), 0 6px 16px -8px color-mix(in srgb, var(--tint) 70%, transparent); }
+.btn.primary:hover { box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22), 0 8px 20px -8px color-mix(in srgb, var(--tint) 80%, transparent); }
+.btn:disabled, .btn[aria-disabled='true'] { transform: none; box-shadow: none; }
+.stepper .btn { border-radius: 12px; }
+.iconbtn { border-radius: 12px; }
+.chip { transition: background var(--t-med) var(--ease-out), color var(--t-fast) var(--ease-out), border-color var(--t-med) var(--ease-out), transform var(--t-fast) var(--ease-spring); }
+.chip:active { transform: scale(0.97); }
+.seg { border-radius: 999px; padding: 3px; }
+.seg button { border-radius: 999px; transition: background var(--t-med) var(--ease-out), color var(--t-fast) var(--ease-out), box-shadow var(--t-med) var(--ease-out); }
+.switch { transition: background var(--t-med) var(--ease-out); }
+.switch::after { transition: transform var(--t-med) var(--ease-spring); }
+input[type='text'], input:not([type]), input[type='search'], input[type='number'], select { border-radius: 12px; }
+.setup .segmented button, .setup .segmented .level { border-radius: 14px; }
+
+/* ---- content surfaces: opaque, soft-cornered, quiet ---- */
+.panel, .td-plan, .stage-panel, .side { border-radius: 20px; border-color: color-mix(in srgb, var(--line) 80%, transparent); box-shadow: 0 1px 2px rgb(20 20 22 / 0.03); }
+.callout, .feedback, .rv-coach, .verdict { border-radius: 14px; }
+.row-link, .gm-link, .td-step { transition: background var(--t-med) var(--ease-out); }
+.gm-result, .eg-mark { border-radius: 9px; }
+.badge { border-radius: 7px; }
+.board-wrap { border-radius: var(--board-radius); }
+
+/* ---- motion: one calm entrance, nothing that repeats ---- */
+@keyframes rise { from { opacity: 0; transform: translateY(8px) scale(0.995); } to { opacity: 1; transform: none; } }
+.page { animation: rise var(--t-slow) var(--ease-out) both; }
+@keyframes sheet-in { from { opacity: 0; transform: scale(0.94) translateY(-6px); } to { opacity: 1; transform: none; } }
+@keyframes pop { from { opacity: 0; transform: scale(0.94) translateY(10px); } to { opacity: 1; transform: none; } }
+.overlay-card { animation: pop var(--t-slow) var(--ease-spring) both; }
+.toast { animation: rise var(--t-med) var(--ease-out) both; }
+
+/* ---- when glass is the wrong answer ---- */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .rail, .mbar, .mtabs, .sheet, .toast, .overlay-card, .board-wrap .promo, .panel-foot { background: var(--glass-solid); }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .rail, .mbar, .mtabs, .sheet, .toast, .overlay-card, .board-wrap .promo, .panel-foot {
+    background: var(--glass-solid); -webkit-backdrop-filter: none; backdrop-filter: none;
+    box-shadow: 0 0 0 1px var(--line-strong);
+  }
+  .mbar { -webkit-mask-image: none; mask-image: none; border-bottom: 1px solid var(--line-strong); }
+  body::before { background: var(--bg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn:active, .chip:active, .rail-item:active { transform: none; }
+}

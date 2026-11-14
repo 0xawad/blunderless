@@ -93,3 +93,10 @@ Running record of the takeover on branch `redesign/takeover`. Nothing here is on
 - **Your openings** (`src/play/opening.ts`, setup option, on by default): while a game is inside your repertoire for the colour you are playing, the engine's reply comes from the repertoire, weighted by how many lines pass through each move. Out of book it searches as before. Checked in the browser: 1.e4 e5 2.Nf3 f6 as White (a line in the Italian repertoire); 1.d4 from the engine when playing Black.
 - **Draw rule** moved to the same module and tested (too early, accept, decline).
 - **Phones:** a game in progress hides the tab bar. A dragged piece is lifted above the finger and enlarged on touch screens (`pointer: coarse`); with a mouse it still follows the pointer exactly. The lift is confirmed to apply under phone emulation and has not been tried on a real phone.
+
+## Glass pass
+
+- `src/styles/glass.css` (loaded last): glass on the functional layer only, the page wash, capsule buttons, softer corners, one easing. Rules and measurements are in `DESIGN_SYSTEM.md` under Glass.
+- The floating tab bar needs more room: `--tabbar` is now 80px plus the safe area.
+- First pass used the regular fill on the phone bars; measured against a light board square in dark mode the labels failed, so the bars got a denser fill and brighter labels.
+- Verified by measurement at 1360px and 390px (no overflow, computed styles, contrast). One phone screenshot was captured; the desktop screenshot timed out because the app window was hidden.
