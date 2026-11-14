@@ -1,0 +1,60 @@
+/* =========================================================
+   Screens that still use older markup, brought in line with
+   the design system: flat sections under hairlines instead of
+   boxed cards. Delete a block here when its page is rebuilt.
+   ========================================================= */
+
+/* ---- endgames list ---- */
+.eg-row { align-items: flex-start; padding: var(--s-3) var(--s-2); }
+.eg-mark { width: 32px; height: 32px; flex: none; border-radius: var(--radius-sm); display: grid; place-items: center; background: var(--surface-2); color: var(--muted); }
+.eg-mark svg { width: 17px; height: 17px; }
+.eg-mark.done { background: var(--good-soft); color: var(--good); }
+.eg-row .row-main .muted { max-width: 62ch; }
+.eg-row .row-end { align-self: center; }
+.eg-goal { font-size: var(--fs-sm); white-space: nowrap; }
+@media (max-width: 760px) {
+  .eg-goal { display: none; }
+}
+
+/* ---- opening page ---- */
+.practice.wide { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--s-2); margin-bottom: var(--s-5); }
+.practice.wide .practice-btn { background: transparent; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: var(--s-3) var(--s-4); box-shadow: none; }
+.practice.wide .practice-btn:hover { background: var(--surface-2); border-color: var(--line-strong); box-shadow: none; }
+.practice.wide .practice-btn.hot { border-color: var(--brand); background: var(--brand-soft); }
+.practice.wide .practice-btn .action-icon { background: transparent; width: auto; height: auto; color: var(--muted); }
+.rep-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0 var(--s-6); margin-bottom: var(--s-5); border-top: 1px solid var(--line); }
+.card.rep-panel { background: none; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: var(--s-5) 0; margin: 0; }
+.rep-panel > .eyebrow { font-size: var(--fs-base); font-weight: 600; color: var(--text); margin-bottom: var(--s-2); }
+.rep-nums strong { font-size: 1.5rem; letter-spacing: -0.03em; }
+.spots a { background: transparent; border-radius: var(--radius-sm); padding: 6px 8px; margin: 0 -8px; }
+.spots a:hover { background: var(--surface-2); }
+details.card.chapter { background: none; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: var(--s-4) 0; margin: 0; }
+details.chapter > summary h2 { font-size: var(--fs-md); }
+.lines a { background: transparent; border-radius: var(--radius-sm); padding: 8px; margin: 0 -8px; }
+.lines a:hover { background: var(--surface-2); }
+.lines { gap: 0; }
+.lines li + li { border-top: 1px solid var(--line); }
+
+/* ---- play setup ---- */
+.card.setup { background: none; border: 0; padding: 0; max-width: 640px; }
+.setup p.label { margin-top: var(--s-5); color: var(--muted); font-weight: 500; }
+.setup p.label:first-child { margin-top: 0; }
+.setup .segmented { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+.setup .segmented.level-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.setup .segmented button { height: 40px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); background: transparent; color: var(--text-2); font-weight: 500; }
+.setup .segmented button:hover { background: var(--surface-2); color: var(--text); }
+.setup .segmented button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.setup .segmented .level { height: auto; padding: 8px 12px; border-radius: var(--radius-sm); align-items: flex-start; text-align: left; }
+.setup .segmented .level small { font-size: var(--fs-xs); opacity: 0.75; }
+.setup label.check { margin: var(--s-3) 0 0; padding: var(--s-3) 0 0; border-top: 1px solid var(--line); font-size: 0.9rem; color: var(--text-2); }
+.setup label.check:first-of-type { margin-top: var(--s-5); }
+.setup label.check strong { color: var(--text); }
+.setup > .btn { margin-top: var(--s-5); height: 46px; padding: 0 1.4rem; font-size: 1rem; }
+
+/* ---- game review on phones: the coach's note comes straight after the board ---- */
+@media (max-width: 900px) {
+  .play.review .side { order: 2; }
+  .play.review .evalgraph { order: 3; width: 100%; }
+  .play.review .stepper .hint { display: none; }
+  .play.review .side > .eyebrow, .play.review .side > .opening-name { display: none; }
+}

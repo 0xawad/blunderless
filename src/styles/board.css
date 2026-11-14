@@ -207,3 +207,9 @@ button.mvcell.on.best, button.mvcell.on.inaccuracy, button.mvcell.on.mistake, bu
 /* pages with a heading and tabs above the board give that height back */
 .page:has(.tall-head) .play { --controls: 128px; }
 .page:has(.map-head) .play { --controls: 100px; }
+
+.sq-badge.great { background: var(--q-great-fill); }
+.sq-badge.brilliant { background: var(--q-brilliant-fill); }
+.mv.great { color: var(--q-great); font-weight: 600; }
+.mv.brilliant { color: var(--q-brilliant); font-weight: 700; }
+.mv.on.great, .mv.on.brilliant { color: var(--accent-ink); }

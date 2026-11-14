@@ -19,7 +19,7 @@ Audit of the code at `92baa3e` (before the takeover), and what the `redesign/tak
 | Chess.com import, game store, analysis, queue, explanations | 12 | 11 | 1 |
 | Game review and games list | 9 | 9 | 0 |
 | Play | 12 | 8 | 4 |
-| Openings, drill, endgames, puzzles | 7 | 3 | 4 |
+| Openings, drill, endgames, puzzles | 7 | 6 | 1 |
 | Backup and reset | 4 | 4 | 0 |
 | Shell, styles, service worker, accessibility | 17 | 16 | 1 |
 
@@ -40,17 +40,22 @@ High:
 
 Medium and low (selection): engine watchdog killed a slow search silently; games with no moves scored 100% accuracy; even trades were explained as losing a piece; non-engine failures were counted as reviewed; Stop did not stop the current game; re-analysis left stale puzzles; unknown game ids rendered blank; stale engine lines after stepping; an alternative mating move was judged wrong in retry; deep links from puzzles opened at move zero; the games list re-rendered every row on each engine tick; restore ran with no confirmation; reset left puzzle rating and endgame wins behind; two theme states drifted apart; route changes moved neither focus nor the page title; focus ring removed from sliders and checkboxes; white text on the dark-theme danger colour failed contrast; top navigation overflowed on tablets; the theme flashed on first paint; error toasts vanished after three seconds; piece animation ignored reduced motion; the welcome form saved an unknown username and auto-advanced.
 
+### Fixed after going live
+
+- **Line ids.** Drill progress now follows a line whose PGN was extended or shortened (`src/repertoire/migrate.ts`, run at startup). Only unambiguous cases move; nothing is deleted.
+- **Weak spots** look at the last 90 days and eight drills per line, and forgive a move got right twice running.
+- **Endgame trainer** offers "Ask again" when the engine fails instead of leaving the board dead.
+- **Onboarding** no longer leaves you on the welcome screen after connecting an account.
+- **Review deep links** (`?ply=N`) wait for the game to load.
+
 ### Open
 
 | Finding | Severity | Why it is open |
 |---|---|---|
-| A line's id is its full move path, so editing a bundled PGN orphans that line's drill history | High | Needs a prefix-match migration with tests. No bundled PGN was changed in this branch, so no user is affected yet. Do this before the next repertoire edit. |
-| Weak-spots list is an all-time count that never decays | Medium | Needs a recent-window rule in `weakSpots` (`src/srs/db.ts`). |
 | Opening page replays every stored game during render | Medium | Should reuse the shared report cache that the openings index uses. |
 | Play: coach and prepare searches run on the engine's clock | Low | Verifier rated the impact low; needs the clock accounting reworked. |
 | Play: saved-game validation accepts a partially corrupt save | Medium | Resume should refuse a save that does not replay fully. |
 | Play: the page is still one large component | Maintainability | The races were fixed in place with position checks after each await; extracting a tested state machine is the proper follow-up. |
-| Endgame trainer dead-ends when an engine search fails | Low | Needs the same Retry state Play now has. |
 | Analysis results are not persisted per position | Low | An in-memory cache covers retries within a tab; persisting needs a new table for little gain. |
 | Dark palette is defined twice in `tokens.css` | Low | `light-dark()` would remove the duplication; tests fail if the two copies or the theme-init script drift. |
 

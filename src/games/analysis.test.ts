@@ -5,20 +5,26 @@ import { parseGamePgn } from '../chess/game';
 import type { SearchOptions, SearchResult } from '../engine/engine';
 import { db, getSetting, setSetting } from '../srs/db';
 import type { GameAnalysis, GameRow } from '../srs/types';
-import { ANALYSIS_DEPTH, ANALYSIS_VERSION, EvalCache, UnanalysableError, analyzeGame, evalCache, userPlyCount } from './analyze';
+import { ANALYSIS_DEPTH, ANALYSIS_VERSION, EvalCache, UnanalysableError, analyzeGame, evalCache, isObviousCapture, isSacrifice, userPlyCount } from './analyze';
 import { StorageError, analyzeStoredGame, analyzeStoredGameFull, ensureOpenings, isStorageError, needsAnalysis } from './store';
 
 // ---- a scripted engine --------------------------------------------------------
 
 /** Per-position overrides, keyed by the position's FEN: the score is from the side to move. */
-const script = { cp: new Map<string, number>(), best: new Map<string, string>() };
+const script = { cp: new Map<string, number>(), best: new Map<string, string>(), alt: new Map<string, number>() };
 const searched: string[] = [];
+const alternatives: string[] = [];
 let hold: Promise<void> | null = null;
 
 const abortErr = () => Object.assign(new Error('search aborted'), { name: 'AbortError' });
 
 async function fakeSearch(fen: string, opts: SearchOptions = {}): Promise<SearchResult> {
   if (opts.signal?.aborted) throw abortErr();
+  // "Best move other than X" searches (the merit pass) are counted separately.
+  if (opts.searchmoves) {
+    alternatives.push(fen);
+    return { bestmove: opts.searchmoves[0], score: { cp: script.alt.get(fen) ?? script.cp.get(fen) ?? 20 }, pv: [], depth: opts.depth ?? 12 };
+  }
   searched.push(fen);
   if (hold) {
     await new Promise<void>((resolve, reject) => {
@@ -72,6 +78,8 @@ beforeEach(async () => {
   script.cp.clear();
   script.best.clear();
   searched.length = 0;
+  alternatives.length = 0;
+  script.alt.clear();
   hold = null;
   evalCache.clear();
   // openings.json is loaded once per module and cached, so every test gets the same tiny table.
@@ -321,5 +329,58 @@ describe('ensureOpenings', () => {
     expect(zero.analysis).toBeUndefined();
     expect(zero.unanalysable).toBe(true);
     expect((await db.games.get('fine'))?.analysis?.accuracy).toBe(93);
+  });
+});
+
+describe('great and brilliant moves', () => {
+  it('marks the only move that holds as great, using the best alternative', async () => {
+    const plies = parseGamePgn(pgnOf(['a3', 'h6', 'Nf3']));
+    const before = plies[2].fenBefore;
+    script.best.set(before, 'g1f3');
+    script.alt.set(before, -400); // every other move loses badly
+    const a = await analyzeGame(plies, 'white', undefined, undefined, null, { cache: null });
+    expect(a.moves[2].cls).toBe('best');
+    expect(a.moves[2].merit).toBe('great');
+    expect(alternatives).toContain(before);
+  });
+
+  it('gives no merit when another move was about as good', async () => {
+    const plies = parseGamePgn(pgnOf(['a3', 'h6', 'Nf3']));
+    script.best.set(plies[2].fenBefore, 'g1f3');
+    script.alt.set(plies[2].fenBefore, 10);
+    const a = await analyzeGame(plies, 'white', undefined, undefined, null, { cache: null });
+    expect(a.moves[2].merit).toBeUndefined();
+  });
+
+  it('does not call taking a hanging queen great, even when it is the only good move', async () => {
+    // 1.e4 e5 2.Qh5 Nc6 3.Qxf7+?? Kxf7: the king takes an undefended queen.
+    const plies = parseGamePgn(pgnOf(['e4', 'e5', 'Qh5', 'Nc6', 'Qxf7+', 'Kxf7']));
+    const before = plies[5].fenBefore;
+    script.best.set(before, 'e8f7');
+    script.cp.set(before, 100); // Black to move, a little better before taking
+    script.alt.set(before, -900);
+    const a = await analyzeGame(plies, 'black', undefined, undefined, null, { cache: null });
+    expect(a.moves[5].merit).toBeUndefined();
+    expect(isObviousCapture(before, 'e8f7')).toBe(true);
+  });
+
+  it('gives no merit in a position that is already won', async () => {
+    const plies = parseGamePgn(pgnOf(['a3', 'h6', 'Nf3']));
+    script.best.set(plies[2].fenBefore, 'g1f3');
+    script.cp.set(plies[2].fenBefore, 900);
+    script.alt.set(plies[2].fenBefore, -400);
+    const a = await analyzeGame(plies, 'white', undefined, undefined, null, { cache: null });
+    expect(a.moves[2].merit).toBeUndefined();
+  });
+
+  it('knows a sacrifice from a trade', () => {
+    // Bxf7+ gives a bishop for a pawn on a square the king defends.
+    const italian = parseGamePgn(pgnOf(['e4', 'e5', 'Bc4', 'Nc6', 'Bxf7+']));
+    expect(isSacrifice(italian[4].fenBefore, 'c4f7')).toBe(true);
+    // Bxc6 takes a knight: an even trade, not a sacrifice.
+    const ruy = parseGamePgn(pgnOf(['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Bxc6']));
+    expect(isSacrifice(ruy[6].fenBefore, 'b5c6')).toBe(false);
+    // A quiet developing move to a safe square.
+    expect(isSacrifice(italian[2].fenBefore, 'f1c4')).toBe(false);
   });
 });

@@ -10,6 +10,7 @@ import './styles/base.css';
 import './styles/shell.css';
 import './styles/components.css';
 import './styles/board.css';
+import './styles/polish.css';
 import './pieces.css';
 
 // public/theme-init.js has already done both of these before first paint;
@@ -17,6 +18,8 @@ import './pieces.css';
 setTheme(readTheme());
 applyPrefsToDocument();
 warmAudioOnFirstInteraction();
+// A repertoire edit changes line ids; carry existing drill progress over before anything reads it.
+void import('./srs/db').then((m) => m.migrateOrphanLines()).catch(() => {});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -213,3 +213,6 @@ kbd { font: 500 0.75rem var(--mono); padding: 1px 5px; border-radius: 5px; borde
 .acct-row { display: flex; gap: var(--s-2); }
 .acct-row input { flex: 1 1 auto; }
 .acct .field-error { margin: 0; }
+
+.dot.great { background: var(--q-great-fill); }
+.dot.brilliant { background: var(--q-brilliant-fill); }

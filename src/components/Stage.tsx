@@ -79,11 +79,11 @@ export function squareBadgeStyle(square: string, orientation: 'white' | 'black')
 }
 
 /** A move-quality marker on the destination square, as in a reviewed game. Render inside the board's wrapper. */
-export function SquareBadge({ cls, square, orientation }: { cls: MoveClass; square: string; orientation: 'white' | 'black' }) {
-  const glyph = BADGE[cls];
+export function SquareBadge({ cls, square, orientation, merit }: { cls: MoveClass; square: string; orientation: 'white' | 'black'; merit?: 'great' | 'brilliant' }) {
+  const glyph = merit === 'brilliant' ? '!!' : merit === 'great' ? '!' : BADGE[cls];
   if (!glyph) return null;
   return (
-    <span className={`sq-badge ${cls}`} style={squareBadgeStyle(square, orientation)} aria-hidden>
+    <span className={`sq-badge ${merit ?? cls}`} style={squareBadgeStyle(square, orientation)} aria-hidden>
       {glyph}
     </span>
   );

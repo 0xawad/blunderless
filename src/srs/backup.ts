@@ -108,6 +108,7 @@ function parseGame(v: unknown): GameRow {
         best: m.best as string,
         pv: Array.isArray(m.pv) && m.pv.every((x) => isStr(x, 6)) ? (m.pv as string[]) : undefined,
         kind: isStr(m.kind, 24) ? (m.kind as MoveReview['kind']) : undefined,
+        merit: m.merit === 'great' || m.merit === 'brilliant' ? m.merit : undefined,
         left: isNum(m.left) ? m.left : undefined,
         spent: isNum(m.spent) ? m.spent : undefined,
       })),

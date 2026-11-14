@@ -28,6 +28,7 @@ import { GamesIcon } from '../components/icons';
 
 // In chess notation "!" means a strong move, not "the engine agrees", so best moves carry colour and no mark.
 const MARK: Record<string, string> = { blunder: '??', 'missed-win': '??', mistake: '?', inaccuracy: '?!', best: '', book: '' };
+const MERIT_MARK: Record<string, string> = { great: '!', brilliant: '!!' };
 type Tab = 'summary' | 'moves' | 'engine';
 type Retry = { result?: 'best' | 'good' | 'bad'; text?: string; pv?: string[] } | null;
 
@@ -259,7 +260,7 @@ export function GameReview() {
       : '';
   // A quicker mate was there and the move still wins: say so, without calling it a mistake.
   const missedMate = !!review && !!last && !!mateBefore && mateBefore <= 5 && review.best !== last.uci && review.cls === 'good';
-  const shownCls = missedMate ? 'inaccuracy' : review?.cls;
+  const shownCls = missedMate ? 'inaccuracy' : (review?.merit ?? review?.cls);
   const story = a ? gameStory(a, plies, game.userColor, game.result) : null;
   const chanceOf = (i: number) => Math.round(story?.chances[i] ?? 50);
   const stale = a && (a.version ?? 1) < ANALYSIS_VERSION;
@@ -276,7 +277,7 @@ export function GameReview() {
               {a && evalCp !== undefined && <EvalBar whitePct={winPct(evalCp)} text={evalText} orientation={orientation} />}
               <div className="board-holder">
                 <Board fen={retry && retryMove ? retryMove.fen : fen} orientation={orientation} lastMove={retry && retryMove ? [retryMove.from, retryMove.to] : lastMove} shapes={shapes} interactive={retry ? !retry.result && !retryMove : true} onMove={onMove} resizable />
-                {review && last && !retry && <SquareBadge cls={review.cls} square={last.to} orientation={orientation} />}
+                {review && last && !retry && <SquareBadge cls={review.cls} merit={review.merit} square={last.to} orientation={orientation} />}
               </div>
             </div>
             {bar(orientation)}
@@ -380,11 +381,12 @@ export function GameReview() {
                 <>
                   <div className="rv-coach-head">
                     <span className={`dot ${shownCls}`} aria-hidden />
-                    <strong>{formatPly(ply - 1, last.san)}{missedMate ? '' : MARK[review.cls]}</strong>
-                    <span className={`q-${shownCls}`}>{missedMate ? copy.review.missedMate : copy.review.classes[review.cls]}</span>
+                    <strong>{formatPly(ply - 1, last.san)}{missedMate ? '' : review.merit ? MERIT_MARK[review.merit] : MARK[review.cls]}</strong>
+                    <span className={`q-${shownCls}`}>{missedMate ? copy.review.missedMate : review.merit ? copy.review.merit[review.merit] : copy.review.classes[review.cls]}</span>
                     <span className="muted small">{lastMine ? copy.review.you : copy.review.opp}</span>
                   </div>
-                  {explanation ? <p>{explanation}</p> : <p className="muted">{copy.review.quiet[review.cls] ?? copy.review.quiet.good}</p>}
+                  {review.merit && <p>{lastMine ? copy.review.meritWhy[review.merit] : copy.review.meritWhyOpp[review.merit]}</p>}
+                  {explanation ? <p>{explanation}</p> : review.merit ? null : <p className="muted">{copy.review.quiet[review.cls] ?? copy.review.quiet.good}</p>}
                   {review.kind && lastMine && <p className="muted small">{copy.kinds[review.kind].roast}</p>}
                   <p className="muted small num">
                     {copy.review.chances(chanceOf(ply - 1), chanceOf(ply))}
@@ -448,11 +450,12 @@ export function GameReview() {
                 <ol className="movelist">
                   {plies.map((p, i) => {
                     const cls = a?.moves[i]?.cls;
+                    const merit = a?.moves[i]?.merit;
                     return (
                       <li key={i}>
-                        <button className={`mv ${i === ply - 1 ? 'on' : ''} ${cls ?? ''}`} onClick={() => go(i + 1)} disabled={!!retry}>
+                        <button className={`mv ${i === ply - 1 ? 'on' : ''} ${merit ?? cls ?? ''}`} onClick={() => go(i + 1)} disabled={!!retry}>
                           {i % 2 === 0 && <span className="mvnum">{Math.floor(i / 2) + 1}.</span>}<San san={p.san} color={p.color} />
-                          {cls && MARK[cls]}
+                          {merit ? MERIT_MARK[merit] : cls && MARK[cls]}
                         </button>
                       </li>
                     );

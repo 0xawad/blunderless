@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { PageHeader, Section } from '../components/ui';
+import { CheckIcon, CrownIcon } from '../components/icons';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Chess } from 'chess.js';
 import { getSetting, setSetting } from '../srs/db';
@@ -8,7 +10,6 @@ import { pick } from '../copy';
 import { Board, BoardOverlay } from '../chess/Board';
 import { playUci } from '../chess/game';
 import { getEngine } from '../engine/engine';
-import { useToast } from '../components/Toast';
 import { ENDGAMES, ENDGAME_GROUPS, goalReached, myMoveCount, type Endgame } from '../endgames/positions';
 import { endgameCopy as copy } from '../endgames/copy';
 
@@ -50,38 +51,40 @@ export function Endgames() {
   }
 
   return (
-    <>
-      <div className="page-head">
-        <div>
-          <h1>{copy.title}</h1>
-          <p className="lead">{copy.lead}</p>
-        </div>
-        <p className="eyebrow">{copy.solved(ENDGAMES.filter((e) => solved.has(e.id)).length, ENDGAMES.length)}</p>
-      </div>
-      {ENDGAME_GROUPS.map((g) => (
-        <section key={g}>
-          <h2>{copy.groups[g]}</h2>
-          <div className="grid">
-            {ENDGAMES.filter((e) => e.group === g).map((e) => (
-              <div key={e.id} className="card">
-                <p className="eyebrow">
-                  {solved.has(e.id) && `${copy.done} `}
-                  {copy.goal[e.goal](e.maxMoves)}
-                </p>
-                <h3>{e.title}</h3>
-                <p className="muted small">{e.tip}</p>
-                <button
-                  className={`btn ${solved.has(e.id) ? 'ghost' : 'primary'} small`}
-                  onClick={() => setActive({ id: e.id, n: Date.now() })}
-                >
-                  {solved.has(e.id) ? copy.again : copy.play}
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
-      ))}
-    </>
+    <div className="eg">
+      <PageHeader
+        title={copy.title}
+        lead={copy.lead}
+        actions={<span className="muted small">{copy.solved(ENDGAMES.filter((e) => solved.has(e.id)).length, ENDGAMES.length)}</span>}
+      />
+      {ENDGAME_GROUPS.map((g) => {
+        const list = ENDGAMES.filter((e) => e.group === g);
+        return (
+          <Section key={g} title={copy.groups[g]} note={`${list.filter((e) => solved.has(e.id)).length} / ${list.length}`}>
+            <ul className="rows">
+              {list.map((e) => {
+                const done = solved.has(e.id);
+                return (
+                  <li key={e.id}>
+                    <button className="row-link eg-row" onClick={() => setActive({ id: e.id, n: Date.now() })}>
+                      <span className={`eg-mark${done ? ' done' : ''}`} aria-hidden>{done ? <CheckIcon /> : <CrownIcon />}</span>
+                      <span className="row-main">
+                        <strong>{e.title}</strong>
+                        <span className="muted">{e.tip}</span>
+                      </span>
+                      <span className="row-end">
+                        <span className="eg-goal muted">{copy.goal[e.goal](e.maxMoves)}</span>
+                        <span className={`btn small ${done ? 'ghost' : 'primary'}`}>{done ? copy.again : copy.play}</span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </Section>
+        );
+      })}
+    </div>
   );
 }
 
@@ -98,11 +101,12 @@ function EndgameGame({
   onNext: () => void;
   onBack: () => void;
 }) {
-  const toast = useToast();
   const [chess] = useState(() => new Chess(eg.fen));
   const [, setFen] = useState(chess.fen());
   const [last, setLast] = useState<[string, string]>();
   const [thinking, setThinking] = useState(false);
+  // The engine did not reply: it is still its move, so offer to ask again instead of leaving the board dead.
+  const [stuck, setStuck] = useState(false);
   const [result, setResult] = useState<'win' | 'fail' | null>(null);
   const [lines] = useState(() => ({ win: pick(copy.win[eg.goal]), fail: pick(copy.fail) }));
   const alive = useRef(true);
@@ -124,6 +128,7 @@ function EndgameGame({
   }, [chess, eg, onWin]);
 
   const engineMove = useCallback(async () => {
+    setStuck(false);
     setThinking(true);
     try {
       // Full strength: endgame defence should be stubborn.
@@ -134,11 +139,11 @@ function EndgameGame({
       sync();
       judge();
     } catch {
-      if (alive.current) toast(copy.engineFailed, 'bad');
+      if (alive.current) setStuck(true);
     } finally {
       if (alive.current) setThinking(false);
     }
-  }, [chess, judge, toast]);
+  }, [chess, judge]);
 
   // Every position starts with you to move, but guard anyway. The ref stops
   // StrictMode's double mount from asking twice.
@@ -207,9 +212,20 @@ function EndgameGame({
             <div className="feedback bad" role="alert">{lines.fail} {eg.tip}</div>
           ) : (
             <>
-              <div className="feedback info" role="status">
-                {thinking ? pick(copy.thinking) : copy.yourTurn}
-              </div>
+              {stuck ? (
+                <div className="feedback bad" role="alert">
+                  <div>
+                    {copy.engineStuck}
+                    <div className="row">
+                      <button className="btn small" onClick={() => void engineMove()}>{copy.engineRetry}</button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="feedback info" role="status">
+                  {thinking ? pick(copy.thinking) : copy.yourTurn}
+                </div>
+              )}
               <p className="hint">
                 <strong>{copy.tipLabel}:</strong> {eg.tip}
               </p>

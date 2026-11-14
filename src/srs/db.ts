@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie';
 import { createEmptyCard, fsrs, generatorParameters, Rating, State, type Card, type Grade } from 'ts-fsrs';
-import { getLine, type Line } from '../repertoire';
+import { allLines, getLine, type Line } from '../repertoire';
+import { rekeyOrphans } from '../repertoire/migrate';
 import type { GameRow, PuzzleRow, AttemptRow } from './types';
 
 export type { GameRow, PuzzleRow, AttemptRow } from './types';
@@ -100,13 +101,30 @@ export interface WeakSpot {
   misses: number;
 }
 
+/** Weak spots look at drills from this many days back, and at most this many drills per line. */
+export const WEAK_SPOT_DAYS = 90;
+export const WEAK_SPOT_REVIEWS = 8;
+
 /** Moves you keep getting wrong in drills, most-missed first. */
 export async function weakSpots(repertoireId?: string, limit = 8): Promise<WeakSpot[]> {
+  // Only recent drills count, and a move you have since got right twice running is forgiven:
+  // the list should show what you miss now, not what you missed in your first week.
+  const since = new Date(Date.now() - WEAK_SPOT_DAYS * 86_400_000);
+  const byLine = new Map<string, ReviewRow[]>();
+  for (const r of await db.reviews.where('at').aboveOrEqual(since).sortBy('at')) {
+    byLine.set(r.lineId, [...(byLine.get(r.lineId) ?? []), r]);
+  }
   const counts = new Map<string, number>();
-  for (const r of await db.reviews.toArray()) {
-    for (const ply of r.failedPlies ?? []) {
-      const k = `${r.lineId}\u0000${ply}`;
-      counts.set(k, (counts.get(k) ?? 0) + 1);
+  for (const [lineId, reviews] of byLine) {
+    const recent = reviews.slice(-WEAK_SPOT_REVIEWS);
+    const lastTwo = recent.slice(-2);
+    for (const r of recent) {
+      for (const ply of r.failedPlies ?? []) {
+        const forgiven = lastTwo.length === 2 && lastTwo.every((x) => !(x.failedPlies ?? []).includes(ply));
+        if (forgiven) continue;
+        const k = `${lineId}\u0000${ply}`;
+        counts.set(k, (counts.get(k) ?? 0) + 1);
+      }
     }
   }
   const spots: WeakSpot[] = [];
@@ -202,4 +220,26 @@ export async function getSetting<T>(key: string): Promise<T | undefined> {
 export async function setSetting(key: string, value: unknown): Promise<void> {
   if (value === undefined || value === '') await db.settings.delete(key);
   else await db.settings.put({ key, value });
+}
+
+/**
+ * Carries drill progress over to a line whose id changed because its PGN was
+ * edited (see repertoire/migrate.ts). Only unambiguous cases move; everything
+ * else stays where it is. Returns how many cards were moved. Safe to run on
+ * every start: with nothing orphaned it reads the card keys and stops.
+ */
+export async function migrateOrphanLines(): Promise<number> {
+  const ids = (await db.cards.toCollection().primaryKeys()) as string[];
+  const moves = rekeyOrphans(ids, allLines.map((l) => l.id));
+  if (!moves.size) return 0;
+  await db.transaction('rw', db.cards, db.reviews, async () => {
+    for (const [from, to] of moves) {
+      const row = await db.cards.get(from);
+      if (!row || (await db.cards.get(to))) continue;
+      await db.cards.delete(from);
+      await db.cards.put({ ...row, lineId: to });
+      await db.reviews.where('lineId').equals(from).modify({ lineId: to });
+    }
+  });
+  return moves.size;
 }

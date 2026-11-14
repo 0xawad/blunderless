@@ -23,6 +23,8 @@ export interface SearchOptions {
   skill?: number;
   /** Calibrated strength via UCI_LimitStrength (Stockfish accepts 1320-3190). Overrides skill. */
   elo?: number;
+  /** Restrict the search to these moves (UCI). Used to ask "what is the best move other than X?". */
+  searchmoves?: string[];
   /**
    * Abandons the search: a job still waiting its turn is skipped, a running
    * one is stopped. Either way the promise rejects with an AbortError.
@@ -261,7 +263,8 @@ export class Engine {
         };
         signal?.addEventListener('abort', onAbort, { once: true });
         this.send(`position fen ${fen}`);
-        this.send(opts.movetime ? `go movetime ${opts.movetime}` : `go depth ${opts.depth ?? 12}`);
+        const only = opts.searchmoves?.length ? ` searchmoves ${opts.searchmoves.join(' ')}` : '';
+        this.send((opts.movetime ? `go movetime ${opts.movetime}` : `go depth ${opts.depth ?? 12}`) + only);
       });
     };
     const p = this.chain.then(run, run);

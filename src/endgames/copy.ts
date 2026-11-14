@@ -56,4 +56,6 @@ export const endgameCopy = {
   retry: 'Retry',
   restart: 'Restart',
   engineFailed: "Stockfish didn't answer. Reload the page and try again.",
+  engineStuck: 'Stockfish did not answer, so it is still its move.',
+  engineRetry: 'Ask again',
 };

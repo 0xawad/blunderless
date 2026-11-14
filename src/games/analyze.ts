@@ -91,7 +91,9 @@ export class EvalCache {
 
   /** Move counters do not change what the engine finds; the fifty-move clock can, so it stays in the key. */
   private key(fen: string, depth: number) {
-    return `${fen.split(' ').slice(0, 5).join(' ')}|${depth}`;
+    // Anything after the sixth field is a qualifier added by the caller (e.g. "|not:e2e4") and stays in the key.
+    const [board, extra = ''] = fen.split('|');
+    return `${board.split(' ').slice(0, 5).join(' ')}|${extra}|${depth}`;
   }
 
   get(fen: string, depth: number): PositionEval | undefined {
@@ -129,6 +131,56 @@ export interface AnalyzeOptions {
   /** Defaults to the shared cache; null searches every position afresh. */
   cache?: EvalCache | null;
 }
+
+/**
+ * Great and brilliant moves. Both need to know how good the SECOND best move was,
+ * which a normal search does not tell us, so each candidate (a played move that
+ * matched the engine's choice, outside the book) gets one extra shallow search
+ * with the best move excluded.
+ */
+export const MERIT_DEPTH = 10;
+/** At most this many candidates per game, so the extra pass stays a small share of the work. */
+export const MERIT_MAX = 16;
+/** Great: every other move gives up at least this much win chance. */
+export const GREAT_GAP = 20;
+/** Brilliant: a sacrifice that is clearly the best move, by at least this much. */
+export const BRILLIANT_GAP = 8;
+
+/**
+ * Does this move leave the moved piece to be taken for less than it is worth?
+ * True when the piece (not a pawn) lands where a cheaper enemy piece attacks it, or
+ * where it is attacked and undefended, and the move did not capture as much as it risks.
+ */
+export function isSacrifice(fenBefore: string, uci: string): boolean {
+  const chess = new Chess(fenBefore);
+  const m = playUci(chess, uci);
+  if (!m || m.piece === 'p' || m.piece === 'k' || chess.isCheckmate()) return false;
+  const enemy = m.color === 'w' ? 'b' : 'w';
+  const attackers = chess.attackers(m.to as Square, enemy);
+  if (!attackers.length) return false;
+  const value = PIECE_VALUE[m.promotion ?? m.piece];
+  const gained = m.captured ? PIECE_VALUE[m.captured] : 0;
+  if (gained >= value) return false; // took something at least as big: a trade at worst
+  const cheapest = Math.min(...attackers.map((sq) => PIECE_VALUE[chess.get(sq)?.type ?? 'k'] ?? 99));
+  const defended = chess.attackers(m.to as Square, m.color).length > 0;
+  return !defended || cheapest < value;
+}
+
+/**
+ * A capture nobody needs an engine to find: it takes something worth at least as
+ * much as the piece taking it, or something that is not defended. Being the only
+ * good move does not make such a move great.
+ */
+export function isObviousCapture(fenBefore: string, uci: string): boolean {
+  const chess = new Chess(fenBefore);
+  const m = playUci(chess, uci);
+  if (!m?.captured) return false;
+  if (PIECE_VALUE[m.captured] >= PIECE_VALUE[m.piece]) return true;
+  return !chess.attackers(m.to as Square, m.color === 'w' ? 'b' : 'w').length;
+}
+
+/** Past this win chance the game is already decided and no single move deserves a medal. */
+export const MERIT_MAX_WIN = 90;
 
 /** Share of the progress bar given to the first pass. */
 const FIRST_PASS = 0.8;
@@ -292,6 +344,36 @@ export async function analyzeGame(
     }
     onProgress?.(FIRST_PASS + ((k + 1) / recheck.length) * (1 - FIRST_PASS));
   }
+
+  // Merit pass: for played moves that matched the engine, how much worse was the next best move?
+  const second = new Map<number, number>(); // ply -> mover's win chance after the best alternative
+  const candidates: number[] = [];
+  for (let i = 0; i < plies.length && candidates.length < MERIT_MAX; i++) {
+    const p = plies[i];
+    if (results[i].bestmove !== p.uci) continue;
+    const sgn = p.color === 'w' ? 1 : -1;
+    const now = winPct(sgn * whitePov(results[i].score, fens[i]));
+    // Nothing to celebrate when the game is already decided either way.
+    if (now < 15 || now > MERIT_MAX_WIN) continue;
+    const prev = plies[i - 1];
+    if (prev?.captured && prev.to === p.to) continue; // taking back is not a discovery
+    candidates.push(i);
+  }
+  for (const i of candidates) {
+    if (signal?.aborted) throw abortError();
+    const others = new Chess(fens[i]).moves({ verbose: true }).map((m) => m.from + m.to + (m.promotion ?? '')).filter((u) => u !== plies[i].uci);
+    if (!others.length) continue; // a forced move earns nothing
+    // Cached under the excluded move, so a second look at the same game or opening costs nothing.
+    const key = `${fens[i]}|not:${plies[i].uci}`;
+    let alt = cache?.get(key, MERIT_DEPTH);
+    if (!alt) {
+      const r = await engine.search(fens[i], { depth: MERIT_DEPTH, searchmoves: others, signal });
+      alt = { score: r.score, bestmove: r.bestmove, pv: [] };
+      if (r.depth >= MERIT_DEPTH || r.score.mate !== undefined) cache?.set(key, MERIT_DEPTH, alt);
+    }
+    const sgn = plies[i].color === 'w' ? 1 : -1;
+    second.set(i, winPct(sgn * whitePov(alt.score, fens[i])));
+  }
   onProgress?.(1);
 
   // mate 0 means the side to move is mated
@@ -323,6 +405,12 @@ export async function analyzeGame(
     let cls = classify(drop, best === p.uci, before, after);
     if (i < bookEnd && drop < 10) cls = 'book';
     const review: MoveReview = { cls, drop: Math.round(drop * 10) / 10, best, pv: results[i].pv };
+    const alt = second.get(i);
+    if (cls === 'best' && alt !== undefined && after >= 40) {
+      const gap = before - alt;
+      if (gap >= BRILLIANT_GAP && isSacrifice(p.fenBefore, p.uci)) review.merit = 'brilliant';
+      else if (gap >= GREAT_GAP && !isObviousCapture(p.fenBefore, p.uci)) review.merit = 'great';
+    }
     const ck = clock?.plies[i];
     if (ck) {
       review.left = ck.left;

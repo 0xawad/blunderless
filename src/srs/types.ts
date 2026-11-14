@@ -10,12 +10,16 @@ export type BlunderKind =
   | 'missed-tactic'
   | 'walked-into-tactic';
 
+export type MoveMerit = 'great' | 'brilliant';
+
 export interface MoveReview {
   cls: MoveClass;
   drop: number; // win% lost by the mover, 0-100
   best: string; // engine's best move here, UCI
   pv?: string[]; // engine's main line from before the move (UCI), a few plies
   kind?: BlunderKind; // only for your mistakes and blunders
+  /** A best move that stood out: the only move that held the position, or a sound sacrifice. */
+  merit?: MoveMerit;
   left?: number; // seconds on the mover's clock before the move
   spent?: number; // seconds the mover spent on it
 }

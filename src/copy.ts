@@ -399,6 +399,15 @@ export const copy = {
     keyMoments: 'Key moments',
     decided: (move: number) => `The game was decided around move ${move}.`,
     missedMate: 'Missed mate',
+    merit: { great: 'Great move', brilliant: 'Brilliant' } as Record<string, string>,
+    meritWhy: {
+      great: 'The only good move here. Everything else was clearly worse.',
+      brilliant: 'A sacrifice, and it works. The engine agrees and nothing else came close.',
+    } as Record<string, string>,
+    meritWhyOpp: {
+      great: 'Their only good move, and they found it.',
+      brilliant: 'A sound sacrifice from your opponent. Credit where it is due.',
+    } as Record<string, string>,
     tryAgain: 'Try this move again',
     again: 'Try again',
     hint: 'Hint',
@@ -407,7 +416,7 @@ export const copy = {
     openOn: (site: string) => `Open on ${site} ↗`,
     quiet: {
       best: 'The engine would have played this too.',
-      good: 'A sound move. Nothing better was on offer.',
+      good: 'A sound move, close to what the engine wanted.',
       book: 'Still in the opening book.',
     } as Record<string, string>,
     story: {

@@ -18,3 +18,6 @@
 .rv-moment { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 6px 8px; font-family: var(--font); font-size: var(--fs-sm); }
 .rv-moment strong { font-family: var(--mono); }
 .rv-moment .rv-swing { margin-left: auto; font-weight: 600; }
+
+.rv-coach.great { box-shadow: inset 3px 0 0 var(--q-great-fill); }
+.rv-coach.brilliant { box-shadow: inset 3px 0 0 var(--q-brilliant-fill); }

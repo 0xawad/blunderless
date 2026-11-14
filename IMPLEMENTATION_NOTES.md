@@ -71,3 +71,11 @@ Running record of the takeover on branch `redesign/takeover`. Nothing here is on
 - Game review: coach note for the current move on every tab, hint inside a retry, `?ply=N` waits for the game to load.
 - Fixed: connecting an account on the welcome screen did not leave the screen.
 - Not measured: review speed with the second pass on a phone. On this desktop the first pass alone ran about 15 games a minute.
+
+## Labels, UI sweep and open items
+
+- **Great and brilliant moves** (`MoveReview.merit`, optional). A played move that matched the engine gets one extra depth-10 search with that move excluded (`searchmoves`), which gives the second-best evaluation. Great: every alternative costs at least 20 points of win chance, the position was not already won (under 90%), and the move is not an obvious capture. Brilliant: a sacrifice that is still clearly best. On 14 real games this produced five great moves and no brilliants; the first version, without the capture rule, labelled "taking a hanging queen" as great and was rejected.
+- **Review cost.** With the second pass and the merit pass a game took about 9 to 12 seconds on a desktop in a possibly throttled pane; the first pass alone was about 4.
+- **UI sweep** at 1360px and 390px with real data. Endgames is now rows under sections; the opening page and Play setup lost their boxed cards (`src/styles/polish.css`, to be deleted as those pages are rebuilt); on phones the review's coach note sits directly under the board.
+- **Not a bug:** plan steps that looked invisible in screenshots were the test browser freezing CSS animations while its pane was hidden.
+- Existing reviews do not have merit labels or `finalPv` until the game is reviewed again.

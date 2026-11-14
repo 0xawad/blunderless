@@ -59,6 +59,11 @@
   --q-mistake-fill: #e0812a;
   --q-blunder-fill: #d1453f;
   --q-missed-fill: #a45aa8;
+  /* stand-out best moves */
+  --q-great: #1f6694;
+  --q-great-fill: #3f8fc4;
+  --q-brilliant: #0f766e;
+  --q-brilliant-fill: #17a398;
 
   /* shape */
   --radius-xs: 6px;
@@ -158,6 +163,8 @@
     --q-mistake: #f0a25e;
     --q-blunder: #ee8c86;
     --q-missed: #d49ad8;
+    --q-great: #85bbe0;
+    --q-brilliant: #5fd3c6;
     --board-light: #d9d3c6;
     --board-dark: #8b8273;
     --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.35);
@@ -202,6 +209,8 @@
   --q-mistake: #f0a25e;
   --q-blunder: #ee8c86;
   --q-missed: #d49ad8;
+  --q-great: #85bbe0;
+  --q-brilliant: #5fd3c6;
   --board-light: #d9d3c6;
   --board-dark: #8b8273;
   --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.35);
