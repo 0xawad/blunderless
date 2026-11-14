@@ -60,3 +60,14 @@ Running record of the takeover on branch `redesign/takeover`. Nothing here is on
 - No further repository-wide scans: the verified audit is the source for what to fix.
 - No new agent fan-outs after the current implementation run; QA and fixes are done directly, file by file.
 - Each milestone is closed by a command result or a browser check, recorded in the table above.
+
+## Game review pass (after going live)
+
+- Tested on the live site with real Chess.com games: sync of 73 games, then a 73-game review batch, completed with no errors.
+- `src/games/story.ts`: two-sentence game verdict and labelled key moments, from stored analysis only.
+- `src/games/explain.ts`: opponent moves say "they"; best and good moves are described when there is something concrete; recaptures are not "free pieces"; forks must hit the king, a bigger piece or an undefended one; missed mates are read from the stored evals (`mateFor`).
+- `src/games/analyze.ts`: second pass re-searches up to 12 positions around suspected errors at depth 15. Reviews made before this keep their depth-12 verdicts until re-analysed; no version bump, so nothing is marked stale.
+- `GameAnalysis.finalPv` (optional): lets the last move of a game be explained. Older reviews do not have it.
+- Game review: coach note for the current move on every tab, hint inside a retry, `?ply=N` waits for the game to load.
+- Fixed: connecting an account on the welcome screen did not leave the screen.
+- Not measured: review speed with the second pass on a phone. On this desktop the first pass alone ran about 15 games a minute.
