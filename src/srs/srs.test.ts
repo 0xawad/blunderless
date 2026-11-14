@@ -120,3 +120,19 @@ describe('backup v2', () => {
     await expect(importBackup(JSON.stringify(bad))).rejects.toThrow();
   });
 });
+
+describe('ts-fsrs 6 upgrade', () => {
+  it('still schedules cards saved by ts-fsrs 5 (with elapsed_days)', async () => {
+    const line = allLines[2];
+    await db.cards.put({
+      lineId: line.id,
+      repertoireId: line.repertoireId,
+      card: { ...(await import('ts-fsrs')).createEmptyCard(new Date()), elapsed_days: 0 } as never,
+      addedAt: new Date(),
+    });
+    await recordReview(line.id, Rating.Good, 0);
+    const row = await db.cards.get(line.id);
+    expect(row?.card.reps).toBe(1);
+    expect(row?.card.due.getTime()).toBeGreaterThan(Date.now());
+  });
+});

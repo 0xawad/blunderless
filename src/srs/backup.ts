@@ -40,14 +40,14 @@ function toDate(v: unknown): Date {
 
 function parseCard(v: unknown): Card {
   if (!isObj(v)) throw new Error('bad card');
-  const nums = ['stability', 'difficulty', 'elapsed_days', 'scheduled_days', 'reps', 'lapses', 'learning_steps'] as const;
+  // ts-fsrs 6 dropped elapsed_days; older backups still carry it and it's ignored.
+  const nums = ['stability', 'difficulty', 'scheduled_days', 'reps', 'lapses', 'learning_steps'] as const;
   for (const k of nums) if (!isNum(v[k])) throw new Error(`bad card.${k}`);
-  if (!isNum(v.state) || !(v.state in State)) throw new Error('bad card.state');
+  if (!isNum(v.state) || !(Object.values(State) as number[]).includes(v.state)) throw new Error('bad card.state');
   return {
     due: toDate(v.due),
     stability: v.stability as number,
     difficulty: v.difficulty as number,
-    elapsed_days: v.elapsed_days as number,
     scheduled_days: v.scheduled_days as number,
     reps: v.reps as number,
     lapses: v.lapses as number,
