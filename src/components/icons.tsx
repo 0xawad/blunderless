@@ -89,7 +89,7 @@ export const BrandMark = (p: SVGProps<SVGSVGElement>) => (
     <rect width="32" height="32" rx="8" fill="var(--text)" />
     <rect x="7" y="7" width="8.5" height="8.5" rx="1.5" fill="var(--bg)" opacity="0.92" />
     <rect x="16.5" y="16.5" width="8.5" height="8.5" rx="1.5" fill="var(--bg)" opacity="0.92" />
-    <rect x="16.5" y="7" width="8.5" height="8.5" rx="1.5" fill="var(--brand)" />
+    <rect x="16.5" y="7" width="8.5" height="8.5" rx="1.5" fill="var(--tint)" />
     <rect x="7" y="16.5" width="8.5" height="8.5" rx="1.5" fill="var(--bg)" opacity="0.28" />
   </svg>
 );

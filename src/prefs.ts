@@ -6,6 +6,10 @@ export interface Prefs {
   boardTheme: BoardTheme;
   pieces: PieceSet;
   sound: boolean;
+  /** 0 to 1. Scales every sound; the device volume still has the last word. */
+  volume: number;
+  /** Short vibrations for moves, captures, checks and mistakes, on devices that can. */
+  haptics: boolean;
   animation: 'off' | 'normal' | 'slow';
   coach: boolean;
   /** a-h / 1-8 on the edge squares */
@@ -49,6 +53,8 @@ const DEFAULTS: Prefs = {
   boardTheme: 'forest',
   pieces: 'staunty',
   sound: true,
+  volume: 0.7,
+  haptics: true,
   animation: 'normal',
   coach: true,
   coordinates: true,
@@ -59,7 +65,7 @@ const DEFAULTS: Prefs = {
   boardScale: 1,
 };
 const ANIMATIONS: readonly Prefs['animation'][] = ['off', 'normal', 'slow'];
-const SWITCHES = ['sound', 'coach', 'coordinates', 'showDests', 'highlightLast', 'autoQueen', 'figurines'] as const;
+const SWITCHES = ['sound', 'haptics', 'coach', 'coordinates', 'showDests', 'highlightLast', 'autoQueen', 'figurines'] as const;
 export const MIN_BOARD_SCALE = 0.6;
 
 // Two counters are stored with the prefs.
@@ -91,6 +97,8 @@ function clean(blob: Record<string, unknown>): Partial<Prefs> {
     const value = blob[k];
     if (typeof value === 'boolean') out[k] = value;
   }
+  const volume = blob.volume;
+  if (typeof volume === 'number' && Number.isFinite(volume)) out.volume = Math.min(1, Math.max(0, volume));
   const scale = blob.boardScale;
   if (typeof scale === 'number' && Number.isFinite(scale)) out.boardScale = Math.min(1, Math.max(MIN_BOARD_SCALE, scale));
   return out;

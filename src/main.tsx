@@ -11,6 +11,7 @@ import './styles/shell.css';
 import './styles/components.css';
 import './styles/board.css';
 import './styles/polish.css';
+import './styles/system.css';
 import './pieces.css';
 
 // public/theme-init.js has already done both of these before first paint;

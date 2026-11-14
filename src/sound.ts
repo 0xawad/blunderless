@@ -10,10 +10,11 @@
 // raw square waves.
 import { getPrefs } from './prefs';
 
-export type SoundName = 'move' | 'capture' | 'check' | 'castle' | 'promote' | 'correct' | 'wrong' | 'win' | 'lose' | 'draw' | 'tick' | 'start';
+export type SoundName = 'move' | 'opponent' | 'capture' | 'check' | 'castle' | 'promote' | 'correct' | 'wrong' | 'illegal' | 'win' | 'lose' | 'draw' | 'tick' | 'start';
 
 interface Bus {
   c: AudioContext;
+  master: GainNode;
   dry: GainNode;
   wet: GainNode;
   noise: AudioBuffer;
@@ -43,6 +44,14 @@ function whiteNoise(c: AudioContext, seconds = 0.5): AudioBuffer {
 function getBus(): Bus | null {
   if (typeof AudioContext === 'undefined') return null;
   if (!bus) {
+    // These are interface sounds, not media: on iPhone and iPad the "ambient" session makes them
+    // obey the silent switch and mix with whatever music is already playing instead of stopping it.
+    try {
+      const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+      if (session) session.type = 'ambient';
+    } catch {
+      /* not supported: the default behaviour stands */
+    }
     const c = new AudioContext({ latencyHint: 'interactive' });
     const master = c.createGain();
     master.gain.value = 0.85;
@@ -65,7 +74,7 @@ function getBus(): Bus | null {
     const wet = c.createGain();
     wet.gain.value = 0.18;
     wet.connect(verb).connect(master);
-    bus = { c, dry, wet, noise: whiteNoise(c) };
+    bus = { c, master, dry, wet, noise: whiteNoise(c) };
   }
   if (bus.c.state === 'suspended') bus.c.resume().catch(() => {});
   return bus;
@@ -169,6 +178,13 @@ const N = { C5: 523.25, D5: 587.33, E5: 659.25, G5: 783.99, A5: 880, C6: 1046.5,
 
 const PLAYERS: Record<SoundName, (b: Bus, t: number) => void> = {
   move: (b, t) => tock(b, t, 210, 1),
+  // The other side's piece lands a little lower and softer, so you can hear whose move it was without looking.
+  opponent: (b, t) => tock(b, t, 178, 0.85),
+  // A move that is not allowed: two short dull taps, quieter than "wrong" because nothing was lost.
+  illegal: (b, t) => {
+    thud(b, t, 190, 150, 0.07, 0.16);
+    thud(b, t + 0.09, 190, 150, 0.07, 0.14);
+  },
   capture: (b, t) => {
     tock(b, t, 150, 1.4);
     tock(b, t + 0.035, 230, 0.55);
@@ -212,14 +228,46 @@ const PLAYERS: Record<SoundName, (b: Bus, t: number) => void> = {
 // two listeners) should play once, not phase against each other.
 const lastAt: Partial<Record<SoundName, number>> = {};
 
+/** Full-scale level of the master bus; the volume setting scales it down. */
+const MASTER = 1.15;
+
+// Vibration patterns in ms. Kept short: a tap you feel, not a buzz you notice.
+const HAPTICS: Partial<Record<SoundName, number | number[]>> = {
+  move: 8,
+  capture: 14,
+  castle: [8, 30, 8],
+  check: [10, 40, 12],
+  promote: [10, 30, 10, 30, 16],
+  wrong: [18, 40, 18],
+  illegal: [12, 30, 12],
+  correct: 10,
+  win: [12, 40, 12, 40, 24],
+  lose: 30,
+};
+
+/** A short vibration for an event, where the device supports it and the setting is on. Works with sound muted. */
+export function haptic(name: SoundName) {
+  if (!getPrefs().haptics) return;
+  const pattern = HAPTICS[name];
+  if (pattern === undefined || typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
+  try {
+    navigator.vibrate(pattern);
+  } catch {
+    /* blocked until the first tap, or not allowed: ignore */
+  }
+}
+
 export function play(name: SoundName) {
-  if (!getPrefs().sound) return;
+  if (!getPrefs().sound) return haptic(name);
   const b = getBus();
   if (!b) return;
   const now = b.c.currentTime;
   if (now - (lastAt[name] ?? -1) < 0.03) return;
   lastAt[name] = now;
+  haptic(name);
   try {
+    // Relative level only: the device's own volume governs the final output.
+    b.master.gain.setValueAtTime(MASTER * Math.max(0, Math.min(1, getPrefs().volume)), now);
     // A hair of lookahead so the first envelope point is never in the past.
     PLAYERS[name](b, now + 0.005);
   } catch {
@@ -228,13 +276,13 @@ export function play(name: SoundName) {
 }
 
 /** Picks the right sound for a move that just happened. */
-export function playMove(opts: { capture?: boolean; check?: boolean; castle?: boolean; promote?: boolean; mate?: boolean }) {
+export function playMove(opts: { capture?: boolean; check?: boolean; castle?: boolean; promote?: boolean; mate?: boolean; opponent?: boolean }) {
   if (opts.mate) return play('check');
   if (opts.promote) return play('promote');
   if (opts.check) return play('check');
   if (opts.capture) return play('capture');
   if (opts.castle) return play('castle');
-  play('move');
+  play(opts.opponent ? 'opponent' : 'move');
 }
 
 /**

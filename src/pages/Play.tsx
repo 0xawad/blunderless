@@ -36,6 +36,9 @@ const readSetup = (): Partial<Setup> => {
     return {};
   }
 };
+/** A draw offer is only considered after this many plies, and accepted when your winning chance is at least this. */
+const DRAW_MIN_PLIES = 30;
+const DRAW_ACCEPT_WIN = 50;
 const COACH_DEPTH = 10;
 const TIMES = [
   { label: 'Untimed', base: 0, inc: 0 },
@@ -246,7 +249,10 @@ function PlayGame({
     setStuckState(v);
   };
   const [result, setResult] = useState<'win' | 'loss' | 'draw' | null>(null);
-  const [reason, setReason] = useState<'time' | 'resign' | null>(null);
+  const [reason, setReason] = useState<'time' | 'resign' | 'agreed' | null>(null);
+  // What the engine said to your last draw offer; cleared by the next move.
+  const [drawReply, setDrawReply] = useState<string | null>(null);
+  const [asking, setAsking] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [log, setLog] = useState<Logged[]>((resume?.log as Logged[] | undefined) ?? []);
   const [verdict, setVerdict] = useState<{ v: Verdict; san: string; better?: string } | null>(null);
@@ -301,7 +307,7 @@ function PlayGame({
     c.since = now;
   };
 
-  const finish = useCallback((r: 'win' | 'loss' | 'draw', why: 'time' | 'resign' | null = null) => {
+  const finish = useCallback((r: 'win' | 'loss' | 'draw', why: 'time' | 'resign' | 'agreed' | null = null) => {
     if (resultRef.current) return;
     // Book the turn that was running, so the clocks show what was really left.
     const c = clock.current;
@@ -499,6 +505,7 @@ function PlayGame({
     setLast([m.from, m.to]);
     setPending(null);
     setHint(null);
+    setDrawReply(null);
     setCct([false, false, false]);
     setView(null);
     sync();
@@ -591,6 +598,30 @@ function PlayGame({
       return;
     }
     finish('loss', 'resign');
+  };
+
+  /**
+   * Offer a draw. The engine is not sentimental: it agrees only when the game is
+   * old enough to have a shape and it does not think it is better. Declining costs
+   * you nothing, and one offer per position is all you get.
+   */
+  const offerDraw = async () => {
+    if (!myTurn || asking) return;
+    const at = chess.fen();
+    if (chess.history().length < DRAW_MIN_PLIES) return setDrawReply(copy.play.drawTooEarly);
+    setAsking(true);
+    try {
+      let win = pre.current?.fen === at ? pre.current.win : undefined;
+      if (win === undefined) win = myWin((await getEngine().search(at, { depth: COACH_DEPTH })).score, chess.turn());
+      if (!alive.current || chess.fen() !== at || resultRef.current) return;
+      // `win` is your winning chance: the engine takes the draw when you are at least level.
+      if (win >= DRAW_ACCEPT_WIN) finish('draw', 'agreed');
+      else setDrawReply(copy.play.drawDeclined);
+    } catch {
+      if (alive.current) setDrawReply(copy.play.drawNoAnswer);
+    } finally {
+      if (alive.current) setAsking(false);
+    }
   };
 
   // You can only take back a move of your own: with just the engine's first move on the board there is none.
@@ -696,7 +727,7 @@ function PlayGame({
       />
     );
   };
-  const overText = result ? (reason === 'time' ? copy.play.onTime[result] : reason === 'resign' ? copy.play.resigned : pick(copy.play.over[result])) : '';
+  const overText = result ? (reason === 'time' ? copy.play.onTime[result] : reason === 'resign' ? copy.play.resigned : reason === 'agreed' ? copy.play.drawAgreed : pick(copy.play.over[result])) : '';
 
   return (
     <div className="play">
@@ -843,10 +874,14 @@ function PlayGame({
                   <button className="btn ghost" onClick={() => setConfirmResign(false)}>{copy.play.cancel}</button>
                 </>
               ) : (
-                <button className="btn danger" onClick={resign}>{copy.play.resign}</button>
+                <>
+                  <button className="btn ghost" onClick={offerDraw} disabled={!myTurn || asking || viewing}>{copy.play.offerDraw}</button>
+                  <button className="btn danger" onClick={resign}>{copy.play.resign}</button>
+                </>
               )}
             </>
           )}
+          {drawReply && !result && <p className="muted small pl-draw" role="status">{drawReply}</p>}
           {result && plyCount > 0 && (
             <button className="btn primary" onClick={review}>{copy.play.review}</button>
           )}

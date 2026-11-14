@@ -304,8 +304,7 @@ function Shell() {
               <RailQueue />
               <Item entry={settings} />
               <div className="rail-foot">
-                <SoundButton />
-                <ThemeButton />
+                <SoundButton withLabel />
               </div>
             </aside>
 

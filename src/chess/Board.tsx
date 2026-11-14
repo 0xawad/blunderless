@@ -19,7 +19,7 @@ import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.cburnett.css';
 import { copy } from '../copy';
 import { getPrefs, MIN_BOARD_SCALE, setPrefs, usePrefs } from '../prefs';
-import { playMove, unlockAudio } from '../sound';
+import { play as playSound, playMove, unlockAudio } from '../sound';
 
 export interface BoardProps {
   fen: string;
@@ -421,8 +421,10 @@ export function Board({ fen, orientation, interactive, premovable, lastMove, sha
     const castle = !!from && !!to && moved?.type === 'k' && Math.abs(from.charCodeAt(0) - to.charCodeAt(0)) === 2;
     const pawns = (f: string) => (f.split(' ')[0].match(/[pP]/g) ?? []).length;
     const promote = !!moved && moved.type !== 'p' && moved.type !== 'k' && /[18]$/.test(to ?? '') && pawns(before) > pawns(fen);
-    playMove({ capture: pieceCount(before) > pieceCount(fen), check: chess.inCheck(), mate: chess.isCheckmate(), castle, promote });
-  }, [fen, lastMove, silent]);
+    // The side at the top of the board is "the opponent" for the ear.
+    const opponent = !!moved && moved.color !== orientation[0];
+    playMove({ capture: pieceCount(before) > pieceCount(fen), check: chess.inCheck(), mate: chess.isCheckmate(), castle, promote, opponent });
+  }, [fen, lastMove, silent, orientation]);
 
   // While dragging, outline the square under the piece, like the big sites do.
   // Only touch the DOM when the square changes, and move it with a transform
@@ -456,13 +458,26 @@ export function Board({ fen, orientation, interactive, premovable, lastMove, sha
     const pointerUsed = () => {
       keyboardPlay = false;
     };
+    // A piece dropped on a square it cannot go to snaps back in silence, which reads as
+    // the board ignoring you. Say so, quietly. (Dropping it back where it was is not a mistake.)
+    const dropped = () => {
+      const cg = api.current;
+      const drag = cg?.state.draggable.current;
+      const k = overKey.current;
+      if (cg && drag?.started && k && k !== drag.orig) {
+        const dests = cg.state.movable.dests;
+        const yourTurn = cg.state.movable.color === cg.state.turnColor;
+        if (yourTurn && dests && !dests.get(drag.orig)?.includes(k as Key)) playSound('illegal');
+      }
+      hideOver();
+    };
     document.addEventListener('pointermove', move, { passive: true });
-    document.addEventListener('pointerup', hideOver);
+    document.addEventListener('pointerup', dropped);
     document.addEventListener('pointercancel', hideOver);
     document.addEventListener('pointerdown', pointerUsed, { passive: true });
     return () => {
       document.removeEventListener('pointermove', move);
-      document.removeEventListener('pointerup', hideOver);
+      document.removeEventListener('pointerup', dropped);
       document.removeEventListener('pointercancel', hideOver);
       document.removeEventListener('pointerdown', pointerUsed);
       // Unmounted in the middle of a resize drag: put the saved size back.

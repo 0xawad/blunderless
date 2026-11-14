@@ -3,7 +3,7 @@ import { copy } from '../copy';
 import { getSetting } from '../srs/db';
 import { getAccounts, setAccount, type GameSource } from '../games/store';
 import { AccountForm } from '../components/AccountForm';
-import { Callout } from '../components/ui';
+import { Callout, Switch } from '../components/ui';
 import '../styles/pages/settings.css';
 import { currentCounts, exportBackup, importBackup, resetAll } from '../srs/backup';
 import { setTheme, useTheme, type Theme } from '../theme';
@@ -259,6 +259,31 @@ export function Settings() {
             <button role="radio" aria-checked={prefs.sound} className={prefs.sound ? 'on' : ''} onClick={() => { setPrefs({ sound: true }); unlockAudio(); play('move'); }}>On</button>
             <button role="radio" aria-checked={!prefs.sound} className={!prefs.sound ? 'on' : ''} onClick={() => setPrefs({ sound: false })}>Off</button>
           </div>
+        </div>
+        <div className="setting-row">
+          <div>
+            <strong>{copy.settings.volume}</strong>
+            <div className="muted">{copy.settings.volumeHint}</div>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={Math.round(prefs.volume * 100)}
+            disabled={!prefs.sound}
+            aria-label={copy.settings.volume}
+            onChange={(e) => setPrefs({ volume: Number(e.target.value) / 100 })}
+            onPointerUp={() => play('move')}
+            onKeyUp={() => play('move')}
+          />
+        </div>
+        <div className="setting-row">
+          <div>
+            <strong>{copy.settings.haptics}</strong>
+            <div className="muted">{copy.settings.hapticsHint}</div>
+          </div>
+          <Switch checked={prefs.haptics} onChange={(v) => setPrefs({ haptics: v })} label={copy.settings.haptics} />
         </div>
       </section>
 

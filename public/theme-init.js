@@ -10,7 +10,7 @@
     var theme = localStorage.getItem('theme');
     if (theme === 'light' || theme === 'dark') {
       root.setAttribute('data-theme', theme);
-      var color = theme === 'dark' ? '#121211' : '#f5f3ee';
+      var color = theme === 'dark' ? '#141415' : '#f5f5f4';
       var metas = document.querySelectorAll('meta[name="theme-color"]');
       for (var i = 0; i < metas.length; i++) metas[i].setAttribute('content', color);
     }

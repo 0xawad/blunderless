@@ -58,3 +58,5 @@ details.chapter > summary h2 { font-size: var(--fs-md); }
   .play.review .stepper .hint { display: none; }
   .play.review .side > .eyebrow, .play.review .side > .opening-name { display: none; }
 }
+
+.pl-draw { flex: 1 1 100%; margin: 4px 0 0; }

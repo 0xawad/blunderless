@@ -1,37 +1,45 @@
 @import '@fontsource-variable/geist/index.css';
 @import '@fontsource-variable/geist-mono/index.css';
-@import '@fontsource-variable/fraunces/opsz.css';
 
 /* =========================================================
    Design tokens. See DESIGN_SYSTEM.md.
 
-   One warm paper-and-ink neutral family. Ink is the action
-   colour, amber is the brand highlight (used sparingly: the
-   mark, "now" indicators, due counts). Green / amber / orange
-   / red only ever describe move quality or outcome.
+   Neutral greys for everything that is not the board, so the
+   board is the only colour on screen. The action colour
+   (--tint) is taken from the dark squares of the board the
+   player chose, which makes the board the brand. Amber
+   (--brand) marks what is due now. Green, yellow, orange, red
+   and violet only ever describe move quality or outcome.
    ========================================================= */
 :root {
   /* neutrals */
-  --bg: #f5f3ee;
-  --bg-2: #efece6;
-  --surface: #fdfcf9;
-  --surface-2: #f0ede6;
-  --surface-3: #e6e2d9;
-  --glass: rgb(245 243 238 / 0.86);
-  --line: #e3dfd6;
-  --line-strong: #cdc8bc;
-  --text: #1a1916;
-  --text-2: #45423b;
-  --muted: #6a675f;
+  --bg: #f5f5f4;
+  --bg-2: #ededeb;
+  --surface: #ffffff;
+  --surface-2: #efefed;
+  --surface-3: #e3e3e0;
+  --glass: rgb(245 245 244 / 0.82);
+  --line: #e1e1de;
+  --line-strong: #c8c8c4;
+  --text: #1b1b1d;
+  --text-2: #47474b;
+  --muted: #68686d;
 
-  /* action + brand */
-  --accent: #1a1916;
-  --accent-hover: #34322d;
-  --accent-ink: #fbfaf6;
-  --accent-soft: #e9e5dc;
-  --brand: #d99a2b;
+  /* tint: the action colour, from the chosen board (overridden per board below) */
+  --tint: #3b7a3a;
+  --tint-hover: #316832;
+  --tint-ink: #ffffff;
+  --tint-text: #2f6a30;
+  --tint-soft: color-mix(in srgb, var(--tint) 12%, transparent);
+
+  /* neutral selection + attention */
+  --accent: #1b1b1d;
+  --accent-hover: #343437;
+  --accent-ink: #ffffff;
+  --accent-soft: #e6e6e3;
+  --brand: #d6931f;
   --brand-ink: #2a1c04;
-  --brand-soft: #f8edd6;
+  --brand-soft: #faefd9;
   --brand-text: #8a5a00;
 
   /* outcome */
@@ -48,7 +56,7 @@
   /* move quality (text-safe on --surface, 4.5:1+) */
   --q-best: #2f6336;
   --q-good: #4f6b4a;
-  --q-book: #6a675f;
+  --q-book: #68686d;
   --q-inaccuracy: #8a6a00;
   --q-mistake: #b3530a;
   --q-blunder: #a3302c;
@@ -114,7 +122,7 @@
   /* type */
   --font: 'Geist Variable', 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'Geist Mono Variable', 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
-  --display: 'Fraunces Variable', 'Fraunces', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --display: var(--font);
   --fs-xs: 0.75rem;
   --fs-sm: 0.8125rem;
   --fs-base: 0.9375rem;
@@ -128,21 +136,21 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg: #121211;
-    --bg-2: #161615;
-    --surface: #1a1a18;
-    --surface-2: #222220;
-    --surface-3: #2c2b28;
-    --glass: rgb(18 18 17 / 0.86);
-    --line: #292825;
-    --line-strong: #3a3934;
-    --text: #edebe6;
-    --text-2: #c6c3bb;
-    --muted: #9c988f;
-    --accent: #edebe6;
+    --bg: #141415;
+    --bg-2: #19191a;
+    --surface: #1e1e20;
+    --surface-2: #28282a;
+    --surface-3: #333336;
+    --glass: rgb(20 20 21 / 0.8);
+    --line: #2c2c2f;
+    --line-strong: #404044;
+    --text: #f2f2f3;
+    --text-2: #c8c8cd;
+    --muted: #9c9ca3;
+    --accent: #f2f2f3;
     --accent-hover: #ffffff;
-    --accent-ink: #141413;
-    --accent-soft: #2a2a26;
+    --accent-ink: #141415;
+    --accent-soft: #2c2c2f;
     --brand: #e8b04f;
     --brand-ink: #1f1604;
     --brand-soft: #2e2716;
@@ -158,7 +166,7 @@
     --info-soft: #172631;
     --q-best: #8cc492;
     --q-good: #a9bfa5;
-    --q-book: #9c988f;
+    --q-book: #9c9ca3;
     --q-inaccuracy: #e0c25a;
     --q-mistake: #f0a25e;
     --q-blunder: #ee8c86;
@@ -174,21 +182,21 @@
   }
 }
 :root[data-theme='dark'] {
-  --bg: #121211;
-  --bg-2: #161615;
-  --surface: #1a1a18;
-  --surface-2: #222220;
-  --surface-3: #2c2b28;
-  --glass: rgb(18 18 17 / 0.86);
-  --line: #292825;
-  --line-strong: #3a3934;
-  --text: #edebe6;
-  --text-2: #c6c3bb;
-  --muted: #9c988f;
-  --accent: #edebe6;
+  --bg: #141415;
+  --bg-2: #19191a;
+  --surface: #1e1e20;
+  --surface-2: #28282a;
+  --surface-3: #333336;
+  --glass: rgb(20 20 21 / 0.8);
+  --line: #2c2c2f;
+  --line-strong: #404044;
+  --text: #f2f2f3;
+  --text-2: #c8c8cd;
+  --muted: #9c9ca3;
+  --accent: #f2f2f3;
   --accent-hover: #ffffff;
-  --accent-ink: #141413;
-  --accent-soft: #2a2a26;
+  --accent-ink: #141415;
+  --accent-soft: #2c2c2f;
   --brand: #e8b04f;
   --brand-ink: #1f1604;
   --brand-soft: #2e2716;
@@ -204,7 +212,7 @@
   --info-soft: #172631;
   --q-best: #8cc492;
   --q-good: #a9bfa5;
-  --q-book: #9c988f;
+  --q-book: #9c9ca3;
   --q-inaccuracy: #e0c25a;
   --q-mistake: #f0a25e;
   --q-blunder: #ee8c86;
@@ -219,10 +227,10 @@
   color-scheme: dark;
 }
 
-:root[data-board='walnut'] { --board-light: #f0d9b5; --board-dark: #b58863; --board-hl: rgb(205 210 106 / 0.75); --board-hl-dark: rgb(170 162 58 / 0.85); }
-:root[data-board='forest'] { --board-light: #ebecd0; --board-dark: #739552; --board-hl: rgb(245 246 130 / 0.78); --board-hl-dark: rgb(185 202 67 / 0.9); }
-:root[data-board='ocean'] { --board-light: #dee3e6; --board-dark: #8ca2ad; }
-:root[data-board='rose'] { --board-light: #f3e5e0; --board-dark: #b07a74; }
+:root[data-board='walnut'] { --tint: #8a5a2c; --tint-hover: #764b23; --tint-text: #7c4f24; --board-light: #f0d9b5; --board-dark: #b58863; --board-hl: rgb(205 210 106 / 0.75); --board-hl-dark: rgb(170 162 58 / 0.85); }
+:root[data-board='forest'] { --tint: #3b7a3a; --tint-hover: #316832; --tint-text: #2f6a30; --board-light: #ebecd0; --board-dark: #739552; --board-hl: rgb(245 246 130 / 0.78); --board-hl-dark: rgb(185 202 67 / 0.9); }
+:root[data-board='ocean'] { --tint: #47708a; --tint-hover: #3a5f77; --tint-text: #3d647c; --board-light: #dee3e6; --board-dark: #8ca2ad; }
+:root[data-board='rose'] { --tint: #9a5852; --tint-hover: #854a45; --tint-text: #8a4d48; --board-light: #f3e5e0; --board-dark: #b07a74; }
 
 /* Narrow rail (icons only) on small laptops and tablets. */
 @media (max-width: 1180px) {
@@ -232,3 +240,11 @@
 @media (max-width: 760px) {
   :root { --rail: 0px; --header: 52px; --tabbar: calc(58px + env(safe-area-inset-bottom)); --gutter: 14px; }
 }
+
+:root[data-board='slate'] { --tint: #6b655a; --tint-hover: #59544a; --tint-text: #5f594f; }
+
+/* On dark surfaces the tint as text needs to be lighter; fills keep their colour. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) { --tint-text: color-mix(in srgb, var(--tint) 55%, white); --tint-soft: color-mix(in srgb, var(--tint) 24%, transparent); }
+}
+:root[data-theme='dark'] { --tint-text: color-mix(in srgb, var(--tint) 55%, white); --tint-soft: color-mix(in srgb, var(--tint) 24%, transparent); }

@@ -121,8 +121,8 @@ describe('public/theme-init.js', () => {
   });
 
   it('applies an explicit theme and leaves the system one alone', () => {
-    expect(firstPaint({ theme: 'dark' })).toMatchObject({ theme: 'dark', chrome: ['#121211', '#121211'] });
-    expect(firstPaint({ theme: 'light' })).toMatchObject({ theme: 'light', chrome: ['#f5f3ee', '#f5f3ee'] });
+    expect(firstPaint({ theme: 'dark' })).toMatchObject({ theme: 'dark', chrome: ['#141415', '#141415'] });
+    expect(firstPaint({ theme: 'light' })).toMatchObject({ theme: 'light', chrome: ['#f5f5f4', '#f5f5f4'] });
     expect(firstPaint({})).toMatchObject({ theme: undefined, chrome: ['unset', 'unset'] });
     expect(firstPaint({ theme: 'sepia' }).theme).toBeUndefined();
   });

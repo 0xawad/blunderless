@@ -16,7 +16,7 @@ export interface ThemeState {
 const KEY = 'theme';
 const DARK_QUERY = '(prefers-color-scheme: dark)';
 /** Browser chrome colour per scheme: --bg in src/styles/tokens.css (also in index.html and public/theme-init.js). */
-const CHROME = { light: '#f5f3ee', dark: '#121211' } as const;
+const CHROME = { light: '#f5f5f4', dark: '#141415' } as const;
 
 const systemDark = () => typeof matchMedia === 'function' && matchMedia(DARK_QUERY).matches;
 const resolve = (theme: Theme): ThemeState => ({ theme, dark: theme === 'dark' || (theme === 'system' && systemDark()) });

@@ -1,0 +1,85 @@
+/* =========================================================
+   System layer, loaded last. Applies the review in
+   DESIGN_SYSTEM.md ("Review against Apple's guidelines"):
+   one type family, the board's colour as the tint for actions
+   and selection, platform-sized touch targets, and answers for
+   increased contrast and reduced transparency.
+   ========================================================= */
+
+/* ---- type: one family; weight and size carry the hierarchy ---- */
+h1 {
+  font-family: var(--font);
+  font-weight: 700;
+  font-size: clamp(1.75rem, 1.35rem + 1.2vw, 2.125rem);
+  line-height: 1.1;
+  letter-spacing: -0.032em;
+}
+h2 { font-size: 1.1875rem; font-weight: 650; letter-spacing: -0.02em; }
+h3 { font-weight: 600; }
+.brand { font-family: var(--font); font-weight: 700; font-size: 1.125rem; letter-spacing: -0.035em; }
+.lead { font-size: 1.0625rem; color: var(--text-2); }
+.overlay-card h2 { font-family: var(--font); font-weight: 700; font-size: 1.375rem; letter-spacing: -0.025em; }
+.panel-head h1, .panel-head h2 { font-weight: 650; }
+
+/* Phones read at 17px, the platform default; nothing drops under 12px. */
+@media (max-width: 760px) {
+  body { font-size: 1.0625rem; }
+  .lead { font-size: 1.0625rem; }
+}
+
+/* ---- tint: primary actions, selection, progress, focus ---- */
+.btn { border-radius: 10px; }
+.btn.primary { background: var(--tint); color: var(--tint-ink); }
+.btn.primary:hover { background: var(--tint-hover); }
+.btn.lg { border-radius: 12px; }
+.linklike, .section-head a, .back:hover { color: var(--tint-text); }
+.linklike { text-decoration-color: color-mix(in srgb, var(--tint) 40%, transparent); }
+:focus-visible { outline-color: var(--tint); }
+input[type='text']:focus-visible, input:not([type]):focus-visible, input[type='search']:focus-visible, input[type='number']:focus-visible, select:focus-visible {
+  border-color: var(--tint); box-shadow: 0 0 0 3px var(--tint-soft);
+}
+input[type='range'], label.check input { accent-color: var(--tint); }
+.switch[aria-checked='true'] { background: var(--tint); }
+.progress > span, .meter .fill { background: var(--tint); }
+.chip.on, .chip[aria-pressed='true'] { background: var(--tint-soft); color: var(--tint-text); border-color: transparent; font-weight: 600; }
+.setup .segmented button.on { background: var(--tint); border-color: var(--tint); color: var(--tint-ink); }
+
+/* sidebar and tab bar: selection is the tint, not a raised chip */
+.rail { background: var(--bg-2); }
+.rail-item.active { background: var(--tint-soft); color: var(--tint-text); box-shadow: none; }
+.rail-item.active svg { color: var(--tint-text); }
+.mtabs a.active { color: var(--tint-text); }
+.mtabs a.active::before { display: none; }
+
+/* Today: the current step is tinted; amber stays for "due" counts only */
+.td-steps li.current .td-num { background: var(--tint); color: var(--tint-ink); }
+.td-steps li.current .td-step { background: var(--tint-soft); }
+.td-steps li.current .td-step:hover { background: color-mix(in srgb, var(--tint) 18%, transparent); }
+.rv-coach.start { box-shadow: inset 3px 0 0 var(--tint); }
+.comment { border-left-color: var(--tint); }
+.callout.brand { box-shadow: inset 3px 0 0 var(--tint); background: var(--tint-soft); }
+
+/* ---- surfaces: grouped content on a grey page ---- */
+.panel, .td-plan, .stage-panel, .side { border-radius: 16px; }
+.card { border-radius: 14px; }
+
+/* ---- touch targets: 44px on phones (minimum 28) ---- */
+@media (max-width: 760px) {
+  .btn { height: 44px; }
+  .btn.small { height: 36px; }
+  .seg button { height: 36px; }
+  .chip { height: 36px; }
+  input[type='text'], input:not([type]), input[type='search'], select { height: 44px; }
+  .stepper .btn { width: 48px; height: 44px; }
+  .row-link { min-height: 44px; }
+}
+
+/* ---- accessibility settings ---- */
+@media (prefers-contrast: more) {
+  :root { --line: var(--line-strong); --muted: var(--text-2); }
+  .btn.ghost, .chip { border-color: var(--text-2); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .mbar, .mtabs { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--bg); }
+  .board-overlay { backdrop-filter: none; -webkit-backdrop-filter: none; }
+}

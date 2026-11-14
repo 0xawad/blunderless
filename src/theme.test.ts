@@ -46,8 +46,8 @@ function browser({ osDark = false, saved }: { osDark?: boolean; saved?: string }
   };
 }
 
-const LIGHT = '#f5f3ee';
-const DARK = '#121211';
+const LIGHT = '#f5f5f4';
+const DARK = '#141415';
 
 /** A fresh copy of the module, as a page load would get. */
 async function load() {
