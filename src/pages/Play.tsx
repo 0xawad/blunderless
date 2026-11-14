@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { BoardRow, Stage, StageBoard, StageControls, StagePanel } from '../components/Stage';
+import { BulbIcon, FlipIcon, StepFirstIcon, StepLastIcon, StepNextIcon, StepPrevIcon, UndoIcon } from '../components/icons';
 import { San } from '../components/San';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Chess } from 'chess.js';
@@ -57,7 +59,7 @@ interface Setup {
 }
 
 type Verdict = 'best' | 'good' | 'inaccuracy' | 'mistake' | 'blunder';
-const VERDICT_MARK: Record<Verdict, string> = { best: '!', good: '', inaccuracy: '?!', mistake: '?', blunder: '??' };
+const VERDICT_MARK: Record<Verdict, string> = { best: '', good: '', inaccuracy: '?!', mistake: '?', blunder: '??' };
 
 export function Play() {
   const [params] = useSearchParams();
@@ -94,6 +96,11 @@ export function Play() {
         onNew={() => {
           clearSavedGame();
           setGame(null);
+        }}
+        onRematch={() => {
+          clearSavedGame();
+          // Same opponent and clock, other colour, as over the board.
+          setGame({ color: game.color === 'white' ? 'black' : 'white', n: Date.now() });
         }}
       />
     );
@@ -212,12 +219,14 @@ function PlayGame({
   startFen,
   resume,
   onNew,
+  onRematch,
 }: {
   setup: Setup;
   color: 'white' | 'black';
   startFen?: string;
   resume?: SavedGame;
   onNew: () => void;
+  onRematch: () => void;
 }) {
   const navigate = useNavigate();
   const toast = useToast();
@@ -240,6 +249,8 @@ function PlayGame({
   const [thinking, setThinking] = useState(false);
   // The coach is grading your last move: undo waits, so it cannot race the engine's reply.
   const [grading, setGrading] = useState(false);
+  // Bumped by every undo, so a verdict that arrives late for an undone move is dropped.
+  const undoGen = useRef(0);
   // The engine failed to reply; clocks are frozen until Retry.
   const [stuck, setStuckState] = useState(false);
   const stuckRef = useRef(false);
@@ -514,16 +525,15 @@ function PlayGame({
     if (checkOver()) return;
 
     // Coach: grade the move you just played against the pre-move evaluation.
-    // The position is remembered so that an undo (or anything else that changes
-    // the board) during the search cancels both the verdict and the reply.
     const played = chess.fen();
-    if (prefs.coach && before) {
-      setGrading(true);
+    const gen = undoGen.current;
+    const grade = async () => {
+      if (!prefs.coach || !before) return;
       try {
         const after = await getEngine().search(played, { depth: COACH_DEPTH });
-        if (!alive.current) return;
-        if (chess.fen() !== played) return;
-        const drop = before.win - myWin(after.score, chess.turn());
+        // An undo since then means this move is no longer in the game.
+        if (!alive.current || undoGen.current !== gen) return;
+        const drop = before.win - myWin(after.score, played.split(' ')[1] as Side);
         const v: Verdict =
           uci === before.best ? 'best' : drop < 5 ? 'good' : drop < 12 ? 'inaccuracy' : drop < 25 ? 'mistake' : 'blunder';
         const better = v === 'best' || v === 'good' ? undefined : uciToSan(before.fen, before.best);
@@ -532,10 +542,21 @@ function PlayGame({
         if (v === 'blunder') sfx('wrong');
       } catch {
         /* no verdict this time */
-      } finally {
-        if (alive.current) setGrading(false);
       }
+    };
+
+    if (timed) {
+      // The engine's clock is running: its search goes first, and the verdict follows
+      // whenever the engine has a spare moment. Grading never costs it time.
+      engineMove();
+      void grade();
+      return;
     }
+    // Untimed: the verdict comes first, so you read it before the reply lands. Undo
+    // waits meanwhile, and a position that changed under us cancels the reply.
+    setGrading(true);
+    await grade();
+    if (alive.current) setGrading(false);
     if (chess.fen() !== played || resultRef.current) return;
     engineMove();
   };
@@ -567,6 +588,7 @@ function PlayGame({
   /** Undo your last move (and the engine's reply if it already came). Untimed games only. */
   const undo = () => {
     if (thinking || grading || result || timed) return;
+    undoGen.current++;
     // Take back your last move, plus the engine's reply when it has already answered.
     const n = chess.turn() === mine ? 2 : 1;
     // Nothing of yours to take back (e.g. only the engine's first move is on the board).
@@ -729,47 +751,99 @@ function PlayGame({
   };
   const overText = result ? (reason === 'time' ? copy.play.onTime[result] : reason === 'resign' ? copy.play.resigned : reason === 'agreed' ? copy.play.drawAgreed : pick(copy.play.over[result])) : '';
 
+  const top: Side = bottom === 'w' ? 'b' : 'w';
+  const inPlay = !result && plyCount > 0;
+  const tally = summary.map((x) => copy.play.verdictCount(x.n, x.v)).join(' · ');
+
   return (
-    <div className="play">
-      <div className="board-stack">
-        {bar(bottom === 'w' ? 'b' : 'w')}
-        <Board
-          fen={shownFen}
-          orientation={orientation}
-          interactive={!viewing && myTurn && cctReady}
-          premovable={!viewing && !result && !pending && !setup.cct}
-          lastMove={shownLast}
-          shapes={shapes}
-          onMove={onMove}
-          resizable
-          overlay={
-            result && !dismissed ? (
-              <BoardOverlay>
-                <div className="big" aria-hidden>{result === 'win' ? '♔' : result === 'loss' ? '♟' : '½'}</div>
-                <h2>{copy.play.overTitle[result]}</h2>
-                <p className="muted">{overText}</p>
-                {summary.length > 0 && (
-                  <p className="muted">{summary.map((s) => copy.play.verdictCount(s.n, s.v)).join(' · ')}</p>
-                )}
-                <div className="row">
-                  {plyCount > 0 && <button className="btn primary" onClick={review} autoFocus>{copy.play.review}</button>}
-                  <button className="btn ghost" onClick={newGame} autoFocus={plyCount === 0}>{copy.play.newGame}</button>
-                  <button className="btn small" onClick={() => setDismissed(true)}>{copy.play.lookAtBoard}</button>
-                </div>
-              </BoardOverlay>
-            ) : null
-          }
-        />
+    <Stage bars controls className="pl">
+      <StageBoard>
+        {bar(top)}
+        <BoardRow>
+          <Board
+            fen={shownFen}
+            orientation={orientation}
+            interactive={!viewing && myTurn && cctReady}
+            premovable={!viewing && !result && !pending && !setup.cct}
+            lastMove={shownLast}
+            shapes={shapes}
+            onMove={onMove}
+            resizable
+            overlay={
+              result && !dismissed ? (
+                <BoardOverlay>
+                  <h2>{copy.play.overTitle[result]}</h2>
+                  <p className="muted">{overText}</p>
+                  {tally && <p className="muted">{tally}</p>}
+                  <div className="row">
+                    {plyCount > 0 && <button className="btn primary" onClick={review} autoFocus>{copy.play.review}</button>}
+                    <button className="btn ghost" onClick={onRematch} autoFocus={plyCount === 0}>{copy.play.rematch}</button>
+                    <button className="btn quiet small" onClick={() => setDismissed(true)}>{copy.play.lookAtBoard}</button>
+                  </div>
+                </BoardOverlay>
+              ) : null
+            }
+          />
+        </BoardRow>
         {bar(bottom)}
-      </div>
-      <aside className="card side playside">
+        <StageControls>
+          <div className="stepper">
+            <button className="btn" onClick={() => setView(0)} aria-label={copy.play.nav.first} disabled={!plyCount}><StepFirstIcon /></button>
+            <button className="btn" onClick={() => setView((v) => Math.max(0, (v ?? plyCount) - 1))} aria-label={copy.play.nav.prev} disabled={!plyCount || view === 0}><StepPrevIcon /></button>
+            <button className="btn" onClick={() => setView((v) => (v === null || v + 1 >= plyCount ? null : v + 1))} aria-label={copy.play.nav.next} disabled={!viewing}><StepNextIcon /></button>
+            <button className="btn" onClick={() => setView(null)} aria-label={copy.play.nav.live} disabled={!viewing}><StepLastIcon /></button>
+            <button className="btn" onClick={() => setFlipped((x) => !x)} aria-label={copy.play.flip} title={`${copy.play.flip} (F)`}><FlipIcon /></button>
+          </div>
+          {!result && (
+            <div className="pl-aids">
+              <button className="btn ghost" onClick={askHint} disabled={!myTurn || viewing}><BulbIcon />{copy.play.hint}</button>
+              {!timed && <button className="btn ghost" onClick={undo} disabled={thinking || grading || !canUndo}><UndoIcon />{copy.play.undo}</button>}
+            </div>
+          )}
+        </StageControls>
+      </StageBoard>
+
+      <StagePanel
+        label={copy.play.title}
+        head={
+          <>
+            <p className="kicker">
+              {copy.play.versus(copy.play.levels[setup.level] ?? '', copy.play.levelElo[setup.level] ?? '')}
+              {timed ? ` · ${TIMES[setup.time].label}` : ''}
+            </p>
+            <h2>{openingName || copy.play.panelTitle}</h2>
+          </>
+        }
+        foot={
+          result ? (
+            <>
+              {plyCount > 0 && <button className="btn primary" onClick={review}>{copy.play.review}</button>}
+              <button className="btn ghost" onClick={onRematch}>{copy.play.rematch}</button>
+              <button className="btn quiet" onClick={newGame}>{copy.play.newGame}</button>
+            </>
+          ) : confirmResign ? (
+            <>
+              <button className="btn danger-solid" onClick={resign}>{copy.play.resignConfirm}</button>
+              <button className="btn ghost" onClick={() => setConfirmResign(false)}>{copy.play.cancel}</button>
+            </>
+          ) : inPlay ? (
+            <>
+              <button className="btn ghost" onClick={offerDraw} disabled={!myTurn || asking || viewing}>{copy.play.offerDraw}</button>
+              <button className="btn danger" onClick={resign}>{copy.play.resign}</button>
+            </>
+          ) : (
+            // Nothing played yet: leaving costs nothing, so no resignation is needed.
+            <button className="btn ghost" onClick={newGame}>{copy.play.changeSetup}</button>
+          )
+        }
+      >
         {result ? (
           <div className={`feedback ${result === 'win' ? 'good' : result === 'loss' ? 'bad' : 'info'}`}>
             <div>
               {overText}
-              {summary.length > 0 && (
+              {tally && (
                 <div className="muted small" style={{ marginTop: '0.3rem' }}>
-                  {summary.map((s) => copy.play.verdictCount(s.n, s.v)).join(' · ')}
+                  {tally}
                   {hints ? ` · ${copy.play.hintsUsed(hints)}` : ''}
                 </div>
               )}
@@ -792,6 +866,7 @@ function PlayGame({
           </div>
         ) : (
           <div className="feedback info" role="status">
+            {thinking && <span className="spinner" aria-hidden />}
             {thinking ? pick(copy.play.thinking) : hint ? copy.play.hintShown(hint.level) : copy.play.yourTurn}
           </div>
         )}
@@ -813,6 +888,7 @@ function PlayGame({
             </div>
           </div>
         )}
+        {drawReply && !result && <p className="muted small" role="status">{drawReply}</p>}
         {verdict && !result && !w && !viewing && (
           <div className={`verdict ${verdict.v}`} role="status">
             <strong>{verdict.san}{VERDICT_MARK[verdict.v]}</strong> {copy.play.verdicts[verdict.v]}
@@ -823,76 +899,47 @@ function PlayGame({
         {setup.cct && myTurn && !viewing && (
           <div className="chips">
             {copy.play.cctChips.map((c, i) => (
-              <button key={c} className={`chip ${cct[i] ? 'on' : ''}`} aria-pressed={cct[i]} onClick={() => setCct(cct.map((v, j) => (j === i ? !v : v)))}>
-                {cct[i] ? '✓ ' : ''}{c}
+              <button key={c} className="chip" aria-pressed={cct[i]} onClick={() => setCct(cct.map((v, j) => (j === i ? !v : v)))}>
+                {c}
               </button>
             ))}
           </div>
         )}
 
-        <ol className="moves-grid">
-          {pairs.map((pair) => (
-            <li key={pair.n}>
-              <span className="num">{pair.n}.</span>
-              {startsBlack && pair.n === 1 && <span className="mvcell muted">…</span>}
-              {pair.moves.map(({ m, i }) => {
-                const on = viewing ? view === i + 1 : i === plyCount - 1;
-                return (
-                  <button
-                    key={i}
-                    className={`mvcell ${m.verdict ?? ''} ${on ? 'on' : ''}`}
-                    title={m.better ? copy.play.betterWas(m.better) : undefined}
-                    onClick={() => setView(i + 1 >= plyCount ? null : i + 1)}
-                  >
-                    <San san={m.san} color={m.color} />
-                    {m.verdict && VERDICT_MARK[m.verdict]}
-                  </button>
-                );
-              })}
-            </li>
-          ))}
-        </ol>
+        {pairs.length > 0 ? (
+          <div className="panel-section">
+            <ol className="moves-grid">
+              {pairs.map((pair) => (
+                <li key={pair.n}>
+                  <span className="num">{pair.n}.</span>
+                  {startsBlack && pair.n === 1 && <span className="mvcell muted">…</span>}
+                  {pair.moves.map(({ m, i }) => {
+                    const on = viewing ? view === i + 1 : i === plyCount - 1;
+                    return (
+                      <button
+                        key={i}
+                        className={`mvcell ${m.verdict ?? ''} ${on ? 'on' : ''}`}
+                        title={m.better ? copy.play.betterWas(m.better) : undefined}
+                        onClick={() => setView(i + 1 >= plyCount ? null : i + 1)}
+                      >
+                        <San san={m.san} color={m.color} />
+                        {m.verdict && VERDICT_MARK[m.verdict]}
+                      </button>
+                    );
+                  })}
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : null}
 
-        {openingName && <p className="muted small opening-line">{openingName}</p>}
-
-        <div className="row stepper play-nav">
-          <button className="btn ghost" onClick={() => setView(0)} aria-label="First move" disabled={!plyCount}>⏮</button>
-          <button className="btn ghost" onClick={() => setView((v) => Math.max(0, (v ?? plyCount) - 1))} aria-label="Previous move" disabled={!plyCount || view === 0}>◀</button>
-          <button className="btn ghost" onClick={() => setView((v) => (v === null || v + 1 >= plyCount ? null : v + 1))} aria-label="Next move" disabled={!viewing}>▶</button>
-          <button className="btn ghost" onClick={() => setView(null)} aria-label="Live position" disabled={!viewing}>⏭</button>
-          <button className="btn ghost" onClick={() => setFlipped((x) => !x)} aria-label={copy.play.flip} title={`${copy.play.flip} (F)`}>⇅</button>
-        </div>
-
-        <div className="row play-actions">
-          {!result && (
-            <>
-              <button className="btn ghost" onClick={askHint} disabled={!myTurn || viewing}>{copy.play.hint}</button>
-              {!timed && <button className="btn ghost" onClick={undo} disabled={thinking || grading || !canUndo}>{copy.play.undo}</button>}
-              {confirmResign ? (
-                <>
-                  <button className="btn danger-solid" onClick={resign}>{copy.play.resignConfirm}</button>
-                  <button className="btn ghost" onClick={() => setConfirmResign(false)}>{copy.play.cancel}</button>
-                </>
-              ) : (
-                <>
-                  <button className="btn ghost" onClick={offerDraw} disabled={!myTurn || asking || viewing}>{copy.play.offerDraw}</button>
-                  <button className="btn danger" onClick={resign}>{copy.play.resign}</button>
-                </>
-              )}
-            </>
-          )}
-          {drawReply && !result && <p className="muted small pl-draw" role="status">{drawReply}</p>}
-          {result && plyCount > 0 && (
-            <button className="btn primary" onClick={review}>{copy.play.review}</button>
-          )}
-          <button className="btn ghost" onClick={newGame}>{copy.play.newGame}</button>
-        </div>
         <p className="hint">
           {copy.play.youPlay(color)} · {setup.guard ? copy.play.guardOn : copy.play.guardOff}
-          {prefs.coach ? ` · ${copy.play.coachOn}` : ''} · {copy.play.saves(saves)}
+          {prefs.coach ? ` · ${copy.play.coachOn}` : ''}
+          {saves ? ` · ${copy.play.saves(saves)}` : ''}
           {hints ? ` · ${copy.play.hintsUsed(hints)}` : ''}
         </p>
-      </aside>
-    </div>
+      </StagePanel>
+    </Stage>
   );
 }

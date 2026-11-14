@@ -18,7 +18,7 @@ Audit of the code at `92baa3e` (before the takeover), and what the `redesign/tak
 | Engine wrapper | 4 | 4 | 0 |
 | Chess.com import, game store, analysis, queue, explanations | 12 | 11 | 1 |
 | Game review and games list | 9 | 9 | 0 |
-| Play | 12 | 8 | 4 |
+| Play | 12 | 10 | 2 |
 | Openings, drill, endgames, puzzles | 7 | 6 | 1 |
 | Backup and reset | 4 | 4 | 0 |
 | Shell, styles, service worker, accessibility | 17 | 16 | 1 |
@@ -48,13 +48,14 @@ Medium and low (selection): engine watchdog killed a slow search silently; games
 - **Onboarding** no longer leaves you on the welcome screen after connecting an account.
 - **Review deep links** (`?ply=N`) wait for the game to load.
 
+- **Play clock.** In timed games the engine's reply search now starts before the coach grades your move, so grading never runs on the engine's time.
+- **Saved games.** A save is replayed in full before it is offered; one with an unplayable move is refused, and a move list that does not match is rebuilt (`src/play/saved.ts`, tested).
+
 ### Open
 
 | Finding | Severity | Why it is open |
 |---|---|---|
 | Opening page replays every stored game during render | Medium | Should reuse the shared report cache that the openings index uses. |
-| Play: coach and prepare searches run on the engine's clock | Low | Verifier rated the impact low; needs the clock accounting reworked. |
-| Play: saved-game validation accepts a partially corrupt save | Medium | Resume should refuse a save that does not replay fully. |
 | Play: the page is still one large component | Maintainability | The races were fixed in place with position checks after each await; extracting a tested state machine is the proper follow-up. |
 | Analysis results are not persisted per position | Low | An in-memory cache covers retries within a tab; persisting needs a new table for little gain. |
 | Dark palette is defined twice in `tokens.css` | Low | `light-dark()` would remove the duplication; tests fail if the two copies or the theme-init script drift. |

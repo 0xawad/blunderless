@@ -93,3 +93,24 @@ export const BrandMark = (p: SVGProps<SVGSVGElement>) => (
     <rect x="7" y="16.5" width="8.5" height="8.5" rx="1.5" fill="var(--bg)" opacity="0.28" />
   </svg>
 );
+export const StepFirstIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M6 5v14" /><path d="m18 6-8 6 8 6z" /></svg>
+);
+export const StepPrevIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="m16 6-8 6 8 6z" /></svg>
+);
+export const StepNextIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="m8 6 8 6-8 6z" /></svg>
+);
+export const StepLastIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M18 5v14" /><path d="m6 6 8 6-8 6z" /></svg>
+);
+export const FlipIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M7 4v16M7 4 4 7M7 4l3 3" /><path d="M17 20V4M17 20l-3-3M17 20l3-3" /></svg>
+);
+export const BulbIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z" /></svg>
+);
+export const UndoIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M8 7 4 11l4 4" /><path d="M4 11h10a5 5 0 0 1 0 10h-3" /></svg>
+);

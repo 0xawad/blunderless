@@ -60,3 +60,11 @@ details.chapter > summary h2 { font-size: var(--fs-md); }
 }
 
 .pl-draw { flex: 1 1 100%; margin: 4px 0 0; }
+
+/* ---- play: aids beside the stepper, status spinner ---- */
+.pl-aids { display: flex; gap: 6px; margin-left: auto; }
+.pl .feedback .spinner { margin-top: 3px; }
+@media (max-width: 560px) {
+  .pl-aids .btn { padding: 0 0.7rem; }
+  .pl .stage-controls { flex-wrap: wrap; }
+}

@@ -79,3 +79,11 @@ Running record of the takeover on branch `redesign/takeover`. Nothing here is on
 - **UI sweep** at 1360px and 390px with real data. Endgames is now rows under sections; the opening page and Play setup lost their boxed cards (`src/styles/polish.css`, to be deleted as those pages are rebuilt); on phones the review's coach note sits directly under the board.
 - **Not a bug:** plan steps that looked invisible in screenshots were the test browser freezing CSS animations while its pane was hidden.
 - Existing reviews do not have merit labels or `finalPv` until the game is reviewed again.
+
+## Play pass
+
+- The game screen is on the shared board stage: player bars, board, a control row (step through moves, flip, hint, undo), and a panel with the opponent and opening in its head, the status, coach verdict and move list in its body, and the actions pinned in its foot.
+- Rematch (same opponent and clock, colours swapped) from the result overlay and the panel. "New game" is not offered mid-game: resign ends a game, and before the first move the button reads "Change setup".
+- Offer draw: considered after 30 plies, accepted when your winning chance is at least 50%.
+- "Play from here" in game review opens Play from the position on the board.
+- Checked in the browser by script (the app window was hidden, so no screenshots): a move, the verdict, the engine's reply, resign with confirmation, the result overlay, rematch as Black with the engine moving first; no page scroll at 1360x850; no horizontal overflow at 390px.

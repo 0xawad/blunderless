@@ -83,3 +83,8 @@ input[type='range'], label.check input { accent-color: var(--tint); }
   .mbar, .mtabs { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--bg); }
   .board-overlay { backdrop-filter: none; -webkit-backdrop-filter: none; }
 }
+
+/* Board screens fit the viewport: no page scroll under the board on desktop. */
+@media (min-width: 901px) {
+  .main:has(.stage), .main:has(.play) { padding-bottom: 20px; }
+}

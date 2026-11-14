@@ -291,6 +291,11 @@ export function GameReview() {
             {exploring && (
               <button className="btn small" onClick={() => setVariation([])}>{copy.review.backToGame}</button>
             )}
+            {!retry && !new Chess(fen).isGameOver() && (
+              <Link className="btn small ghost" to={`/play?fen=${encodeURIComponent(fen)}&color=${game.userColor}`} title={copy.review.playFromHereHint}>
+                {copy.review.playFromHere}
+              </Link>
+            )}
             <span className="hint" style={{ margin: 0 }}>{exploring ? '' : copy.review.exploreHint}</span>
           </div>
           </div>
