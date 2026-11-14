@@ -45,7 +45,7 @@ Running record of the takeover on branch `redesign/takeover`. Nothing here is on
 
 ## Known gaps
 
-- Openings index, opening page, Learn, Drill, Explore/Spar, Puzzles, Endgames, the Play setup screen and the review side panel keep their previous markup. They pick up the new tokens, type, buttons and board layout, but their panels have not been rebuilt on `<Stage>`/`<Section>` and still use `src/styles/legacy.css`. That file can be deleted once they are.
+- The review screen is the only board screen still on the older `.play`/`.side` markup (restyled, with the shared stepper). The opening page and Play setup are restyled by `polish.css` but not restructured. `legacy.css` stays until those are rebuilt.
 - Open engineering items are listed in `TECHNICAL_AUDIT.md`.
 
 ## Migrations and compatibility
@@ -100,3 +100,11 @@ Running record of the takeover on branch `redesign/takeover`. Nothing here is on
 - The floating tab bar needs more room: `--tabbar` is now 80px plus the safe area.
 - First pass used the regular fill on the phone bars; measured against a light board square in dark mode the labels failed, so the bars got a denser fill and brighter labels.
 - Verified by measurement at 1360px and 390px (no overflow, computed styles, contrast). One phone screenshot was captured; the desktop screenshot timed out because the app window was hidden.
+
+## Panels pass
+
+- Learn, Drill, Explore, Spar, Puzzles and the endgame trainer are on `<Stage>` with a head (where you are, progress), a scrolling body, and a foot that pins the primary action. Play was already there.
+- `<MoveStepper>` in `src/components/Stage.tsx` replaces the glyph buttons on every screen that steps through moves, review included.
+- Review: on desktop the eval graph moved above the side panel, which took the board from 480px to 575px at 1360x850. The panel head shows the result as a badge and the opponent; the tabs are the shared segmented control.
+- Phones: the panel's action bar was scrolling out of sight (931px down on an 800px screen in Learn). It is now a floating glass bar pinned above the tab bar, or at the bottom edge in focus mode.
+- Measured at 1360x850 and 390x800 on Learn, Explore, Spar, Puzzles (own and themed), the endgame trainer and review: boards 575 to 693px on desktop, no page scroll, no horizontal overflow, no console errors. Not seen: the app window was hidden, so there are no screenshots of these screens.

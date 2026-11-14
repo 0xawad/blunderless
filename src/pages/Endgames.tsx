@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader, Section } from '../components/ui';
-import { CheckIcon, CrownIcon } from '../components/icons';
+import { ArrowLeftIcon, CheckIcon, CrownIcon } from '../components/icons';
+import { BoardRow, Stage, StageBoard, StagePanel } from '../components/Stage';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Chess } from 'chess.js';
 import { getSetting, setSetting } from '../srs/db';
@@ -167,80 +168,89 @@ function EndgameGame({
 
   return (
     <>
-      <button className="btn ghost small" onClick={onBack} style={{ marginBottom: '0.8rem' }}>
-        {copy.back}
-      </button>
-      <div className="play">
-        <Board
-          fen={chess.fen()}
-          orientation={eg.side}
-          interactive={myTurn}
-          lastMove={last}
-          onMove={onMove}
-          overlay={
-            result ? (
-              <BoardOverlay>
-                <div className="big" aria-hidden>{result === 'win' ? '♔' : '♟'}</div>
-                <h2>{result === 'win' ? lines.win : lines.fail}</h2>
-                {result === 'fail' && <p className="muted">{eg.tip}</p>}
-                <div className="row">
-                  {result === 'win' ? (
-                    <button className="btn primary" onClick={onNext} autoFocus>{copy.next}</button>
-                  ) : (
-                    <button className="btn primary" onClick={onRetry} autoFocus>{copy.retry}</button>
-                  )}
-                  <button className="btn ghost" onClick={onBack}>{copy.another}</button>
-                </div>
-              </BoardOverlay>
-            ) : null
+      <button className="back" onClick={onBack}><ArrowLeftIcon />{copy.back}</button>
+      <Stage>
+        <StageBoard>
+          <BoardRow>
+            <Board
+              fen={chess.fen()}
+              orientation={eg.side}
+              interactive={myTurn}
+              lastMove={last}
+              onMove={onMove}
+              overlay={
+                result ? (
+                  <BoardOverlay>
+                    <h2>{result === 'win' ? lines.win : lines.fail}</h2>
+                    {result === 'fail' && <p className="muted">{eg.tip}</p>}
+                    <div className="row">
+                      {result === 'win' ? (
+                        <button className="btn primary" onClick={onNext} autoFocus>{copy.next}</button>
+                      ) : (
+                        <button className="btn primary" onClick={onRetry} autoFocus>{copy.retry}</button>
+                      )}
+                      <button className="btn ghost" onClick={onBack}>{copy.another}</button>
+                    </div>
+                  </BoardOverlay>
+                ) : null
+              }
+            />
+          </BoardRow>
+        </StageBoard>
+        <StagePanel
+          label={eg.title}
+          head={
+            <>
+              <p className="kicker">{copy.side(eg.side)} · {copy.goal[eg.goal](eg.maxMoves)}</p>
+              <h2>{eg.title}</h2>
+              <div className="progress" style={{ marginTop: 12 }} role="img" aria-label={copy.moves(Math.min(moves, eg.maxMoves), eg.maxMoves)}>
+                <span style={{ width: `${Math.min(100, (moves / eg.maxMoves) * 100)}%` }} />
+              </div>
+              <p className="muted small" style={{ margin: '6px 0 0' }}>{copy.moves(Math.min(moves, eg.maxMoves), eg.maxMoves)}</p>
+            </>
           }
-        />
-        <aside className="card side">
-          <p className="eyebrow">
-            {copy.side(eg.side)} · {copy.goal[eg.goal](eg.maxMoves)}
-          </p>
-          <h2>{eg.title}</h2>
-
-          <p className="muted small">{copy.moves(Math.min(moves, eg.maxMoves), eg.maxMoves)}</p>
-          <div className="progress">
-            <span style={{ width: `${Math.min(100, (moves / eg.maxMoves) * 100)}%` }} />
-          </div>
-
+          foot={
+            result === 'win' ? (
+              <>
+                <button className="btn primary" onClick={onNext}>{copy.next}</button>
+                <button className="btn ghost" onClick={onBack}>{copy.another}</button>
+              </>
+            ) : result === 'fail' ? (
+              <>
+                <button className="btn primary" onClick={onRetry}>{copy.retry}</button>
+                <button className="btn ghost" onClick={onBack}>{copy.another}</button>
+              </>
+            ) : (
+              <button className="btn ghost" onClick={onRetry}>{copy.restart}</button>
+            )
+          }
+        >
           {result === 'win' ? (
             <div className="feedback good" role="status">{lines.win}</div>
           ) : result === 'fail' ? (
-            <div className="feedback bad" role="alert">{lines.fail} {eg.tip}</div>
+            <div className="feedback bad" role="alert">{lines.fail}</div>
+          ) : stuck ? (
+            <div className="feedback bad" role="alert">
+              <div>
+                {copy.engineStuck}
+                <div className="row">
+                  <button className="btn small" onClick={() => void engineMove()}>{copy.engineRetry}</button>
+                </div>
+              </div>
+            </div>
           ) : (
-            <>
-              {stuck ? (
-                <div className="feedback bad" role="alert">
-                  <div>
-                    {copy.engineStuck}
-                    <div className="row">
-                      <button className="btn small" onClick={() => void engineMove()}>{copy.engineRetry}</button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="feedback info" role="status">
-                  {thinking ? pick(copy.thinking) : copy.yourTurn}
-                </div>
-              )}
-              <p className="hint">
-                <strong>{copy.tipLabel}:</strong> {eg.tip}
-              </p>
-            </>
-          )}
-
-          <p className="muted small">{chess.history().slice(-12).join(' ')}</p>
-
-          {!result && (
-            <div className="row">
-              <button className="btn ghost" onClick={onRetry}>{copy.restart}</button>
+            <div className="feedback info" role="status">
+              {thinking && <span className="spinner" aria-hidden />}
+              {thinking ? pick(copy.thinking) : copy.yourTurn}
             </div>
           )}
-        </aside>
-      </div>
+          <div className="comment">
+            <strong>{copy.tipLabel}: </strong>
+            {eg.tip}
+          </div>
+          {chess.history().length > 0 && <p className="hint num">{chess.history().slice(-12).join(' ')}</p>}
+        </StagePanel>
+      </Stage>
     </>
   );
 }

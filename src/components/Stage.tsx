@@ -1,6 +1,7 @@
 // Layout helpers for every screen with a board. Styles: src/styles/board.css.
 import type { CSSProperties, ReactNode } from 'react';
 import type { MoveClass } from '../srs/types';
+import { FlipIcon, StepFirstIcon, StepLastIcon, StepNextIcon, StepPrevIcon } from './icons';
 
 /**
  * The two-column board layout. `bars` reserves room for player bars above and
@@ -86,5 +87,39 @@ export function SquareBadge({ cls, square, orientation, merit }: { cls: MoveClas
     <span className={`sq-badge ${merit ?? cls}`} style={squareBadgeStyle(square, orientation)} aria-hidden>
       {glyph}
     </span>
+  );
+}
+
+/**
+ * First / previous / next / last, and optionally flip. One control for every
+ * screen that steps through moves, so it looks and behaves the same everywhere.
+ */
+export function MoveStepper({
+  onFirst,
+  onPrev,
+  onNext,
+  onLast,
+  onFlip,
+  canBack = true,
+  canForward = true,
+  labels = { first: 'First move', prev: 'Previous move', next: 'Next move', last: 'Last move', flip: 'Flip the board' },
+}: {
+  onFirst: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  onLast: () => void;
+  onFlip?: () => void;
+  canBack?: boolean;
+  canForward?: boolean;
+  labels?: { first: string; prev: string; next: string; last: string; flip: string };
+}) {
+  return (
+    <div className="stepper" role="group" aria-label="Moves">
+      <button type="button" className="btn" onClick={onFirst} disabled={!canBack} aria-label={labels.first} title={labels.first}><StepFirstIcon /></button>
+      <button type="button" className="btn" onClick={onPrev} disabled={!canBack} aria-label={labels.prev} title={labels.prev}><StepPrevIcon /></button>
+      <button type="button" className="btn" onClick={onNext} disabled={!canForward} aria-label={labels.next} title={labels.next}><StepNextIcon /></button>
+      <button type="button" className="btn" onClick={onLast} disabled={!canForward} aria-label={labels.last} title={labels.last}><StepLastIcon /></button>
+      {onFlip && <button type="button" className="btn" onClick={onFlip} aria-label={labels.flip} title={`${labels.flip} (F)`}><FlipIcon /></button>}
+    </div>
   );
 }

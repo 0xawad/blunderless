@@ -216,3 +216,4 @@ kbd { font: 500 0.75rem var(--mono); padding: 1px 5px; border-radius: 5px; borde
 
 .dot.great { background: var(--q-great-fill); }
 .dot.brilliant { background: var(--q-brilliant-fill); }
+button.back { border: 0; background: none; font: inherit; font-size: var(--fs-sm); font-weight: 500; cursor: pointer; padding: 0; }

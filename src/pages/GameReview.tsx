@@ -22,9 +22,9 @@ import { EvalGraph } from '../components/EvalGraph';
 import { BookChip } from './Games';
 import { useToast } from '../components/Toast';
 import { PlayerBar } from '../components/PlayerBar';
-import { EvalBar, SquareBadge } from '../components/Stage';
-import { BackLink, EmptyState } from '../components/ui';
-import { GamesIcon } from '../components/icons';
+import { EvalBar, MoveStepper, SquareBadge } from '../components/Stage';
+import { BackLink, EmptyState, Segmented } from '../components/ui';
+import { ArrowLeftIcon, ArrowRightIcon, GamesIcon } from '../components/icons';
 
 // In chess notation "!" means a strong move, not "the engine agrees", so best moves carry colour and no mark.
 const MARK: Record<string, string> = { blunder: '??', 'missed-win': '??', mistake: '?', inaccuracy: '?!', best: '', book: '' };
@@ -283,11 +283,15 @@ export function GameReview() {
             {bar(orientation)}
           </div>
           <div className="row stepper under-board">
-            <button className="btn ghost" onClick={() => go(0)} aria-label="Start" disabled={!!retry}>⏮</button>
-            <button className="btn ghost" onClick={() => (exploring ? setVariation((v) => v.slice(0, -1)) : go(Math.max(0, ply - 1)))} aria-label="Back" disabled={!!retry}>◀</button>
-            <button className="btn ghost" onClick={() => go(Math.min(plies.length, ply + 1))} aria-label="Forward" disabled={exploring || !!retry}>▶</button>
-            <button className="btn ghost" onClick={() => go(plies.length)} aria-label="End" disabled={!!retry}>⏭</button>
-            <button className="btn ghost" onClick={() => setFlipped((x) => !x)} aria-label={copy.play.flip} title={`${copy.play.flip} (F)`}>⇅</button>
+            <MoveStepper
+              onFirst={() => go(0)}
+              onPrev={() => (exploring ? setVariation((v) => v.slice(0, -1)) : go(Math.max(0, ply - 1)))}
+              onNext={() => go(Math.min(plies.length, ply + 1))}
+              onLast={() => go(plies.length)}
+              onFlip={() => setFlipped((x) => !x)}
+              canBack={!retry && (exploring || ply > 0)}
+              canForward={!retry && !exploring && ply < plies.length}
+            />
             {exploring && (
               <button className="btn small" onClick={() => setVariation([])}>{copy.review.backToGame}</button>
             )}
@@ -303,11 +307,12 @@ export function GameReview() {
         </div>
 
         <aside className="card side">
-          <p className="eyebrow">
-            {game.white} vs {game.black} · {game.result}
+          <p className="kicker">
+            <span className={`badge ${game.result === 'win' ? 'good' : game.result === 'loss' ? 'bad' : ''}`}>{copy.games.resultWord[game.result]}</span>
+            {copy.games.vs(game.userColor === 'white' ? game.black : game.white)}
             {a?.opening && <> · {a.opening.eco}</>}
           </p>
-          {a?.opening && <h2 className="opening-name">{a.opening.name}</h2>}
+          <h2 className="opening-name">{a?.opening?.name ?? game.opening?.name ?? copy.review.untitled}</h2>
 
           {!a && (
             <div className="row" style={{ marginBottom: '0.8rem' }}>
@@ -368,14 +373,14 @@ export function GameReview() {
 
           {a && !retry && !exploring && myMistakes.length > 0 && (
             <div className="row mistake-nav">
-              <button className="btn ghost small" disabled={prevMistake === undefined} onClick={() => prevMistake !== undefined && go(prevMistake)} aria-label={copy.review.prevMistake}>
-                ←
+              <button className="btn ghost small icon" disabled={prevMistake === undefined} onClick={() => prevMistake !== undefined && go(prevMistake)} aria-label={copy.review.prevMistake} title={copy.review.prevMistake}>
+                <ArrowLeftIcon />
               </button>
               <span className="muted small mistake-count">
                 {copy.review.mistakeCount(myMistakes.filter((i) => i < ply).length, myMistakes.length)}
               </span>
               <button className="btn small" disabled={nextMistake === undefined} onClick={() => nextMistake !== undefined && go(nextMistake)}>
-                {copy.review.nextMistake} →
+                {copy.review.nextMistake}<ArrowRightIcon />
               </button>
             </div>
           )}
@@ -411,12 +416,8 @@ export function GameReview() {
           )}
 
           {a && !retry && !exploring && (
-            <div className="tabs compact" role="group">
-              {(['summary', 'moves', 'engine'] as Tab[]).map((t) => (
-                <button key={t} aria-pressed={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
-                  {copy.review.tabs[t]}
-                </button>
-              ))}
+            <div className="rv-tabs">
+              <Segmented label={copy.review.viewLabel} value={tab} onChange={setTab} block options={(['summary', 'moves', 'engine'] as Tab[]).map((t) => ({ value: t, label: copy.review.tabs[t] }))} />
             </div>
           )}
 

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { BoardRow, MoveStepper, Stage, StageBoard, StageControls, StagePanel } from '../components/Stage';
+import { BackLink } from '../components/ui';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { DrawShape } from 'chessground/draw';
@@ -132,29 +134,62 @@ export function Learn() {
     navigate(`/drill?line=${encodeURIComponent(line.id)}`);
   };
 
+  const total = line.plies.length;
   return (
     <>
-      <Link to={`/openings/${rep.id}`} className="back">← {rep.title}</Link>
-      <div className="play">
-        <Board
-          fen={fen}
-          orientation={rep.side}
-          lastMove={last && [last.from, last.to]}
-          shapes={shapes}
-          interactive={yourTurn}
-          onMove={onMove}
-        />
-        <aside className="card side">
-          <div className="page-head" style={{ marginBottom: '0.2rem' }}>
-            <div>
-              <p className="eyebrow">{line.chapterTitle}</p>
-              <h2>{line.label}</h2>
-            </div>
-            <button className={`chip ${think ? 'on' : ''}`} aria-pressed={think} onClick={toggleThink} title={copy.learn.thinkHint}>
-              {copy.learn.think}
-            </button>
-          </div>
+      <BackLink to={`/openings/${rep.id}`}>{rep.title}</BackLink>
+      <Stage controls>
+        <StageBoard>
+          <BoardRow>
+            <Board
+              fen={fen}
+              orientation={rep.side}
+              lastMove={last && [last.from, last.to]}
+              shapes={shapes}
+              interactive={yourTurn}
+              onMove={onMove}
+            />
+          </BoardRow>
+          <StageControls>
+            <MoveStepper
+              onFirst={() => step(0)}
+              onPrev={() => step(Math.max(0, ply - 1))}
+              onNext={() => step(Math.min(total, ply + 1))}
+              onLast={() => step(total)}
+              canBack={ply > 0}
+              canForward={!atEnd}
+            />
+            <span className="hint">{copy.learn.keys}</span>
+          </StageControls>
+        </StageBoard>
 
+        <StagePanel
+          label={line.label}
+          head={
+            <>
+              <div className="between">
+                <p className="kicker">{line.chapterTitle}</p>
+                <button className="chip" aria-pressed={think} onClick={toggleThink} title={copy.learn.thinkHint}>{copy.learn.think}</button>
+              </div>
+              <h2>{line.label}</h2>
+              <div className="progress" style={{ marginTop: 12 }} role="img" aria-label={copy.learn.progress(Math.ceil(ply / 2), Math.ceil(total / 2))}>
+                <span style={{ width: `${(ply / total) * 100}%` }} />
+              </div>
+            </>
+          }
+          foot={
+            atEnd ? (
+              <>
+                <button className="btn primary" onClick={drillNow}>{copy.learn.drillNow}</button>
+                {next && <Link className="btn ghost" to={`/learn/${rep.id}/${Number(index) + 1}`}>{copy.learn.nextLine}</Link>}
+              </>
+            ) : yourTurn ? (
+              <button className="btn ghost" onClick={() => step(Math.min(total, ply + 1))}>{copy.learn.showMe}</button>
+            ) : (
+              <button className="btn primary" onClick={() => step(Math.min(total, ply + 1))}>{copy.learn.nextMove}</button>
+            )
+          }
+        >
           {branchAt > 0 && ply === branchAt && !quizMsg && (
             <p className="muted small">{copy.learn.skipped(Math.floor(branchAt / 2) + 1)}</p>
           )}
@@ -170,67 +205,49 @@ export function Learn() {
             {comment}
           </div>
 
-          <ol className="movelist">
-            {line.plies.map((p, i) => {
-              const hidden = think && i >= ply && !atEnd;
-              return (
-                <li key={i}>
-                  <button
-                    className={`mv ${i === ply - 1 ? 'on' : ''} ${p.comment || p.shapes ? 'has-note' : ''} ${hidden ? 'hidden-mv' : ''}`}
-                    onClick={() => step(i + 1)}
-                    disabled={hidden}
-                  >
-                    {hidden ? (i % 2 === 0 ? `${Math.floor(i / 2) + 1}. ?` : '?') : i % 2 === 0 ? formatPly(i, p.san) : p.san}
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-
-          <div className="progress" aria-hidden>
-            <span style={{ width: `${(ply / line.plies.length) * 100}%` }} />
-          </div>
-          <div className="row stepper">
-            <button className="btn ghost" onClick={() => step(0)} aria-label="Start">⏮</button>
-            <button className="btn ghost" onClick={() => step(Math.max(0, ply - 1))} aria-label="Back">◀</button>
-            <button className={`btn ${yourTurn ? 'ghost wide' : 'primary'}`} onClick={() => step(Math.min(line.plies.length, ply + 1))} aria-label="Forward" disabled={atEnd}>
-              {yourTurn ? copy.learn.showMe : '▶'}
-            </button>
-            <button className="btn ghost" onClick={() => step(line.plies.length)} aria-label="End">⏭</button>
-            <span className="hint" style={{ margin: 0 }}>{copy.learn.keys}</span>
-          </div>
-
           {atEnd && chapter?.plans && (
             <div className="comment">
-              <strong>What now: </strong>
+              <strong>{copy.learn.whatNow} </strong>
               {chapter.plans}
             </div>
           )}
 
+          <div className="panel-section">
+            <ol className="movelist">
+              {line.plies.map((p, i) => {
+                const hidden = think && i >= ply && !atEnd;
+                return (
+                  <li key={i}>
+                    <button
+                      className={`mv ${i === ply - 1 ? 'on' : ''} ${p.comment || p.shapes ? 'has-note' : ''} ${hidden ? 'hidden-mv' : ''}`}
+                      onClick={() => step(i + 1)}
+                      disabled={hidden}
+                    >
+                      {hidden ? (i % 2 === 0 ? `${Math.floor(i / 2) + 1}. ?` : '?') : i % 2 === 0 ? formatPly(i, p.san) : p.san}
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+
           {atEnd && (
-            <div className="end-box">
+            <div className="panel-section">
               <p>{inQueue ? copy.learn.added : copy.learn.endOfLine}</p>
-              <div className="row">
-                <button className="btn primary" onClick={drillNow}>{copy.learn.drillNow}</button>
+              <div className="cluster">
                 {!inQueue && (
-                  <button className="btn ghost" onClick={() => addLine(line).then(() => toast(copy.learn.added, 'good'))}>
+                  <button className="btn ghost small" onClick={() => addLine(line).then(() => toast(copy.learn.added, 'good'))}>
                     {copy.learn.addToDrill}
                   </button>
                 )}
-                <Link
-                  className="btn ghost"
-                  to={`/play?fen=${encodeURIComponent(line.plies[line.plies.length - 1].fenAfter)}&color=${rep.side}`}
-                >
+                <Link className="btn ghost small" to={`/play?fen=${encodeURIComponent(line.plies[total - 1].fenAfter)}&color=${rep.side}`}>
                   {copy.learn.playOut}
                 </Link>
-                {next && (
-                  <Link className="btn ghost" to={`/learn/${rep.id}/${Number(index) + 1}`}>Next line →</Link>
-                )}
               </div>
             </div>
           )}
-        </aside>
-      </div>
+        </StagePanel>
+      </Stage>
     </>
   );
 }

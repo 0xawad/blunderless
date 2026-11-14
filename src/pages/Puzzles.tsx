@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BoardRow, Stage, StageBoard, StagePanel } from '../components/Stage';
+import { Segmented } from '../components/ui';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Callout, EmptyState } from '../components/ui';
 import { PuzzleIcon } from '../components/icons';
@@ -67,26 +69,27 @@ export function Puzzles() {
 
   return (
     <>
-      <div className="tall-head" />
-      <h1>{copy.puzzles.title}</h1>
-      <p className="lead">{copy.puzzles.lead}</p>
-      <div className="puzzle-modes">
-        <div className="tabs" role="group">
-          <button aria-pressed={tab === 'mine'} className={tab === 'mine' ? 'on' : ''} onClick={() => setTab('mine')}>
-            {copy.puzzles.mine} {due?.length ? <span className="badge due">{due.length}</span> : null}
-          </button>
-          <button aria-pressed={tab !== 'mine'} className={tab !== 'mine' ? 'on' : ''} onClick={() => setTab(tab === 'mine' ? 'mixed' : tab)}>
-            {copy.puzzles.themed}
-          </button>
+      <div className="map-head pz-head">
+        <h1>{copy.puzzles.title}</h1>
+        <div className="cluster">
+          {tab !== 'mine' && (
+            <select aria-label={copy.puzzles.themeLabel} value={tab} onChange={(e) => setTab(e.target.value)}>
+              <option value="mixed">{copy.puzzles.mixed}</option>
+              {THEMES.map((t) => (
+                <option key={t} value={t}>{copy.puzzles.themeNames[t]}</option>
+              ))}
+            </select>
+          )}
+          <Segmented
+            label={copy.puzzles.title}
+            value={tab === 'mine' ? 'mine' : 'themed'}
+            onChange={(v) => setTab(v === 'mine' ? 'mine' : tab === 'mine' ? 'mixed' : tab)}
+            options={[
+              { value: 'mine', label: <>{copy.puzzles.mine}{due?.length ? <span className="count">{due.length > 99 ? '99+' : due.length}</span> : null}</> },
+              { value: 'themed', label: copy.puzzles.themed },
+            ]}
+          />
         </div>
-        {tab !== 'mine' && (
-          <select aria-label={copy.puzzles.themeLabel} value={tab} onChange={(e) => setTab(e.target.value)}>
-            <option value="mixed">{copy.puzzles.mixed}</option>
-            {THEMES.map((t) => (
-              <option key={t} value={t}>{copy.puzzles.themeNames[t]}</option>
-            ))}
-          </select>
-        )}
       </div>
       {tab === 'mine' ? (
         <ReviewQueue due={due} />
@@ -343,46 +346,57 @@ function PuzzleRun({
   const yourTurn = state === 'playing' && !checking && idx >= offset && chess.turn() === userColor[0];
 
   return (
-    <div className="play">
-      <Board
-        fen={fen}
-        orientation={userColor}
-        interactive={state === 'playing' && !checking && idx >= offset && chess.turn() === userColor[0]}
-        lastMove={last}
-        shapes={shapes}
-        onMove={onMove}
-      />
-      <aside className="card side">
-        <p className="eyebrow">{label}</p>
-        <div className="turn-row">
-          <span className={`player-dot ${chess.turn() === 'w' ? 'white' : 'black'}`} aria-hidden />
-          <strong>{state === 'playing' ? copy.puzzles.toMove(toMove, yourTurn) : copy.puzzles.over}</strong>
-          {puzzle.rating && <span className="muted small">· {copy.puzzles.puzzleRating(puzzle.rating)}</span>}
-        </div>
+    <Stage>
+      <StageBoard>
+        <BoardRow>
+          <Board
+            fen={fen}
+            orientation={userColor}
+            interactive={state === 'playing' && !checking && idx >= offset && chess.turn() === userColor[0]}
+            lastMove={last}
+            shapes={shapes}
+            onMove={onMove}
+          />
+        </BoardRow>
+      </StageBoard>
+      <StagePanel
+        label={copy.puzzles.title}
+        head={
+          <>
+            <p className="kicker">
+              {label}
+              {puzzle.rating ? ` · ${copy.puzzles.puzzleRating(puzzle.rating)}` : ''}
+            </p>
+            <h2 className="pz-turn">
+              <span className={`player-dot ${chess.turn() === 'w' ? 'white' : 'black'}`} aria-hidden />
+              {state === 'playing' ? copy.puzzles.toMove(toMove, yourTurn) : copy.puzzles.over}
+            </h2>
+          </>
+        }
+        foot={
+          state === 'playing' ? (
+            <>
+              <button className="btn ghost" onClick={askHint} disabled={!yourTurn || hint >= 2}>
+                {hint === 1 ? copy.puzzles.hintMore : copy.puzzles.hint}
+              </button>
+              <button className="btn quiet" onClick={onSkip} disabled={checking}>{copy.puzzles.skip}</button>
+            </>
+          ) : (
+            <button className="btn primary" onClick={onNext} autoFocus>{copy.puzzles.next}</button>
+          )
+        }
+      >
         <div className={`feedback ${state === 'solved' ? 'good' : state === 'failed' ? 'bad' : 'info'}`} role="status">
           {msg}
         </div>
-        {puzzle.source === 'mine' && copy.kinds[puzzle.theme] && (
-          <p className="muted small">{copy.kinds[puzzle.theme].roast}</p>
+        {puzzle.source === 'mine' && copy.kinds[puzzle.theme] && <p className="muted small">{copy.kinds[puzzle.theme].roast}</p>}
+        {puzzle.source === 'mine' && puzzle.gameId && (
+          <p className="hint">
+            <Link className="linklike" to={`/games/${encodeURIComponent(puzzle.gameId)}${puzzle.ply !== undefined ? `?ply=${puzzle.ply}` : ''}`}>{copy.puzzles.seeGame}</Link>
+          </p>
         )}
-        <div className="row puzzle-actions">
-          {state === 'playing' ? (
-            <>
-              <button className="btn ghost" onClick={askHint} disabled={!yourTurn || hint >= 2}>
-                {hint === 0 ? copy.puzzles.hint : hint === 1 ? copy.puzzles.hintMore : copy.puzzles.hint}
-              </button>
-              <button className="btn ghost" onClick={onSkip} disabled={checking}>{copy.puzzles.skip}</button>
-            </>
-          ) : (
-            <button className="btn primary" onClick={onNext} autoFocus>
-              {copy.puzzles.next}
-            </button>
-          )}
-          {puzzle.source === 'mine' && puzzle.gameId && (
-            <Link className="btn ghost" to={`/games/${encodeURIComponent(puzzle.gameId)}`}>{copy.puzzles.seeGame}</Link>
-          )}
-        </div>
-      </aside>
-    </div>
+        {puzzle.source === 'lichess' && <p className="hint">{copy.puzzles.credit}</p>}
+      </StagePanel>
+    </Stage>
   );
 }

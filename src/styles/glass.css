@@ -193,3 +193,21 @@ input[type='text'], input:not([type]), input[type='search'], input[type='number'
 @media (prefers-reduced-motion: reduce) {
   .btn:active, .chip:active, .rail-item:active { transform: none; }
 }
+
+/* Phones: the panel's action bar stays in reach at the bottom of the screen while the
+   panel scrolls beneath it. The panel must not clip, or the bar cannot stick to the viewport. */
+@media (max-width: 900px) {
+  .stage-panel { overflow: visible; }
+  .panel-head { border-radius: 20px 20px 0 0; }
+  .panel-foot {
+    position: sticky; bottom: calc(var(--tabbar) + 8px + env(safe-area-inset-bottom)); z-index: var(--z-board-ui);
+    margin: 0 8px 8px; border-radius: 999px; padding: 6px;
+    background: var(--glass-fill-bar);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    border-top: 0; box-shadow: inset 0 1px 0 var(--glass-edge), 0 0 0 1px var(--glass-rim), var(--glass-shadow);
+  }
+  .panel-foot:empty { display: none; }
+}
+@media (max-width: 900px) and (prefers-reduced-transparency: reduce), (max-width: 900px) and (prefers-contrast: more) {
+  .panel-foot { background: var(--glass-solid); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 0 0 1px var(--line-strong); }
+}

@@ -1,4 +1,6 @@
 // Two ways to get an opening into your hands without memorising a list of lines:
+import { BoardRow, MoveStepper, Stage, StageBoard, StageControls, StagePanel } from '../components/Stage';
+import { BackLink, Segmented } from '../components/ui';
 //  - Explore: walk the whole repertoire as one tree. Every position shows your
 //    move, the replies you need to know, and why.
 //  - Spar: play it like a game. The app picks the opponent's replies (leaning
@@ -63,14 +65,13 @@ export function OpeningMap() {
   return (
     <>
       <div className="map-head">
-        <Link to={`/openings/${rep.id}`} className="back">← {rep.title}</Link>
-        <div className="tabs compact mode-tabs" role="group" aria-label={copy.map.modeLabel}>
-          {(['explore', 'spar'] as Mode[]).map((m) => (
-            <button key={m} aria-pressed={mode === m} className={mode === m ? 'on' : ''} onClick={() => setMode(m)}>
-              {copy.map.modes[m]}
-            </button>
-          ))}
-        </div>
+        <BackLink to={`/openings/${rep.id}`}>{rep.title}</BackLink>
+        <Segmented
+          label={copy.map.modeLabel}
+          value={mode}
+          onChange={setMode}
+          options={(['explore', 'spar'] as Mode[]).map((m) => ({ value: m, label: copy.map.modes[m] }))}
+        />
       </div>
       {mode === 'explore' ? (
         <Explore key={rep.id} tree={tree} cards={cards} start={params.get('moves')?.split(',').filter(Boolean) ?? []} />
@@ -148,12 +149,48 @@ function Explore({ tree, cards, start }: { tree: RepTree; cards?: Map<string, Ca
   const chapter = endLine ? rep.chapters.find((c) => c.id === endLine.chapterId) : undefined;
 
   return (
-    <div className="play">
-      <Board fen={fen} orientation={rep.side} interactive lastMove={last && [last.from, last.to]} shapes={shapes} onMove={onMove} />
-      <aside className="card side">
-        <p className="eyebrow">{copy.map.exploreEyebrow(rep.title)}</p>
-        <MovePath path={path} onJump={(n) => go(path.slice(0, n))} empty={copy.map.startPosition} />
+    <Stage controls>
+      <StageBoard>
+        <BoardRow>
+          <Board fen={fen} orientation={rep.side} interactive lastMove={last && [last.from, last.to]} shapes={shapes} onMove={onMove} />
+        </BoardRow>
+        <StageControls>
+          <MoveStepper
+            onFirst={() => go([])}
+            onPrev={() => go(path.slice(0, -1))}
+            onNext={() => moves[0] && go([...path, moves[0]])}
+            onLast={() => {
+              // Follow the main line to the end of the prep.
+              let p = path;
+              for (let n = nodeAt(tree, fenOf(p)); n?.moves[0]; n = nodeAt(tree, fenOf(p))) p = [...p, n.moves[0]];
+              go(p);
+            }}
+            canBack={path.length > 0}
+            canForward={!leaf}
+          />
+          <span className="hint">{copy.map.keys}</span>
+        </StageControls>
+      </StageBoard>
 
+      <StagePanel
+        label={copy.map.modes.explore}
+        head={
+          <>
+            <p className="kicker">{copy.map.exploreEyebrow(rep.title)}</p>
+            <MovePath path={path} onJump={(n) => go(path.slice(0, n))} empty={copy.map.startPosition} />
+          </>
+        }
+        foot={
+          leaf ? (
+            <>
+              <Link className="btn primary" to={`/play?fen=${encodeURIComponent(fen)}&color=${rep.side}`}>{copy.learn.playOut}</Link>
+              {endLine && <Link className="btn ghost" to={`/learn/${rep.id}/${lineIndex(endLine.id)}`}>{copy.map.learnThis}</Link>}
+            </>
+          ) : firstNew ? (
+            <button className="btn ghost" onClick={() => navigate(`/learn/${rep.id}/${lineIndex(firstNew)}`)}>{copy.map.learnNext}</button>
+          ) : undefined
+        }
+      >
         {(!last || last.comment || introHere) && (
           <div className="comment">
             {last ? (
@@ -170,8 +207,8 @@ function Explore({ tree, cards, start }: { tree: RepTree; cards?: Map<string, Ca
         {note && <div className={`feedback ${note.tone}`} role="status">{note.text}</div>}
 
         {!leaf && (
-          <div className="branches">
-            <p className="eyebrow">{mine ? copy.map.yourMove : copy.map.theirReplies(moves.length)}</p>
+          <div className="panel-section branches">
+            <h3>{mine ? copy.map.yourMove : copy.map.theirReplies(moves.length)}</h3>
             <ul>
               {moves.map((m, i) => (
                 <li key={m.san}>
@@ -190,37 +227,15 @@ function Explore({ tree, cards, start }: { tree: RepTree; cards?: Map<string, Ca
         )}
 
         {leaf && (
-          <div className="end-box">
+          <div className="panel-section">
             <p><strong>{copy.map.endOfPrep}</strong></p>
             {chapter?.plans && <p className="muted">{chapter.plans}</p>}
-            <div className="row">
-              <Link className="btn primary" to={`/play?fen=${encodeURIComponent(fen)}&color=${rep.side}`}>{copy.learn.playOut}</Link>
-              {endLine && (
-                <Link className="btn ghost" to={`/learn/${rep.id}/${lineIndex(endLine.id)}`}>{copy.map.learnThis}</Link>
-              )}
-            </div>
           </div>
         )}
 
-        <div className="row stepper">
-          <button className="btn ghost" onClick={() => go([])} aria-label="Start" disabled={!path.length}>⏮</button>
-          <button className="btn ghost" onClick={() => go(path.slice(0, -1))} aria-label="Back" disabled={!path.length}>◀</button>
-          <button className="btn ghost" onClick={() => moves[0] && go([...path, moves[0]])} aria-label="Main line" disabled={leaf}>▶</button>
-          <span className="hint" style={{ margin: 0 }}>{copy.map.keys}</span>
-        </div>
-
-        {lineIds.length > 0 && (
-          <p className="muted small">
-            {copy.map.coverage(lineIds.length, learned)}{' '}
-            {firstNew && (
-              <button className="linklike" onClick={() => navigate(`/learn/${rep.id}/${lineIndex(firstNew)}`)}>
-                {copy.map.learnNext}
-              </button>
-            )}
-          </p>
-        )}
-      </aside>
-    </div>
+        {lineIds.length > 0 && <p className="hint">{copy.map.coverage(lineIds.length, learned)}</p>}
+      </StagePanel>
+    </Stage>
   );
 }
 
@@ -339,47 +354,55 @@ function Spar({ tree, cards }: { tree: RepTree; cards?: Map<string, CardRow> }) 
   const sans = path.map((m) => m.san).join(',');
 
   return (
-    <div className="play">
-      <Board
-        fen={fen}
-        orientation={rep.side}
-        interactive={!!want && !result}
-        lastMove={last && [last.from, last.to]}
-        shapes={shapes}
-        onMove={onMove}
-      />
-      <aside className="card side">
-        <p className="eyebrow">{copy.map.sparEyebrow(rep.title)}</p>
+    <Stage>
+      <StageBoard>
+        <BoardRow>
+          <Board
+            fen={fen}
+            orientation={rep.side}
+            interactive={!!want && !result}
+            lastMove={last && [last.from, last.to]}
+            shapes={shapes}
+            onMove={onMove}
+          />
+        </BoardRow>
+      </StageBoard>
+
+      <StagePanel
+        label={copy.map.modes.spar}
+        head={
+          <>
+            <p className="kicker">{copy.map.sparEyebrow(rep.title)}</p>
+            <h2>{result ? (line ? `${line.chapterTitle} · ${line.label}` : copy.map.endOfPrep) : want ? copy.map.yourTurn : copy.map.theirTurn}</h2>
+          </>
+        }
+        foot={
+          result ? (
+            <>
+              <button className="btn primary" onClick={again} autoFocus>{copy.map.sparAgain}</button>
+              <Link className="btn ghost" to={`/play?fen=${encodeURIComponent(fen)}&color=${rep.side}`}>{copy.learn.playOut}</Link>
+            </>
+          ) : (
+            <button className="btn ghost" onClick={hint} disabled={!want || hinted || misses >= 2}>{copy.drill.hint}</button>
+          )
+        }
+      >
         <div className={`feedback ${msg.tone}`} role="status" aria-live="polite">{msg.text}</div>
         <MovePath path={path} empty={copy.map.sparEmpty} />
-        {!result && (
-          <div className="row">
-            <button className="btn ghost" onClick={hint} disabled={!want || hinted || misses >= 2}>{copy.drill.hint}</button>
-            <span className="hint" style={{ margin: 0 }}>{want ? copy.map.yourTurn : copy.map.theirTurn}</span>
-          </div>
-        )}
         {result && (
-          <div className="end-box">
-            <p>
-              <strong>{line ? `${line.chapterTitle} · ${line.label}` : copy.map.endOfPrep}</strong>
-              <br />
-              <span className="muted small">{result.mistakes ? copy.map.sparMistakes(result.mistakes) : copy.map.sparClean}</span>
-            </p>
+          <div className="panel-section">
+            <p className="muted">{result.mistakes ? copy.map.sparMistakes(result.mistakes) : copy.map.sparClean}</p>
             {chapter?.plans && (
               <div className="comment">
                 <strong>{copy.map.whatNow} </strong>
                 {chapter.plans}
               </div>
             )}
-            <div className="row">
-              <button className="btn primary" onClick={again} autoFocus>{copy.map.sparAgain}</button>
-              <Link className="btn ghost" to={`/play?fen=${encodeURIComponent(fen)}&color=${rep.side}`}>{copy.learn.playOut}</Link>
-              <Link className="btn ghost" to={`/openings/${rep.id}/map?mode=explore&moves=${encodeURIComponent(sans)}`}>{copy.map.exploreHere}</Link>
-            </div>
+            <Link className="linklike" to={`/openings/${rep.id}/map?mode=explore&moves=${encodeURIComponent(sans)}`}>{copy.map.exploreHere}</Link>
           </div>
         )}
-        {session.lines > 0 && <p className="muted small">{copy.map.session(session.lines, session.perfect)}</p>}
-      </aside>
-    </div>
+        {session.lines > 0 && <p className="hint">{copy.map.session(session.lines, session.perfect)}</p>}
+      </StagePanel>
+    </Stage>
   );
 }

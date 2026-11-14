@@ -21,3 +21,22 @@
 
 .rv-coach.great { box-shadow: inset 3px 0 0 var(--q-great-fill); }
 .rv-coach.brilliant { box-shadow: inset 3px 0 0 var(--q-brilliant-fill); }
+
+.rv-tabs { margin: 0 0 14px; }
+.play.review .side .kicker { flex-wrap: wrap; }
+.play.review .opening-name { font-size: 1.125rem; margin-bottom: 12px; }
+.mistake-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.mistake-nav .mistake-count { flex: 1; text-align: center; }
+.mistake-nav .btn { flex: none; }
+.play.review .under-board { gap: 8px; flex-wrap: wrap; }
+.play.review .under-board .hint { margin: 0 0 0 auto; }
+
+/* Desktop: the eval graph sits above the panel, not under the board, so the board keeps the height. */
+@media (min-width: 901px) {
+  .play.review { --controls: 54px; grid-template-rows: auto 1fr; row-gap: 12px; }
+  .play.review .board-col-wrap { display: contents; }
+  .play.review .board-col-wrap > .pinned { display: block; grid-column: 1; grid-row: 1 / span 2; width: var(--board-size); min-width: 0; }
+  .play.review .evalgraph { grid-column: 2; grid-row: 1; border-radius: 14px; }
+  .play.review .evalgraph svg { height: 64px; }
+  .play.review .side { grid-column: 2; grid-row: 2; max-height: calc(100dvh - var(--header) - var(--tabbar) - 150px); }
+}

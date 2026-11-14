@@ -53,6 +53,9 @@ export const copy = {
   },
 
   drill: {
+    counter: (c: string) => `Line ${c}`,
+    progress: (move: number, total: number) => `Move ${move} of ${total}`,
+    slips: (n: number) => (n === 0 ? 'no slips' : `${n} slip${n === 1 ? '' : 's'}`),
     title: 'Drill',
     yourMove: 'Your move.',
     theirMove: 'Opponent is thinking... (not really, they read the PGN)',
@@ -83,6 +86,10 @@ export const copy = {
   },
 
   learn: {
+    nextMove: 'Next move',
+    nextLine: 'Next line',
+    whatNow: 'What now:',
+    progress: (move: number, total: number) => `Move ${move} of ${total}`,
     addToDrill: 'Add to my drill queue',
     added: "In the queue. You'll see it again before you forget it.",
     drillNow: 'Drill it now',
@@ -403,6 +410,8 @@ export const copy = {
     keyMoments: 'Key moments',
     decided: (move: number) => `The game was decided around move ${move}.`,
     missedMate: 'Missed mate',
+    untitled: 'Game review',
+    viewLabel: 'Review view',
     playFromHere: 'Play from here',
     playFromHereHint: 'Play this position out against Stockfish',
     merit: { great: 'Great move', brilliant: 'Brilliant' } as Record<string, string>,

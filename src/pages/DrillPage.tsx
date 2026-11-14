@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BoardRow, Stage, StageBoard, StagePanel } from '../components/Stage';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { DrawShape } from 'chessground/draw';
 import type { Key } from 'chessground/types';
@@ -180,46 +181,50 @@ function DrillRun({
 
   const last = drill.previous;
 
+  const total = line.plies.length;
+  const at = Math.min(drill.index, total);
   return (
-    <div className="play">
-      <Board
-        fen={drill.fen}
-        orientation={rep.side}
-        interactive={!drill.done && drill.isUserTurn}
-        lastMove={last && [last.from, last.to]}
-        shapes={shapes}
-        onMove={onMove}
-      />
-      <aside className="card side">
-        <p className="eyebrow">{counter}</p>
-        <h2>{rep.title}</h2>
-        <p className="muted">{line.chapterTitle} · {line.label}</p>
-
+    <Stage>
+      <StageBoard>
+        <BoardRow>
+          <Board
+            fen={drill.fen}
+            orientation={rep.side}
+            interactive={!drill.done && drill.isUserTurn}
+            lastMove={last && [last.from, last.to]}
+            shapes={shapes}
+            onMove={onMove}
+          />
+        </BoardRow>
+      </StageBoard>
+      <StagePanel
+        label={copy.drill.title}
+        head={
+          <>
+            <p className="kicker">{copy.drill.counter(counter)} · {rep.title}</p>
+            <h2>{line.label}</h2>
+            <p className="muted small" style={{ margin: '2px 0 0' }}>{line.chapterTitle}</p>
+            <div className="progress" style={{ marginTop: 12 }} role="img" aria-label={copy.drill.progress(Math.min(drill.index + 1, total), total)}>
+              <span style={{ width: `${(at / total) * 100}%` }} />
+            </div>
+          </>
+        }
+        foot={
+          drill.done ? (
+            <button className="btn primary" onClick={onNext} autoFocus>{copy.drill.next}</button>
+          ) : (
+            <button className="btn ghost" onClick={hint} disabled={!drill.isUserTurn}>{copy.drill.hint}</button>
+          )
+        }
+      >
         <div className={`feedback ${feedback.tone}`} role="status" aria-live="polite">
           {feedback.text}
         </div>
-
         {last?.comment && drill.done && <div className="comment">{last.comment}</div>}
-
-        <div className="row">
-          {!drill.done && (
-            <button className="btn ghost" onClick={hint} disabled={!drill.isUserTurn}>
-              {copy.drill.hint}
-            </button>
-          )}
-          {drill.done && (
-            <button className="btn primary" onClick={onNext} autoFocus>
-              {copy.drill.next}
-            </button>
-          )}
-        </div>
-        <div className="progress" aria-hidden>
-          <span style={{ width: `${(Math.min(drill.index, line.plies.length) / line.plies.length) * 100}%` }} />
-        </div>
         <p className="hint">
-          Move {Math.min(drill.index + 1, line.plies.length)} of {line.plies.length} · mistakes: {drill.mistakes}
+          {copy.drill.progress(Math.min(drill.index + 1, total), total)} · {copy.drill.slips(drill.mistakes)}
         </p>
-      </aside>
-    </div>
+      </StagePanel>
+    </Stage>
   );
 }
