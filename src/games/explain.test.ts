@@ -41,8 +41,8 @@ describe('describeConsequence', () => {
     const plies = parseGamePgn('1. e4 e5 2. Nf3 Nc6 3. Ng5');
     const text = explainMove(plies[4], { cls: 'blunder', drop: 40, best: 'f1c4', kind: 'hung-piece' }, ['d8g5'], 'Bc4');
     expect(text).toMatch(/lose the knight/);
-    // A quiet developing move gets named, not dressed up with a made-up reason.
-    expect(text).toMatch(/Better was Bc4\.$/);
+    // A quiet developing move is called what it is, with no made-up tactic.
+    expect(text).toMatch(/Better was Bc4: it develops a piece\.$/);
   });
 
   it('says what the better line wins when it wins material', () => {
@@ -68,7 +68,7 @@ describe('trades and exchanges', () => {
     expect(describeConsequence(plies[6], ['d7c6'])).not.toMatch(/lose/);
     // The explanation no longer contradicts the "not a hung piece" verdict.
     const text = explainMove(plies[6], { cls: 'mistake', drop: 21, best: 'b5a4', kind: 'missed-tactic' }, ['d7c6'], 'Ba4');
-    expect(text).toBe('Better was Ba4.');
+    expect(text).toBe('Better was Ba4: it moves the bishop out of danger.');
   });
 
   it('still names a bad trade, and what you got for the piece', () => {
@@ -96,10 +96,10 @@ describe('trades and exchanges', () => {
     const plies = parseGamePgn('1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Bc4');
     const pv = ['b5a4', 'g8f6', 'e1g1', 'f8e7', 'a4c6', 'd7c6'];
     const full = explainMove(plies[6], { cls: 'inaccuracy', drop: 12, best: 'b5a4', pv }, [], 'Ba4');
-    expect(full).toBe('Better was Ba4.');
+    expect(full).toBe('Better was Ba4: it moves the bishop out of danger.');
     // The engine's line can also simply end on the capture.
     const short = explainMove(plies[6], { cls: 'inaccuracy', drop: 12, best: 'b5a4', pv: pv.slice(0, 5) }, [], 'Ba4');
-    expect(short).toBe('Better was Ba4.');
+    expect(short).toBe('Better was Ba4: it moves the bishop out of danger.');
     // Same when the capture that ends the line wins more than it costs: the knight is taken, the pawn falls back.
     const cut = explainMove(kh1, { cls: 'mistake', drop: 22, best: 'b2b4', pv: ['b2b4', 'h7h6', 'b4a5'] }, [], 'b4');
     expect(cut).toBe('Better was b4.');

@@ -43,6 +43,8 @@ export interface GameAnalysis {
   phases?: { opening: PhaseStats; middlegame: PhaseStats; endgame: PhaseStats };
   keyMoments?: KeyMoment[];
   decidedAt?: number; // ply after which the eval never came back
+  /** The engine's line from the final position, so the last move of the game can be explained too. */
+  finalPv?: string[];
   opening?: { eco: string; name: string; ply: number };
   /** v3: clock use, when the PGN has clocks. */
   time?: {

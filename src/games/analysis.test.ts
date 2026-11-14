@@ -251,7 +251,9 @@ describe('analyzeGame', () => {
   it('reports progress per position', async () => {
     const seen: number[] = [];
     await analyzeGame(parseGamePgn(pgnOf(['e4', 'e5', 'Nf3'])), 'white', (p) => seen.push(p), undefined, null, { cache: null });
-    expect(seen).toEqual([0.25, 0.5, 0.75, 1]);
+    // The first pass fills 80% of the bar; with nothing to re-check it then jumps to done.
+    expect(seen.map((x) => Math.round(x * 100) / 100)).toEqual([0.2, 0.4, 0.6, 0.8, 1]);
+    expect(seen).toEqual([...seen].sort((a, b) => a - b));
   });
 });
 

@@ -40,6 +40,17 @@ export function gameAccuracy(wins: number[], color: 'w' | 'b'): number | undefin
 }
 
 export const ANALYSIS_DEPTH = 12;
+/**
+ * Every position gets a fast search; the positions around a suspected error are then
+ * searched again this deep. A shallow search is what produces false blunders, so the
+ * extra time goes only where a wrong verdict would mislead. (Depth 14 everywhere was
+ * measured at four times the cost of 12 on a desktop.)
+ */
+export const VERIFY_DEPTH = 15;
+/** A first-pass win-chance drop this large gets the deeper second look. */
+export const VERIFY_DROP = 10;
+/** At most this many positions per game are re-searched, largest drops first. */
+export const VERIFY_MAX = 12;
 export const ANALYSIS_VERSION = 3;
 /** With fewer moves of yours than this there is nothing to review, and no honest accuracy to report. */
 export const MIN_USER_PLIES = 2;
@@ -118,6 +129,9 @@ export interface AnalyzeOptions {
   /** Defaults to the shared cache; null searches every position afresh. */
   cache?: EvalCache | null;
 }
+
+/** Share of the progress bar given to the first pass. */
+const FIRST_PASS = 0.8;
 
 function abortError(): Error {
   const e = new Error('analysis aborted');
@@ -249,8 +263,36 @@ export async function analyzeGame(
       }
       results.push(hit);
     }
-    onProgress?.((i + 1) / fens.length);
+    onProgress?.(((i + 1) / fens.length) * FIRST_PASS);
   }
+
+  // Second pass: look deeper at the positions on either side of every suspected error.
+  const quick = results.map((r, i) =>
+    r.score.mate === 0 ? (fens[i].split(' ')[1] === 'w' ? -10_000 : 10_000) : whitePov(r.score, fens[i]),
+  );
+  const suspects = plies
+    .map((p, i) => {
+      const sgn = p.color === 'w' ? 1 : -1;
+      return { i, drop: winPct(sgn * quick[i]) - winPct(sgn * quick[i + 1]) };
+    })
+    .filter((x) => x.drop >= VERIFY_DROP && results[x.i].bestmove !== plies[x.i].uci)
+    .sort((a, b) => b.drop - a.drop);
+  const recheck = [...new Set(suspects.flatMap((x) => [x.i, x.i + 1]))].slice(0, VERIFY_MAX).sort((a, b) => a - b);
+  for (let k = 0; k < recheck.length; k++) {
+    if (signal?.aborted) throw abortError();
+    const i = recheck[k];
+    if (!new Chess(fens[i]).isGameOver()) {
+      let hit = cache?.get(fens[i], VERIFY_DEPTH);
+      if (!hit) {
+        const r = await engine.search(fens[i], { depth: VERIFY_DEPTH, signal });
+        hit = { score: r.score, bestmove: r.bestmove, pv: r.pv.slice(0, 6) };
+        if (r.depth >= VERIFY_DEPTH || r.score.mate !== undefined) cache?.set(fens[i], VERIFY_DEPTH, hit);
+      }
+      results[i] = hit;
+    }
+    onProgress?.(FIRST_PASS + ((k + 1) / recheck.length) * (1 - FIRST_PASS));
+  }
+  onProgress?.(1);
 
   // mate 0 means the side to move is mated
   const evals = results.map((r, i) =>
@@ -362,6 +404,7 @@ export async function analyzeGame(
     phases: { opening: phaseStats(accs.opening), middlegame: phaseStats(accs.middlegame), endgame: phaseStats(accs.endgame) },
     keyMoments,
     decidedAt,
+    finalPv: results[results.length - 1]?.pv.length ? results[results.length - 1].pv : undefined,
     opening: opening ?? undefined,
     analyzedAt: new Date(),
   };

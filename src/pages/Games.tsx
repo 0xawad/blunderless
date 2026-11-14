@@ -124,7 +124,7 @@ const GameItem = memo(function GameItem({ g }: { g: Row }) {
             <span className="num">
               {g.blunders ? <span className="q-blunder">{g.blunders}?? </span> : null}
               {g.mistakes ? <span className="q-mistake">{g.mistakes}?</span> : null}
-              {!g.blunders && !g.mistakes ? <span className="q-best">clean</span> : null}
+              {!g.blunders && !g.mistakes ? <span className="muted">{copy.games.noBlunders}</span> : null}
             </span>
           </span>
         ) : g.reviewable ? (

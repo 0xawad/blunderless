@@ -14,7 +14,9 @@ import type { GameAnalysis, MoveReview } from '../srs/types';
 import { enqueue, useQueue } from '../games/queue';
 import { fmtClock } from '../games/clock';
 import { ANALYSIS_VERSION } from '../games/analyze';
-import { explainMove, playLine } from '../games/explain';
+import { explainMove, mateFor, playLine } from '../games/explain';
+import { gameStory, type GameStory } from '../games/story';
+import '../styles/pages/review.css';
 import { getEngine, scoreToCp, winPct, type PvLine } from '../engine/engine';
 import { EvalGraph } from '../components/EvalGraph';
 import { BookChip } from './Games';
@@ -24,7 +26,8 @@ import { EvalBar, SquareBadge } from '../components/Stage';
 import { BackLink, EmptyState } from '../components/ui';
 import { GamesIcon } from '../components/icons';
 
-const MARK: Record<string, string> = { blunder: '??', 'missed-win': '??', mistake: '?', inaccuracy: '?!', best: '!', book: '' };
+// In chess notation "!" means a strong move, not "the engine agrees", so best moves carry colour and no mark.
+const MARK: Record<string, string> = { blunder: '??', 'missed-win': '??', mistake: '?', inaccuracy: '?!', best: '', book: '' };
 type Tab = 'summary' | 'moves' | 'engine';
 type Retry = { result?: 'best' | 'good' | 'bad'; text?: string; pv?: string[] } | null;
 
@@ -55,6 +58,8 @@ export function GameReview() {
   const [retry, setRetry] = useState<Retry>(null);
   const [lines, setLines] = useState<PvLine[]>([]);
   const [showBest, setShowBest] = useState(false);
+  // In a retry: point at the piece that should move, without giving the move away.
+  const [hintOn, setHintOn] = useState(false);
   const [flipped, setFlipped] = useState(false);
   // Your retry move stays on the board while the engine judges it (and after).
   const [retryMove, setRetryMove] = useState<{ fen: string; from: string; to: string } | null>(null);
@@ -82,6 +87,7 @@ export function GameReview() {
     setRetry(null);
     setRetryMove(null);
     setShowBest(false);
+    setHintOn(false);
     setPly(p);
   }, []);
 
@@ -152,6 +158,7 @@ export function GameReview() {
   if (!exploring && !retry && showBest && nextReview?.best && plies[ply]?.color === mine && nextReview.kind) {
     shapes.push({ orig: nextReview.best.slice(0, 2) as Key, dest: nextReview.best.slice(2, 4) as Key, brush: 'green' });
   }
+  if (retry && !retry.result && hintOn && nextReview?.best) shapes.push({ orig: nextReview.best.slice(0, 2) as Key, brush: 'yellow' });
   if (retry?.pv?.[0]) shapes.push({ orig: retry.pv[0].slice(0, 2) as Key, dest: retry.pv[0].slice(2, 4) as Key, brush: 'green' });
   if ((tab === 'engine' || exploring) && lines[0]?.pv[0] && !retry) {
     shapes.push({ orig: lines[0].pv[0].slice(0, 2) as Key, dest: lines[0].pv[0].slice(2, 4) as Key, brush: 'blue' });
@@ -243,8 +250,17 @@ export function GameReview() {
   const bookLine = game.book?.lineId ? getLine(game.book.lineId) : undefined;
   const bookRep = bookLine ? getRepertoire(bookLine.repertoireId) : undefined;
   const b = game.book;
+  const lastMine = last?.color === mine;
+  const mateBefore = a && last && !exploring ? mateFor(a.evals[ply - 1], last.color) : undefined;
   const explanation =
-    review && last && a ? explainMove(last, review, a.moves[ply]?.pv ?? [], uciToSan(last.fenBefore, review.best)) : '';
+    review && last && a
+      ? explainMove(last, review, a.moves[ply]?.pv ?? (ply === plies.length ? a.finalPv : undefined) ?? [], review.best ? uciToSan(last.fenBefore, review.best) : '', { mine: lastMine, mateBefore, prev: plies[ply - 2] })
+      : '';
+  // A quicker mate was there and the move still wins: say so, without calling it a mistake.
+  const missedMate = !!review && !!last && !!mateBefore && mateBefore <= 5 && review.best !== last.uci && review.cls === 'good';
+  const shownCls = missedMate ? 'inaccuracy' : review?.cls;
+  const story = a ? gameStory(a, plies, game.userColor, game.result) : null;
+  const chanceOf = (i: number) => Math.round(story?.chances[i] ?? 50);
   const stale = a && (a.version ?? 1) < ANALYSIS_VERSION;
 
   return (
@@ -313,13 +329,16 @@ export function GameReview() {
           {retry && (
             <div className={`feedback ${retry.result === 'best' ? 'good' : retry.result === 'bad' ? 'bad' : 'info'}`} role="status">
               <div>
-                {retry.text ?? copy.review.retrying}
+                {retry.text ?? (hintOn ? copy.review.hinted : copy.review.retrying)}
                 {retry.result && retry.pv?.length ? (
                   <div className="muted small" style={{ marginTop: '0.3rem' }}>{playLine(plies[ply]?.fenBefore ?? fen, retry.pv).sans.join(' ')}</div>
                 ) : null}
                 <div className="row">
+                  {!retry.result && !retryMove && !hintOn && (
+                    <button className="btn small" onClick={() => setHintOn(true)}>{copy.review.hint}</button>
+                  )}
                   {retry.result && retry.result !== 'best' && (
-                    <button className="btn small" onClick={() => { setRetry({}); setRetryMove(null); }}>Try again</button>
+                    <button className="btn small" onClick={() => { setHintOn(false); setRetry({}); setRetryMove(null); }}>{copy.review.again}</button>
                   )}
                   <button className="btn small ghost" onClick={() => { retrySeq.current++; setRetry(null); setRetryMove(null); }}>{copy.review.retryCancel}</button>
                 </div>
@@ -354,6 +373,35 @@ export function GameReview() {
             </div>
           )}
 
+          {a && story && !retry && !exploring && (
+            <div className={`rv-coach ${review && last ? shownCls : 'start'}`} aria-live="polite">
+              {review && last ? (
+                <>
+                  <div className="rv-coach-head">
+                    <span className={`dot ${shownCls}`} aria-hidden />
+                    <strong>{formatPly(ply - 1, last.san)}{missedMate ? '' : MARK[review.cls]}</strong>
+                    <span className={`q-${shownCls}`}>{missedMate ? copy.review.missedMate : copy.review.classes[review.cls]}</span>
+                    <span className="muted small">{lastMine ? copy.review.you : copy.review.opp}</span>
+                  </div>
+                  {explanation ? <p>{explanation}</p> : <p className="muted">{copy.review.quiet[review.cls] ?? copy.review.quiet.good}</p>}
+                  {review.kind && lastMine && <p className="muted small">{copy.kinds[review.kind].roast}</p>}
+                  <p className="muted small num">
+                    {copy.review.chances(chanceOf(ply - 1), chanceOf(ply))}
+                    {review.spent !== undefined && <> · {copy.review.spent(fmtClock(review.spent))}, {fmtClock(review.left ?? 0)} left</>}
+                  </p>
+                  {lastMine && review.kind && (
+                    <button className="btn small" onClick={() => { go(ply - 1); setRetry({}); }}>{copy.review.tryAgain}</button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p><strong>{story.verdict}</strong></p>
+                  {story.cause && <p className="muted">{story.cause}</p>}
+                </>
+              )}
+            </div>
+          )}
+
           {a && !retry && !exploring && (
             <div className="tabs compact" role="group">
               {(['summary', 'moves', 'engine'] as Tab[]).map((t) => (
@@ -365,7 +413,7 @@ export function GameReview() {
           )}
 
           {a && tab === 'summary' && !exploring && !retry && (
-            <Summary a={a} plies={plies} userColor={game.userColor} onJump={go} />
+            <Summary a={a} plies={plies} userColor={game.userColor} onJump={(k) => go(k + 1)} story={story!} />
           )}
 
           {(tab === 'moves' || !a || exploring || retry) && (
@@ -392,21 +440,6 @@ export function GameReview() {
                       <Link to={`/learn/${bookRep.id}/${bookRep.lines.indexOf(bookLine)}`}>Review the line →</Link>
                     </>
                   )}
-                </div>
-              )}
-
-              {review && last && review.cls !== 'book' && review.cls !== 'best' && review.cls !== 'good' && (
-                <div className={`feedback ${review.kind ? 'bad' : 'info'}`}>
-                  <div>
-                    <strong>{formatPly(ply - 1, last.san)}{MARK[review.cls]} · {copy.review.classes[review.cls]}</strong>
-                    {review.kind && <> · {copy.kinds[review.kind].roast}</>}
-                    {explanation && <div style={{ marginTop: '0.3rem', fontWeight: 500 }}>{explanation}</div>}
-                    {review.spent !== undefined && (
-                      <div className="muted small" style={{ marginTop: '0.3rem' }}>
-                        {copy.review.spent(fmtClock(review.spent))} · {fmtClock(review.left ?? 0)} left
-                      </div>
-                    )}
-                  </div>
                 </div>
               )}
 
@@ -438,7 +471,7 @@ export function GameReview() {
 
           {game.url && (
             <p className="hint">
-              <a href={game.url} target="_blank" rel="noopener noreferrer">Open on Chess.com ↗</a>
+              <a href={game.url} target="_blank" rel="noopener noreferrer">{copy.review.openOn(game.source === 'lichess' ? 'Lichess' : 'Chess.com')}</a>
             </p>
           )}
         </aside>
@@ -452,11 +485,13 @@ function Summary({
   plies,
   userColor,
   onJump,
+  story,
 }: {
   a: GameAnalysis;
   plies: GamePly[];
   userColor: 'white' | 'black';
   onJump: (ply: number) => void;
+  story: GameStory;
 }) {
   const mine = userColor === 'white' ? 'w' : 'b';
   const kinds = new Map<string, number>();
@@ -506,18 +541,17 @@ function Summary({
       <h3>{copy.review.keyMoments}</h3>
       {a.keyMoments?.length ? (
         <ul className="moments">
-          {a.keyMoments.map((k) => {
-            const p = plies[k.ply];
-            return (
-              <li key={k.ply}>
-                <button className="mv" onClick={() => onJump(k.ply)}>
-                  <strong>{formatPly(k.ply, p.san)}</strong>
-                  <span className={k.swing < 0 ? 'bad-text' : 'good-text'}> {k.swing > 0 ? '+' : ''}{k.swing}%</span>
-                  <span className="muted small"> · {k.mine ? copy.review.you : copy.review.opp}</span>
-                </button>
-              </li>
-            );
-          })}
+          {story.moments.map((k) => (
+            <li key={k.ply}>
+              <button className="mv rv-moment" onClick={() => onJump(k.ply)}>
+                <span className={`dot ${k.cls}`} aria-hidden />
+                <strong>{k.move}</strong>
+                <span className={`q-${k.cls}`}>{copy.review.classes[k.cls]}</span>
+                <span className="muted small">{k.mine ? copy.review.you : copy.review.opp}</span>
+                <span className={`rv-swing num ${k.swing < 0 ? 'q-blunder' : 'q-best'}`}>{k.swing > 0 ? '+' : ''}{Math.round(k.swing)}%</span>
+              </button>
+            </li>
+          ))}
         </ul>
       ) : (
         <p className="muted small">{copy.review.noMoments}</p>

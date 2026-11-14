@@ -260,6 +260,9 @@ function Shell() {
 
   if (onboarded === null) return null;
   if (!onboarded && pathname !== '/welcome') return <Navigate to="/welcome" replace />;
+  // Finishing onboarding navigates before this flag has updated, which bounces back here;
+  // once it is set there is nothing left to do on the welcome screen.
+  if (onboarded && pathname === '/welcome') return <Navigate to="/" replace />;
 
   const today: NavEntry = { to: '/', label: copy.nav.today, icon: <TodayIcon />, end: true };
   const openings: NavEntry = { to: '/openings', label: copy.nav.openings, icon: <BookIcon />, count: due?.drill, countLabel: copy.nav.linesDue };

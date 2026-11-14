@@ -1,0 +1,20 @@
+/* Game review: the coach's note for the move on the board, visible on every tab. */
+.rv-coach { padding: 12px 14px; margin: 0 0 14px; border-radius: var(--radius-sm); background: var(--surface-2); box-shadow: inset 3px 0 0 var(--line-strong); }
+.rv-coach p { margin: 6px 0 0; font-size: 0.9375rem; line-height: 1.5; }
+.rv-coach p.small { font-size: var(--fs-sm); }
+.rv-coach > p:first-child { margin-top: 0; }
+.rv-coach .btn { margin-top: 10px; }
+.rv-coach-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.9375rem; }
+.rv-coach-head strong { font-family: var(--mono); font-weight: 600; }
+.rv-coach-head > span:not(.dot):not(.muted) { font-weight: 600; }
+.rv-coach-head .muted { margin-left: auto; }
+.rv-coach.best { box-shadow: inset 3px 0 0 var(--q-best-fill); }
+.rv-coach.inaccuracy { box-shadow: inset 3px 0 0 var(--q-inaccuracy-fill); }
+.rv-coach.mistake { box-shadow: inset 3px 0 0 var(--q-mistake-fill); }
+.rv-coach.blunder { box-shadow: inset 3px 0 0 var(--q-blunder-fill); background: var(--bad-soft); }
+.rv-coach.missed-win { box-shadow: inset 3px 0 0 var(--q-missed-fill); }
+.rv-coach.start { box-shadow: inset 3px 0 0 var(--brand); }
+
+.rv-moment { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 6px 8px; font-family: var(--font); font-size: var(--fs-sm); }
+.rv-moment strong { font-family: var(--mono); }
+.rv-moment .rv-swing { margin-left: auto; font-weight: 600; }
