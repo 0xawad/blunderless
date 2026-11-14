@@ -88,3 +88,16 @@ input[type='range'], label.check input { accent-color: var(--tint); }
 @media (min-width: 901px) {
   .main:has(.stage), .main:has(.play) { padding-bottom: 20px; }
 }
+
+/* ---- board under a finger ----
+   On a touch screen the finger hides the piece it is holding. Lift the piece above the
+   finger and enlarge it, so you can see what you hold and where it will land. `scale` and
+   `translate` are separate from the `transform` chessground writes, so they compose with it
+   and stay on the compositor. With a mouse the piece follows the pointer exactly, as before. */
+@media (pointer: coarse) {
+  cg-board piece.dragging { scale: 1.75; translate: 0 -62%; filter: none; }
+  .drag-over { box-shadow: inset 0 0 0 4px var(--tint); }
+}
+@media (pointer: coarse) and (prefers-reduced-motion: reduce) {
+  cg-board piece.dragging { scale: 1.4; }
+}

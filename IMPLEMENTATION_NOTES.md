@@ -87,3 +87,9 @@ Running record of the takeover on branch `redesign/takeover`. Nothing here is on
 - Offer draw: considered after 30 plies, accepted when your winning chance is at least 50%.
 - "Play from here" in game review opens Play from the position on the board.
 - Checked in the browser by script (the app window was hidden, so no screenshots): a move, the verdict, the engine's reply, resign with confirmation, the result overlay, rematch as Black with the engine moving first; no page scroll at 1360x850; no horizontal overflow at 390px.
+
+## Play pass 2
+
+- **Your openings** (`src/play/opening.ts`, setup option, on by default): while a game is inside your repertoire for the colour you are playing, the engine's reply comes from the repertoire, weighted by how many lines pass through each move. Out of book it searches as before. Checked in the browser: 1.e4 e5 2.Nf3 f6 as White (a line in the Italian repertoire); 1.d4 from the engine when playing Black.
+- **Draw rule** moved to the same module and tested (too early, accept, decline).
+- **Phones:** a game in progress hides the tab bar. A dragged piece is lifted above the finger and enlarged on touch screens (`pointer: coarse`); with a mouse it still follows the pointer exactly. The lift is confirmed to apply under phone emulation and has not been tried on a real phone.

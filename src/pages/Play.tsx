@@ -19,6 +19,7 @@ import { PlayerBar } from '../components/PlayerBar';
 import { clearSavedGame, saveGame, useSavedGame, type SavedGame } from '../play/saved';
 import { loadOpenings, nameOpening } from '../games/openings';
 import { play as sfx } from '../sound';
+import { bookReply, drawAnswer } from '../play/opening';
 
 // The bottom three use Skill Level (Stockfish can't limit itself below 1320
 // Elo), so their ratings are rough. The rest use UCI_Elo, which is calibrated.
@@ -38,9 +39,6 @@ const readSetup = (): Partial<Setup> => {
     return {};
   }
 };
-/** A draw offer is only considered after this many plies, and accepted when your winning chance is at least this. */
-const DRAW_MIN_PLIES = 30;
-const DRAW_ACCEPT_WIN = 50;
 const COACH_DEPTH = 10;
 const TIMES = [
   { label: 'Untimed', base: 0, inc: 0 },
@@ -56,6 +54,8 @@ interface Setup {
   color: 'white' | 'black' | 'random';
   guard: boolean;
   cct: boolean;
+  /** The engine answers from your repertoire while the position is in it. Absent in older saves, which means on. */
+  book?: boolean;
 }
 
 type Verdict = 'best' | 'good' | 'inaccuracy' | 'mistake' | 'blunder';
@@ -72,6 +72,7 @@ export function Play() {
       color: params.get('color') === 'black' ? 'black' : params.get('color') === 'white' ? 'white' : (saved.color ?? 'white'),
       guard: saved.guard ?? true,
       cct: saved.cct ?? false,
+      book: saved.book ?? true,
     };
   });
   const setSetup = (s: Setup) => {
@@ -162,6 +163,12 @@ export function Play() {
         </div>
 
         <label className="check">
+          <input type="checkbox" checked={setup.book !== false} onChange={(e) => setSetup({ ...setup, book: e.target.checked })} />
+          <span>
+            <strong>{copy.play.book}</strong> <span className="muted">{copy.play.bookHint}</span>
+          </span>
+        </label>
+        <label className="check">
           <input type="checkbox" checked={setup.guard} onChange={(e) => setSetup({ ...setup, guard: e.target.checked })} />
           <span>
             <strong>{copy.play.guard}</strong> <span className="muted">{copy.play.guardHint}</span>
@@ -248,6 +255,11 @@ function PlayGame({
   const [hint, setHint] = useState<{ level: 1 | 2; uci: string } | null>(null);
   const [thinking, setThinking] = useState(false);
   // The coach is grading your last move: undo waits, so it cannot race the engine's reply.
+  // A game in progress is a focus screen: on phones the tab bar gives its space to the board.
+  useEffect(() => {
+    document.documentElement.classList.add('focus-mode');
+    return () => document.documentElement.classList.remove('focus-mode');
+  }, []);
   const [grading, setGrading] = useState(false);
   // Bumped by every undo, so a verdict that arrives late for an undone move is dropped.
   const undoGen = useRef(0);
@@ -463,11 +475,18 @@ function PlayGame({
       // Depth-limited (weak) levels stay weak; only the timed levels speed up.
       if (budget < 30_000 && opts.movetime) opts.movetime = Math.max(60, Math.min(opts.movetime, budget / 25));
       const at = chess.fen();
-      let r;
-      try {
-        r = await getEngine().search(at, opts);
-      } catch {
-        r = await getEngine().search(at, opts); // getEngine() respawns a dead worker; one more try
+      // While the game is still inside your repertoire, the reply comes from it, so you
+      // meet the lines you studied. Out of book, the engine thinks for itself.
+      const fromBook = setup.book !== false ? bookReply(at, color) : null;
+      let r: { bestmove: string };
+      if (fromBook) {
+        r = { bestmove: fromBook };
+      } else {
+        try {
+          r = await getEngine().search(at, opts);
+        } catch {
+          r = await getEngine().search(at, opts); // getEngine() respawns a dead worker; one more try
+        }
       }
       if (chess.fen() !== at) return; // the position changed under us (undo): this reply is stale
       // A human-ish pause: instant replies feel robotic, long ones feel broken.
@@ -630,14 +649,14 @@ function PlayGame({
   const offerDraw = async () => {
     if (!myTurn || asking) return;
     const at = chess.fen();
-    if (chess.history().length < DRAW_MIN_PLIES) return setDrawReply(copy.play.drawTooEarly);
+    if (drawAnswer(chess.history().length, 0) === 'too-early') return setDrawReply(copy.play.drawTooEarly);
     setAsking(true);
     try {
       let win = pre.current?.fen === at ? pre.current.win : undefined;
       if (win === undefined) win = myWin((await getEngine().search(at, { depth: COACH_DEPTH })).score, chess.turn());
       if (!alive.current || chess.fen() !== at || resultRef.current) return;
       // `win` is your winning chance: the engine takes the draw when you are at least level.
-      if (win >= DRAW_ACCEPT_WIN) finish('draw', 'agreed');
+      if (drawAnswer(chess.history().length, win) === 'accept') finish('draw', 'agreed');
       else setDrawReply(copy.play.drawDeclined);
     } catch {
       if (alive.current) setDrawReply(copy.play.drawNoAnswer);

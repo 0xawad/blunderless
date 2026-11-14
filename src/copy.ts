@@ -579,6 +579,8 @@ export const copy = {
     playAnyway: 'Play it anyway',
     saves: (n: number) => `${n} blunder${n === 1 ? '' : 's'} caught`,
     resign: 'Resign',
+    book: 'Your openings',
+    bookHint: 'Stockfish answers from your repertoire while the game is still in it, so you meet the lines you studied.',
     offerDraw: 'Offer draw',
     rematch: 'Rematch',
     changeSetup: 'Change setup',
